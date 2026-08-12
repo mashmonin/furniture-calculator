@@ -1,0 +1,44 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+context: |
+  Domain: furniture calculator (расчёт стоимости и параметров мебели).
+
+  Backend: Java 21, Spring Boot 4.1.x, Gradle (Groovy DSL), lives in backend/.
+    - PostgreSQL as the database; schema changes go through Liquibase changelogs
+      under backend/src/main/resources/db/changelog/ (never edit schema by hand).
+    - REST API only (spring-boot-starter-webmvc), no server-side templating.
+
+  Frontend: React + TypeScript, built with Vite, lives in frontend/.
+    - UI components must use Ant Design (antd); avoid other component libraries.
+
+  Local dev: docker-compose.yml at repo root runs PostgreSQL for local development.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
