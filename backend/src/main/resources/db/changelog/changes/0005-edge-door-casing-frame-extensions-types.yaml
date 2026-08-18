@@ -1,0 +1,189 @@
+databaseChangeLog:
+  # 1. New reference tables
+  - changeSet:
+      id: 0005-1-create-edge-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: edge_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_edge_type_code
+
+  - changeSet:
+      id: 0005-2-create-door-casing-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: door_casing_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_door_casing_type_code
+
+  - changeSet:
+      id: 0005-3-create-frame-extensions-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_frame_extensions_type_code
+
+  # 2. FK columns on components
+  - changeSet:
+      id: 0005-4-add-edge-type-id-to-edge
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: edge
+            columns:
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_edge_edge_type
+                    references: edge_type(id)
+
+  - changeSet:
+      id: 0005-5-add-door-casing-type-id-to-door-casing
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: door_casing
+            columns:
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_door_casing_door_casing_type
+                    references: door_casing_type(id)
+
+  - changeSet:
+      id: 0005-6-add-frame-extensions-type-id-to-frame-extensions
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_extensions
+            columns:
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_extensions_frame_extensions_type
+                    references: frame_extensions_type(id)
+
+  # 3. Reference data
+  - changeSet:
+      id: 0005-7-insert-door-casing-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Эво" }
+              - column: { name: code, value: "DCT-001" }
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Авеню" }
+              - column: { name: code, value: "DCT-002" }
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Модо" }
+              - column: { name: code, value: "DCT-003" }
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Онда" }
+              - column: { name: code, value: "DCT-004" }
+
+  - changeSet:
+      id: 0005-8-insert-frame-extensions-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "ДОБОРЫ ДЛЯ КОРОБА КОМПЛАНАР" }
+              - column: { name: code, value: "FET-001" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "ДОБОРЫ ДЛЯ КОРОБА НЕО ТИПОВЫХ РАЗМЕРОВ" }
+              - column: { name: code, value: "FET-002" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "ДОБОРЫ ДЛЯ ОБРАМЛЕНИЯ ПРОЕМОВ НЕО (с шагом 10мм)" }
+              - column: { name: code, value: "FET-003" }
+
+  - changeSet:
+      id: 0005-9-insert-edge-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: edge_type
+            columns:
+              - column: { name: name, value: "ПРЯМАЯ КРОМКА ПО ПЕРИМЕТРУ ПОЛОТНА" }
+              - column: { name: code, value: "ET-001" }
+        - insert:
+            tableName: edge_type
+            columns:
+              - column: { name: name, value: "КРОМКА ДЛЯ ПОЛОТНА С ЧЕТВЕРТЬЮ ПО ПЕРИМЕТРУ" }
+              - column: { name: code, value: "ET-002" }
