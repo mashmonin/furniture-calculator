@@ -1,0 +1,480 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-1-insert-item-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: item_type
+            columns:
+              - column: { name: name, value: "МЕЖКОМНАТНЫЕ ДВЕРИ" }
+              - column: { name: code, value: "IT-001" }
+
+  - changeSet:
+      id: 0004-2-insert-leaf-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 01" }
+              - column: { name: code, value: "LT-001" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 02" }
+              - column: { name: code, value: "LT-002" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 03" }
+              - column: { name: code, value: "LT-003" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 04" }
+              - column: { name: code, value: "LT-004" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 05" }
+              - column: { name: code, value: "LT-005" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 06" }
+              - column: { name: code, value: "LT-006" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ВЕРТИКАЛЬ 07" }
+              - column: { name: code, value: "LT-007" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 01" }
+              - column: { name: code, value: "LT-008" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 02" }
+              - column: { name: code, value: "LT-009" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 03" }
+              - column: { name: code, value: "LT-010" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 04" }
+              - column: { name: code, value: "LT-011" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 05" }
+              - column: { name: code, value: "LT-012" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "АТМОСФЕРА 06" }
+              - column: { name: code, value: "LT-013" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 01" }
+              - column: { name: code, value: "LT-014" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 02" }
+              - column: { name: code, value: "LT-015" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 021" }
+              - column: { name: code, value: "LT-016" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 01V" }
+              - column: { name: code, value: "LT-017" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 02V" }
+              - column: { name: code, value: "LT-018" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ЭЛЕГАНТ 021V" }
+              - column: { name: code, value: "LT-019" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 01" }
+              - column: { name: code, value: "LT-020" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 02" }
+              - column: { name: code, value: "LT-021" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 021" }
+              - column: { name: code, value: "LT-022" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 01V" }
+              - column: { name: code, value: "LT-023" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 02V" }
+              - column: { name: code, value: "LT-024" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГАРМОНИЯ 021V" }
+              - column: { name: code, value: "LT-025" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 01" }
+              - column: { name: code, value: "LT-026" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 02" }
+              - column: { name: code, value: "LT-027" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 021" }
+              - column: { name: code, value: "LT-028" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 03" }
+              - column: { name: code, value: "LT-029" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 01V" }
+              - column: { name: code, value: "LT-030" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 02V" }
+              - column: { name: code, value: "LT-031" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 021V" }
+              - column: { name: code, value: "LT-032" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СВОБОДА 01G" }
+              - column: { name: code, value: "LT-033" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГЕОМЕТРИЯ 01" }
+              - column: { name: code, value: "LT-034" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГЕОМЕТРИЯ 02" }
+              - column: { name: code, value: "LT-035" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГЕОМЕТРИЯ 01V" }
+              - column: { name: code, value: "LT-036" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ГЕОМЕТРИЯ 02V" }
+              - column: { name: code, value: "LT-037" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИЯНИЕ 01" }
+              - column: { name: code, value: "LT-038" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 01" }
+              - column: { name: code, value: "LT-039" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 02" }
+              - column: { name: code, value: "LT-040" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 03" }
+              - column: { name: code, value: "LT-041" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 04" }
+              - column: { name: code, value: "LT-042" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 05" }
+              - column: { name: code, value: "LT-043" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "СИБИРЬ 06" }
+              - column: { name: code, value: "LT-044" }
+        - insert:
+            tableName: leaf_type
+            columns:
+              - column: { name: name, value: "ФАНТОМ 01" }
+              - column: { name: code, value: "LT-045" }
+
+  - changeSet:
+      id: 0004-3-insert-colour-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Снежный" }
+              - column: { name: code, value: "RAL-9003" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Жемчужный" }
+              - column: { name: code, value: "RAL-9010" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Лунный" }
+              - column: { name: code, value: "RAL-DESIGN-000-90-00" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Серый песок" }
+              - column: { name: code, value: "NCS-S-1502-Y50R" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Серый шелк" }
+              - column: { name: code, value: "RAL-7044" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Каменно-серый" }
+              - column: { name: code, value: "RAL-7030" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Светло-серый" }
+              - column: { name: code, value: "NCS-S-4000-N" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Оливковый" }
+              - column: { name: code, value: "NCS-S-6010-G50Y" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Антрацит" }
+              - column: { name: code, value: "RAL-DESIGN-000-25-00" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Темно-серый" }
+              - column: { name: code, value: "NCS-S-6500-N" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Марципан" }
+              - column: { name: code, value: "RAL-1013" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Светло-бежевый" }
+              - column: { name: code, value: "NCS-S-2005-Y50R" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Латте" }
+              - column: { name: code, value: "NCS-S-3005-Y50R" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Матовый Серо-бежевый" }
+              - column: { name: code, value: "RAL-1019" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Бриз" }
+              - column: { name: code, value: "CT-001" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Какао" }
+              - column: { name: code, value: "CT-002" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Темный орех" }
+              - column: { name: code, value: "CT-003" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Европейский орех" }
+              - column: { name: code, value: "CT-004" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Грей" }
+              - column: { name: code, value: "CT-005" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Гриджио Крета" }
+              - column: { name: code, value: "CT-006" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Мока" }
+              - column: { name: code, value: "CT-007" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Орех медовый" }
+              - column: { name: code, value: "CT-008" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Нордик" }
+              - column: { name: code, value: "CT-009" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Пьетра" }
+              - column: { name: code, value: "CT-010" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Пуро" }
+              - column: { name: code, value: "CT-011" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Сбьянкато" }
+              - column: { name: code, value: "CT-012" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Табакко" }
+              - column: { name: code, value: "CT-013" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шпон Тортора" }
+              - column: { name: code, value: "CT-014" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Карбон" }
+              - column: { name: code, value: "CT-015" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Пепельный" }
+              - column: { name: code, value: "CT-016" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Натуральный дуб" }
+              - column: { name: code, value: "CT-017" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Американский орех" }
+              - column: { name: code, value: "CT-018" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Скуро" }
+              - column: { name: code, value: "CT-019" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Терра" }
+              - column: { name: code, value: "CT-020" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Мореный" }
+              - column: { name: code, value: "CT-021" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Дуб Терросо" }
+              - column: { name: code, value: "CT-022" }
+
+  - changeSet:
+      id: 0004-4-insert-frame-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_type
+            columns:
+              - column: { name: name, value: "ФАНТОМ" }
+              - column: { name: code, value: "FT-001" }
+        - insert:
+            tableName: frame_type
+            columns:
+              - column: { name: name, value: "КОМПЛАНАР" }
+              - column: { name: code, value: "FT-002" }
+        - insert:
+            tableName: frame_type
+            columns:
+              - column: { name: name, value: "НЕО" }
+              - column: { name: code, value: "FT-003" }
+
+  - changeSet:
+      id: 0004-5-insert-leaf-side-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: leaf_side
+            columns:
+              - column: { name: name, value: "ФРОНТАЛЬНАЯ" }
+              - column: { name: code, value: "LS-001" }
+        - insert:
+            tableName: leaf_side
+            columns:
+              - column: { name: name, value: "ЗАДНЯЯ" }
+              - column: { name: code, value: "LS-002" }
+
+  - changeSet:
+      id: 0004-6-insert-liner-dimension-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: liner_dimension_type
+            columns:
+              - column: { name: name, value: "ДЛИНА" }
+              - column: { name: code, value: "DT-001" }
+        - insert:
+            tableName: liner_dimension_type
+            columns:
+              - column: { name: name, value: "ВЫСОТА" }
+              - column: { name: code, value: "DT-002" }
+        - insert:
+            tableName: liner_dimension_type
+            columns:
+              - column: { name: name, value: "ТОЛЩИНА" }
+              - column: { name: code, value: "DT-003" }
