@@ -2,12 +2,16 @@
 
 Приложение для расчёта параметров и стоимости мебели. Монорепозиторий: `backend/` (Spring Boot API) + `frontend/` (React SPA).
 
+## Язык
+
+Все общение с пользователем и вся документация в рамках этого проекта — только на русском языке. Это касается ответов в чате, комментариев в коде (если они добавляются), commit-сообщений, содержимого `openspec/` (proposals, design, specs, tasks) и любых markdown-файлов. Идентификаторы в коде (имена классов, переменных, методов), названия пакетов и технические термины без устоявшегося русского аналога остаются на английском.
+
 ## Стек
 
 - **Backend**: Java 21, Spring Boot 4.1.x, Gradle (Groovy DSL). Каталог `backend/`.
 - **Frontend**: React + TypeScript, Vite. UI — только компоненты Ant Design (`antd`), других UI-библиотек не добавлять. Каталог `frontend/`.
 - **База данных**: PostgreSQL. Схема управляется исключительно через Liquibase — миграции в `backend/src/main/resources/db/changelog/`, master-файл `db.changelog-master.yaml`. Ручных правок схемы (DDL мимо Liquibase) быть не должно.
-- **Локальная разработка**: `docker-compose.yml` в корне поднимает PostgreSQL (`localhost:5432`, база/юзер/пароль — `furniture_calculator`).
+- **Локальная разработка**: `docker-compose.yml` в корне поднимает PostgreSQL (`localhost:5434`, база/юзер/пароль — `furniture_calculator`).
 
 ## Структура репозитория
 
