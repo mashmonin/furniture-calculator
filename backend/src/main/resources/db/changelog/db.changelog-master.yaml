@@ -20,3 +20,9 @@ databaseChangeLog:
   - include:
       file: changes/0007-vertikal-leaf-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0008-configuration-price.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0009-vertikal-configuration-prices.yaml
+      relativeToChangelogFile: true

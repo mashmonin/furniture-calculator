@@ -1,0 +1,120 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0008-1-create-configuration-price
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: configuration_price
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: retail_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dealer_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_edge_type
+                    references: edge_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_frame_extensions_type
+                    references: frame_extensions_type(id)
+              - column:
+                  name: length_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_length_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: height_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_height_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: thickness_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_thickness_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: colour_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_colour_option
+                    references: colour_option(id)
+
+  - changeSet:
+      id: 0008-2-check-configuration-price-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD CONSTRAINT chk_configuration_price_single_owner CHECK (
+                (CASE WHEN leaf_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_type_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0008-3-unique-configuration-price-combination
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_configuration_price_combination ON configuration_price (
+                COALESCE(leaf_type_id, 0),
+                COALESCE(frame_type_id, 0),
+                COALESCE(edge_type_id, 0),
+                COALESCE(door_casing_type_id, 0),
+                COALESCE(frame_extensions_type_id, 0),
+                COALESCE(length_option_id, 0),
+                COALESCE(height_option_id, 0),
+                COALESCE(thickness_option_id, 0),
+                COALESCE(colour_option_id, 0)
+              )
