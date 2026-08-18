@@ -1,0 +1,177 @@
+databaseChangeLog:
+  # 1. Reference table attributes
+  - changeSet:
+      id: 0002-1-add-item-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: item_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_item_type_code
+
+  - changeSet:
+      id: 0002-2-add-leaf-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: leaf_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_leaf_type_code
+
+  - changeSet:
+      id: 0002-3-add-mirror-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: mirror_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_mirror_type_code
+
+  - changeSet:
+      id: 0002-4-add-leaf-side-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: leaf_side
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_leaf_side_code
+
+  - changeSet:
+      id: 0002-5-add-frame-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_frame_type_code
+
+  - changeSet:
+      id: 0002-6-add-liner-dimension-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimension_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_liner_dimension_type_code
+
+  - changeSet:
+      id: 0002-7-add-colour-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: colour_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_colour_type_code
+
+  # 2. liner_dimensions attributes
+  - changeSet:
+      id: 0002-8-add-liner-dimensions-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimensions
+            columns:
+              - column:
+                  name: value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_standard
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+
+  # 3. colours attributes
+  - changeSet:
+      id: 0002-9-add-colours-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: colours
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ral_code
+                  type: VARCHAR(255)

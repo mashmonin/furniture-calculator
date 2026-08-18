@@ -1,1 +1,7 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - include:
+      file: changes/0001-item-schema.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0002-item-attribute-columns.yaml
+      relativeToChangelogFile: true
