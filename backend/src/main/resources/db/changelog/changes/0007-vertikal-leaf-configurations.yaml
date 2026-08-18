@@ -1,0 +1,70 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0007-1-insert-vertikal-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+
+  - changeSet:
+      id: 0007-2-insert-vertikal-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+
+  - changeSet:
+      id: 0007-3-insert-vertikal-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type
+              WHERE code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+
+  - changeSet:
+      id: 0007-4-insert-vertikal-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+
+  - changeSet:
+      id: 0007-5-insert-vertikal-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, leaf_type_id)
+              SELECT ct.id, lt.id
+              FROM colour_type ct
+              CROSS JOIN leaf_type lt
+              WHERE ct.code IN (
+                'RAL-9003', 'RAL-9010', 'RAL-DESIGN-000-90-00', 'NCS-S-1502-Y50R',
+                'RAL-7044', 'RAL-7030', 'NCS-S-4000-N', 'NCS-S-6010-G50Y',
+                'RAL-DESIGN-000-25-00', 'NCS-S-6500-N', 'RAL-1013', 'NCS-S-2005-Y50R',
+                'NCS-S-3005-Y50R', 'RAL-1019'
+              )
+                AND lt.code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')

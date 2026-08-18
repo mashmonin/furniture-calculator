@@ -14,3 +14,9 @@ databaseChangeLog:
   - include:
       file: changes/0005-edge-door-casing-frame-extensions-types.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0006-door-configuration-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0007-vertikal-leaf-configurations.yaml
+      relativeToChangelogFile: true
