@@ -3,6 +3,9 @@
 .DS_Store
 *.log
 
+# Local scratch files (not part of the repo history)
+/tmp/
+
 # Local secrets / environment overrides
 .env
 .env.local
