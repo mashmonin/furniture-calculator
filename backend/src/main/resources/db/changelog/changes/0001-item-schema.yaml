@@ -1,0 +1,420 @@
+databaseChangeLog:
+  # 1. Lookup tables (no dependencies)
+  - changeSet:
+      id: 0001-1-create-item-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: item_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-2-create-leaf-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: leaf_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-3-create-mirror-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: mirror_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-4-create-leaf-side
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: leaf_side
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-5-create-frame-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: frame_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-6-create-liner-dimension-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: liner_dimension_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0001-7-create-colour-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: colour_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  # 2. Shared value tables
+  - changeSet:
+      id: 0001-8-create-liner-dimensions
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: liner_dimensions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: liner_dimension_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_liner_dimensions_liner_dimension_type
+                    references: liner_dimension_type(id)
+
+  - changeSet:
+      id: 0001-9-create-colours
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: colours
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: colour_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_colours_colour_type
+                    references: colour_type(id)
+
+  # 3. Item
+  - changeSet:
+      id: 0001-10-create-item
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: item
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: item_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_item_item_type
+                    references: item_type(id)
+
+  # 4. Item components
+  - changeSet:
+      id: 0001-11-create-leaf
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: leaf
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: item_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_item
+                    references: item(id)
+                    deleteCascade: true
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_liner_dimensions
+                    references: liner_dimensions(id)
+              - column:
+                  name: colours_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_colours
+                    references: colours(id)
+
+  - changeSet:
+      id: 0001-12-create-frame
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: frame
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: item_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_item
+                    references: item(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_liner_dimensions
+                    references: liner_dimensions(id)
+              - column:
+                  name: colours_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_colours
+                    references: colours(id)
+
+  - changeSet:
+      id: 0001-13-create-edge
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: edge
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: item_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_edge_item
+                    references: item(id)
+                    deleteCascade: true
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_edge_liner_dimensions
+                    references: liner_dimensions(id)
+              - column:
+                  name: colours_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_edge_colours
+                    references: colours(id)
+
+  # 5. Leaf mirror
+  - changeSet:
+      id: 0001-14-create-leaf-mirror
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: leaf_mirror
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: leaf_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_mirror_leaf
+                    references: leaf(id)
+                    deleteCascade: true
+              - column:
+                  name: mirror_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_mirror_mirror_type
+                    references: mirror_type(id)
+              - column:
+                  name: leaf_side_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_mirror_leaf_side
+                    references: leaf_side(id)
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_leaf_mirror_liner_dimensions
+                    references: liner_dimensions(id)
+
+  # 6. Frame components
+  - changeSet:
+      id: 0001-15-create-door-casing
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: door_casing
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: frame_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_door_casing_frame
+                    references: frame(id)
+                    deleteCascade: true
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_door_casing_liner_dimensions
+                    references: liner_dimensions(id)
+              - column:
+                  name: colours_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_door_casing_colours
+                    references: colours(id)
+
+  - changeSet:
+      id: 0001-16-create-frame-extensions
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: frame_extensions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: frame_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_extensions_frame
+                    references: frame(id)
+                    deleteCascade: true
+              - column:
+                  name: liner_dimensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_extensions_liner_dimensions
+                    references: liner_dimensions(id)
+              - column:
+                  name: colours_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_extensions_colours
+                    references: colours(id)
