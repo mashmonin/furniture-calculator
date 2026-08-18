@@ -1,0 +1,322 @@
+databaseChangeLog:
+  # 1. Drop old single-owner FK columns from components
+  - changeSet:
+      id: 0003-1-drop-liner-dimensions-id-from-leaf
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: leaf
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-2-drop-liner-dimensions-id-from-frame
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: frame
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-3-drop-liner-dimensions-id-from-edge
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: edge
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-4-drop-liner-dimensions-id-from-door-casing
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: door_casing
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-5-drop-liner-dimensions-id-from-frame-extensions
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: frame_extensions
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-6-drop-liner-dimensions-id-from-leaf-mirror
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: leaf_mirror
+            columnName: liner_dimensions_id
+
+  - changeSet:
+      id: 0003-7-drop-colours-id-from-leaf
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: leaf
+            columnName: colours_id
+
+  - changeSet:
+      id: 0003-8-drop-colours-id-from-frame
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: frame
+            columnName: colours_id
+
+  - changeSet:
+      id: 0003-9-drop-colours-id-from-edge
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: edge
+            columnName: colours_id
+
+  - changeSet:
+      id: 0003-10-drop-colours-id-from-door-casing
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: door_casing
+            columnName: colours_id
+
+  - changeSet:
+      id: 0003-11-drop-colours-id-from-frame-extensions
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: frame_extensions
+            columnName: colours_id
+
+  # 2. Owner columns on liner_dimensions
+  - changeSet:
+      id: 0003-12-add-owner-columns-to-liner-dimensions
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimensions
+            columns:
+              - column:
+                  name: leaf_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_leaf
+                    references: leaf(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_frame
+                    references: frame(id)
+                    deleteCascade: true
+              - column:
+                  name: edge_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_edge
+                    references: edge(id)
+                    deleteCascade: true
+              - column:
+                  name: door_casing_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_door_casing
+                    references: door_casing(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_extensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_frame_extensions
+                    references: frame_extensions(id)
+                    deleteCascade: true
+              - column:
+                  name: leaf_mirror_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimensions_leaf_mirror
+                    references: leaf_mirror(id)
+                    deleteCascade: true
+
+  - changeSet:
+      id: 0003-13-check-liner-dimensions-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimensions ADD CONSTRAINT chk_liner_dimensions_single_owner CHECK (
+                (CASE WHEN leaf_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN leaf_mirror_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  # 3. Owner columns on colours
+  - changeSet:
+      id: 0003-14-add-owner-columns-to-colours
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: colours
+            columns:
+              - column:
+                  name: leaf_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colours_leaf
+                    references: leaf(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colours_frame
+                    references: frame(id)
+                    deleteCascade: true
+              - column:
+                  name: edge_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colours_edge
+                    references: edge(id)
+                    deleteCascade: true
+              - column:
+                  name: door_casing_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colours_door_casing
+                    references: door_casing(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_extensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colours_frame_extensions
+                    references: frame_extensions(id)
+                    deleteCascade: true
+
+  - changeSet:
+      id: 0003-15-check-colours-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colours ADD CONSTRAINT chk_colours_single_owner CHECK (
+                (CASE WHEN leaf_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  # 4. price entity
+  - changeSet:
+      id: 0003-16-create-price
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: price
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: retail_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dealer_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: item_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_item
+                    references: item(id)
+                    deleteCascade: true
+              - column:
+                  name: leaf_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_leaf
+                    references: leaf(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_frame
+                    references: frame(id)
+                    deleteCascade: true
+              - column:
+                  name: edge_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_edge
+                    references: edge(id)
+                    deleteCascade: true
+              - column:
+                  name: leaf_mirror_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_leaf_mirror
+                    references: leaf_mirror(id)
+                    deleteCascade: true
+              - column:
+                  name: door_casing_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_door_casing
+                    references: door_casing(id)
+                    deleteCascade: true
+              - column:
+                  name: frame_extensions_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_price_frame_extensions
+                    references: frame_extensions(id)
+                    deleteCascade: true
+
+  - changeSet:
+      id: 0003-17-check-price-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE price ADD CONSTRAINT chk_price_single_owner CHECK (
+                (CASE WHEN item_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN leaf_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN leaf_mirror_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
