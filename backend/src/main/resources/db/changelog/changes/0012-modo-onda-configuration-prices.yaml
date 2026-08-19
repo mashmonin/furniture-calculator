@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0012-1-insert-modo-onda-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, door_casing_type_id)
+              SELECT dt.id, 2100, true, dct.id
+              FROM liner_dimension_type dt
+              CROSS JOIN door_casing_type dct
+              WHERE dt.code = 'DT-002'
+                AND dct.code IN ('DCT-003', 'DCT-004')
+
+  - changeSet:
+      id: 0012-2-insert-modo-onda-configuration-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, door_casing_type_id, height_option_id)
+              SELECT v.retail_price, v.dealer_price, dct.id, ldo.id
+              FROM (VALUES ('DCT-003', 1898, 1084), ('DCT-004', 2760, 1577)) AS v(code, retail_price, dealer_price)
+              JOIN door_casing_type dct ON dct.code = v.code
+              JOIN liner_dimension_option ldo ON ldo.door_casing_type_id = dct.id AND ldo.value = 2100
