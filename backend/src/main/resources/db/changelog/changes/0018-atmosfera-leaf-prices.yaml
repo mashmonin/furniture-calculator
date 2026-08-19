@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0018-1-insert-atmosfera-leaf-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 33264, 19007, id FROM leaf_type
+              WHERE code IN ('LT-008', 'LT-009', 'LT-010', 'LT-011', 'LT-012', 'LT-013')
