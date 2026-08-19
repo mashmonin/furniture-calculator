@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Divider, Empty, List, Radio, Space, Spin, Statistic, Typography } from 'antd'
-import type { RadioChangeEvent } from 'antd'
+import { Alert, Button, Card, Divider, Empty, List, Space, Spin, Statistic, Typography } from 'antd'
 import { calculatePrice, fetchDoorConfigurations } from './api/doorConfigurations'
 import type {
   ComponentKey,
@@ -8,11 +7,17 @@ import type {
   DoorConfigurationDto,
   PricingRequestDto,
   PricingResponseDto,
+  ReferenceDto,
 } from './api/types'
 import { OptionGroup } from './components/OptionGroup'
 import './App.css'
 
 const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 'frameExtensions']
+
+// Порядок шагов каскадного подбора конфигурации: наличник/удлинители требуют
+// заданного короба (см. chk_door_configuration_casing_extensions_require_frame),
+// поэтому короб идёт раньше них; кромка — после наличника (см. design.md).
+const CASCADE_ORDER: ComponentKey[] = ['leaf', 'frame', 'doorCasing', 'edge', 'frameExtensions']
 
 const COMPONENT_LABELS: Record<ComponentKey, string> = {
   leaf: 'Полотно',
@@ -37,10 +42,51 @@ function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   }
 }
 
-function configurationLabel(configuration: DoorConfigurationDto): string {
-  return COMPONENT_ORDER.map((key) => configuration[key]?.type.name)
-    .filter((name): name is string => Boolean(name))
-    .join(' · ')
+interface CascadeStep {
+  key: ComponentKey
+  availableTypes: ReferenceDto[]
+  selectedId?: number
+}
+
+function uniqueById(types: ReferenceDto[]): ReferenceDto[] {
+  const seen = new Set<number>()
+  const result: ReferenceDto[] = []
+  for (const type of types) {
+    if (!seen.has(type.id)) {
+      seen.add(type.id)
+      result.push(type)
+    }
+  }
+  return result
+}
+
+function buildCascadeSteps(
+  configurations: DoorConfigurationDto[],
+  manualSelection: Partial<Record<ComponentKey, number>>,
+): { steps: CascadeStep[]; selectedConfiguration?: DoorConfigurationDto } {
+  const steps: CascadeStep[] = []
+  let candidates = configurations
+
+  for (const key of CASCADE_ORDER) {
+    const availableTypes = uniqueById(
+      candidates.map((configuration) => configuration[key]?.type).filter((type): type is ReferenceDto => Boolean(type)),
+    )
+    if (availableTypes.length === 0) {
+      continue
+    }
+
+    const manual = manualSelection[key]
+    const selectedId = manual !== undefined && availableTypes.some((type) => type.id === manual) ? manual : undefined
+
+    steps.push({ key, availableTypes, selectedId })
+
+    if (selectedId === undefined) {
+      return { steps }
+    }
+    candidates = candidates.filter((configuration) => configuration[key]?.type.id === selectedId)
+  }
+
+  return { steps, selectedConfiguration: candidates.length === 1 ? candidates[0] : undefined }
 }
 
 function App() {
@@ -48,7 +94,7 @@ function App() {
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState<string | null>(null)
 
-  const [selectedConfigurationId, setSelectedConfigurationId] = useState<number>()
+  const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
   const [selection, setSelection] = useState(emptySelection)
 
   const [pricingResult, setPricingResult] = useState<PricingResponseDto | null>(null)
@@ -80,10 +126,24 @@ function App() {
     }
   }, [])
 
-  const selectedConfiguration = configurations.find((c) => c.id === selectedConfigurationId)
+  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(configurations, cascadeSelection)
 
-  function handleSelectConfiguration(event: RadioChangeEvent) {
-    setSelectedConfigurationId(event.target.value as number)
+  function handleCascadeStepChange(key: ComponentKey, id: number | undefined) {
+    setCascadeSelection((prev) => {
+      const next: Partial<Record<ComponentKey, number>> = {}
+      for (const k of CASCADE_ORDER) {
+        if (k === key) {
+          break
+        }
+        if (prev[k] !== undefined) {
+          next[k] = prev[k]
+        }
+      }
+      if (id !== undefined) {
+        next[key] = id
+      }
+      return next
+    })
     setSelection(emptySelection())
     setPricingResult(null)
     setPricingError(null)
@@ -122,22 +182,24 @@ function App() {
     <div className="page">
       <Typography.Title level={2}>Конфигуратор межкомнатных дверей</Typography.Title>
 
-      <Typography.Title level={4}>1. Выберите конфигурацию</Typography.Title>
+      <Typography.Title level={4}>1. Соберите конфигурацию</Typography.Title>
       {catalogLoading && <Spin />}
       {catalogError && <Alert type="error" message={catalogError} showIcon />}
       {!catalogLoading && !catalogError && configurations.length === 0 && (
         <Empty description="Нет доступных конфигураций" />
       )}
       {!catalogLoading && !catalogError && configurations.length > 0 && (
-        <Radio.Group value={selectedConfigurationId} onChange={handleSelectConfiguration}>
-          <Space wrap>
-            {configurations.map((configuration) => (
-              <Radio.Button key={configuration.id} value={configuration.id}>
-                {configurationLabel(configuration)}
-              </Radio.Button>
-            ))}
-          </Space>
-        </Radio.Group>
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {cascadeSteps.map((step) => (
+            <OptionGroup
+              key={step.key}
+              label={COMPONENT_LABELS[step.key]}
+              options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
+              selectedId={step.selectedId}
+              onChange={(id) => handleCascadeStepChange(step.key, id)}
+            />
+          ))}
+        </Space>
       )}
 
       {selectedConfiguration && (
