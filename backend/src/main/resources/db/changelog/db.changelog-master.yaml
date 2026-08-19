@@ -26,3 +26,9 @@ databaseChangeLog:
   - include:
       file: changes/0009-vertikal-configuration-prices.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0010-door-casing-configuration-prices.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0011-vertikal-door-casing-configurations.yaml
+      relativeToChangelogFile: true
