@@ -41,3 +41,6 @@ databaseChangeLog:
   - include:
       file: changes/0014-dobor-ts-frame-extensions.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0015-vertikal-neo-dobor-ts-configurations.yaml
+      relativeToChangelogFile: true

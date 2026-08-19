@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0015-1-insert-vertikal-neo-dobor-ts-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, frame_extensions_type_id)
+              SELECT lt.id, ft.id, fet.id
+              FROM leaf_type lt
+              CROSS JOIN frame_type ft
+              CROSS JOIN frame_extensions_type fet
+              WHERE lt.code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+                AND ft.code = 'FT-003'
+                AND fet.code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007')
