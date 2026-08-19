@@ -1,0 +1,34 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0017-1-insert-atmosfera-dimension-options-like-vertikal
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT ldo.liner_dimension_type_id, ldo.value, ldo.is_standard, lt.id
+              FROM leaf_type lt
+              CROSS JOIN (
+                SELECT DISTINCT ldo0.liner_dimension_type_id, ldo0.value, ldo0.is_standard
+                FROM liner_dimension_option ldo0
+                JOIN leaf_type lt0 ON lt0.id = ldo0.leaf_type_id
+                WHERE lt0.code = 'LT-001'
+              ) ldo
+              WHERE lt.code IN ('LT-008', 'LT-009', 'LT-010', 'LT-011', 'LT-012', 'LT-013')
+
+  - changeSet:
+      id: 0017-2-insert-atmosfera-door-configurations-like-vertikal
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT lt.id, dc.frame_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM leaf_type lt
+              CROSS JOIN (
+                SELECT DISTINCT dc0.frame_type_id, dc0.door_casing_type_id, dc0.frame_extensions_type_id
+                FROM door_configuration dc0
+                JOIN leaf_type lt0 ON lt0.id = dc0.leaf_type_id
+                WHERE lt0.code = 'LT-001'
+              ) dc
+              WHERE lt.code IN ('LT-008', 'LT-009', 'LT-010', 'LT-011', 'LT-012', 'LT-013')
