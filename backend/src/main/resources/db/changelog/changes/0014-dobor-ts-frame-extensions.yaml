@@ -1,0 +1,55 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0014-1-insert-dobor-ts-frame-extensions-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор ТС 100 мм" }
+              - column: { name: code, value: "FET-004" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор ТС 140 мм" }
+              - column: { name: code, value: "FET-005" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор ТС 190 мм" }
+              - column: { name: code, value: "FET-006" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор ТС 400 мм" }
+              - column: { name: code, value: "FET-007" }
+
+  - changeSet:
+      id: 0014-2-insert-dobor-ts-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, frame_extensions_type_id)
+              SELECT dt.id, 2170, true, fet.id
+              FROM liner_dimension_type dt
+              CROSS JOIN frame_extensions_type fet
+              WHERE dt.code = 'DT-001'
+                AND fet.code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007')
+
+  - changeSet:
+      id: 0014-3-insert-dobor-ts-configuration-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, frame_extensions_type_id, length_option_id)
+              SELECT v.retail_price, v.dealer_price, fet.id, ldo.id
+              FROM (VALUES
+                ('FET-004', 2390, 1366),
+                ('FET-005', 2834, 1619),
+                ('FET-006', 3253, 1858),
+                ('FET-007', 8008, 4576)
+              ) AS v(code, retail_price, dealer_price)
+              JOIN frame_extensions_type fet ON fet.code = v.code
+              JOIN liner_dimension_option ldo ON ldo.frame_extensions_type_id = fet.id AND ldo.value = 2170
