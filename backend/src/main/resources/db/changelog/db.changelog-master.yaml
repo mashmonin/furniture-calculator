@@ -44,3 +44,6 @@ databaseChangeLog:
   - include:
       file: changes/0015-vertikal-neo-dobor-ts-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0016-vertikal-neo-casing-dobor-configurations.yaml
+      relativeToChangelogFile: true
