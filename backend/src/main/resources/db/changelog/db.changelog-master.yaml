@@ -50,3 +50,6 @@ databaseChangeLog:
   - include:
       file: changes/0017-atmosfera-vertikal-parity.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0018-atmosfera-leaf-prices.yaml
+      relativeToChangelogFile: true
