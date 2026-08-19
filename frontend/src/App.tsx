@@ -27,6 +27,17 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
   frameExtensions: 'Удлинители',
 }
 
+// Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
+const NONE_OPTION_ID = 0
+
+const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
+  leaf: 'Без полотна',
+  frame: 'Без короба',
+  edge: 'Без кромки',
+  doorCasing: 'Без наличника',
+  frameExtensions: 'Без добора',
+}
+
 // Коды типов размера из справочника liner_dimension_type (см. db.changelog 0004) — стабильные бизнес-ключи.
 const LENGTH_TYPE_CODE = 'DT-001'
 const HEIGHT_TYPE_CODE = 'DT-002'
@@ -45,6 +56,7 @@ function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
 interface CascadeStep {
   key: ComponentKey
   availableTypes: ReferenceDto[]
+  hasNoneOption: boolean
   selectedId?: number
 }
 
@@ -72,18 +84,25 @@ function buildCascadeSteps(
       candidates.map((configuration) => configuration[key]?.type).filter((type): type is ReferenceDto => Boolean(type)),
     )
     if (availableTypes.length === 0) {
+      // Ни у одного кандидата нет этого компонента — выбирать нечего, шаг пропускается.
       continue
     }
+    const hasNoneOption = candidates.some((configuration) => !configuration[key])
 
     const manual = manualSelection[key]
-    const selectedId = manual !== undefined && availableTypes.some((type) => type.id === manual) ? manual : undefined
+    const manualValid =
+      manual !== undefined && ((manual === NONE_OPTION_ID && hasNoneOption) || availableTypes.some((type) => type.id === manual))
+    const selectedId = manualValid ? manual : undefined
 
-    steps.push({ key, availableTypes, selectedId })
+    steps.push({ key, availableTypes, hasNoneOption, selectedId })
 
     if (selectedId === undefined) {
       return { steps }
     }
-    candidates = candidates.filter((configuration) => configuration[key]?.type.id === selectedId)
+    candidates =
+      selectedId === NONE_OPTION_ID
+        ? candidates.filter((configuration) => !configuration[key])
+        : candidates.filter((configuration) => configuration[key]?.type.id === selectedId)
   }
 
   return { steps, selectedConfiguration: candidates.length === 1 ? candidates[0] : undefined }
@@ -194,7 +213,10 @@ function App() {
             <OptionGroup
               key={step.key}
               label={COMPONENT_LABELS[step.key]}
-              options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
+              options={[
+                ...step.availableTypes.map((type) => ({ id: type.id, label: type.name })),
+                ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[step.key] }] : []),
+              ]}
               selectedId={step.selectedId}
               onChange={(id) => handleCascadeStepChange(step.key, id)}
             />
