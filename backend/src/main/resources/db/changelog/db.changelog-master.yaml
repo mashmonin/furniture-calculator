@@ -47,3 +47,6 @@ databaseChangeLog:
   - include:
       file: changes/0016-vertikal-neo-casing-dobor-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0017-atmosfera-vertikal-parity.yaml
+      relativeToChangelogFile: true
