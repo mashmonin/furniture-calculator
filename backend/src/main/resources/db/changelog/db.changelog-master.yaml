@@ -53,3 +53,9 @@ databaseChangeLog:
   - include:
       file: changes/0018-atmosfera-leaf-prices.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0019-dobor-komplanar-frame-extensions.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0020-vertikal-atmosfera-komplanar-dobor-configurations.yaml
+      relativeToChangelogFile: true

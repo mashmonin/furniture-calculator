@@ -1,0 +1,67 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0019-1-insert-dobor-komplanar-frame-extensions-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 100 мм" }
+              - column: { name: code, value: "FET-008" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 140 мм" }
+              - column: { name: code, value: "FET-009" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 190 мм" }
+              - column: { name: code, value: "FET-010" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 400 мм" }
+              - column: { name: code, value: "FET-011" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 600 мм" }
+              - column: { name: code, value: "FET-012" }
+        - insert:
+            tableName: frame_extensions_type
+            columns:
+              - column: { name: name, value: "Добор КОМПЛАНАР 800 мм" }
+              - column: { name: code, value: "FET-013" }
+
+  - changeSet:
+      id: 0019-2-insert-dobor-komplanar-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, frame_extensions_type_id)
+              SELECT dt.id, 2170, true, fet.id
+              FROM liner_dimension_type dt
+              CROSS JOIN frame_extensions_type fet
+              WHERE dt.code = 'DT-001'
+                AND fet.code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')
+
+  - changeSet:
+      id: 0019-3-insert-dobor-komplanar-configuration-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, frame_extensions_type_id, length_option_id)
+              SELECT v.retail_price, v.dealer_price, fet.id, ldo.id
+              FROM (VALUES
+                ('FET-008', 2390, 1366),
+                ('FET-009', 2834, 1619),
+                ('FET-010', 3253, 1858),
+                ('FET-011', 8008, 4576),
+                ('FET-012', 11877, 6786),
+                ('FET-013', 15843, 9053)
+              ) AS v(code, retail_price, dealer_price)
+              JOIN frame_extensions_type fet ON fet.code = v.code
+              JOIN liner_dimension_option ldo ON ldo.frame_extensions_type_id = fet.id AND ldo.value = 2170
