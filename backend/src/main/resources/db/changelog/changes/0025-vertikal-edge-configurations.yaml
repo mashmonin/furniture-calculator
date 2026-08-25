@@ -1,0 +1,134 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0025-1-insert-edge-colour-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Хром матовый" }
+              - column: { name: code, value: "CT-023" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Бронза" }
+              - column: { name: code, value: "CT-024" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Черный" }
+              - column: { name: code, value: "CT-025" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Золото матовое" }
+              - column: { name: code, value: "CT-026" }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Покраска по RAL" }
+              - column: { name: code, value: "CT-027" }
+
+  - changeSet:
+      id: 0025-2-insert-edge-height-dimension-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, is_standard, edge_type_id)
+              SELECT ldt.id, v.value, v.min_value, true, et.id
+              FROM (VALUES
+                ('ET-001', 2100::numeric, NULL::numeric),
+                ('ET-001', 2400::numeric, 2150::numeric),
+                ('ET-001', 2700::numeric, 2450::numeric),
+                ('ET-001', 2950::numeric, 2750::numeric),
+                ('ET-002', 2100::numeric, NULL::numeric),
+                ('ET-002', 2400::numeric, 2150::numeric),
+                ('ET-002', 2700::numeric, 2450::numeric),
+                ('ET-002', 2950::numeric, 2750::numeric)
+              ) AS v(edge_code, value, min_value)
+              JOIN edge_type et ON et.code = v.edge_code
+              CROSS JOIN liner_dimension_type ldt
+              WHERE ldt.code = 'DT-002'
+
+  - changeSet:
+      id: 0025-3-insert-edge-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, edge_type_id)
+              SELECT ct.id, et.id
+              FROM (VALUES ('ET-001'), ('ET-002')) AS e(edge_code)
+              JOIN edge_type et ON et.code = e.edge_code
+              CROSS JOIN colour_type ct
+              WHERE ct.code IN ('CT-023', 'CT-024', 'CT-025', 'CT-026', 'CT-027')
+
+  - changeSet:
+      id: 0025-4-insert-edge-configuration-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, edge_type_id, height_option_id, colour_option_id)
+              SELECT v.retail_price, v.dealer_price, et.id, ldo.id, co.id
+              FROM (VALUES
+                ('ET-001', 2100::numeric, 'CT-023', 12074, 6899),
+                ('ET-001', 2100::numeric, 'CT-024', 24147, 13797),
+                ('ET-001', 2100::numeric, 'CT-025', 13306, 7603),
+                ('ET-001', 2100::numeric, 'CT-026', 24147, 13797),
+                ('ET-001', 2100::numeric, 'CT-027', 24147, 13797),
+                ('ET-001', 2400::numeric, 'CT-023', 13059, 7462),
+                ('ET-001', 2400::numeric, 'CT-024', 26119, 14924),
+                ('ET-001', 2400::numeric, 'CT-025', 14538, 8307),
+                ('ET-001', 2400::numeric, 'CT-026', 26119, 14924),
+                ('ET-001', 2400::numeric, 'CT-027', 26119, 14924),
+                ('ET-001', 2700::numeric, 'CT-023', 14168, 8095),
+                ('ET-001', 2700::numeric, 'CT-024', 28336, 16191),
+                ('ET-001', 2700::numeric, 'CT-025', 15770, 9011),
+                ('ET-001', 2700::numeric, 'CT-026', 28336, 16191),
+                ('ET-001', 2700::numeric, 'CT-027', 28336, 16191),
+                ('ET-001', 2950::numeric, 'CT-023', 15277, 8729),
+                ('ET-001', 2950::numeric, 'CT-024', 30554, 17458),
+                ('ET-001', 2950::numeric, 'CT-025', 17248, 9855),
+                ('ET-001', 2950::numeric, 'CT-026', 30554, 17458),
+                ('ET-001', 2950::numeric, 'CT-027', 30554, 17458),
+                ('ET-002', 2100::numeric, 'CT-023', 13799, 7884),
+                ('ET-002', 2100::numeric, 'CT-024', 27597, 15768),
+                ('ET-002', 2100::numeric, 'CT-025', 14415, 8236),
+                ('ET-002', 2100::numeric, 'CT-026', 27597, 15768),
+                ('ET-002', 2100::numeric, 'CT-027', 27597, 15768),
+                ('ET-002', 2400::numeric, 'CT-023', 15031, 8588),
+                ('ET-002', 2400::numeric, 'CT-024', 30307, 17317),
+                ('ET-002', 2400::numeric, 'CT-025', 15770, 9011),
+                ('ET-002', 2400::numeric, 'CT-026', 30307, 17317),
+                ('ET-002', 2400::numeric, 'CT-027', 30307, 17317),
+                ('ET-002', 2700::numeric, 'CT-023', 16263, 9292),
+                ('ET-002', 2700::numeric, 'CT-024', 32525, 18584),
+                ('ET-002', 2700::numeric, 'CT-025', 17002, 9715),
+                ('ET-002', 2700::numeric, 'CT-026', 32525, 18584),
+                ('ET-002', 2700::numeric, 'CT-027', 32525, 18584),
+                ('ET-002', 2950::numeric, 'CT-023', 17495, 9996),
+                ('ET-002', 2950::numeric, 'CT-024', 34989, 19992),
+                ('ET-002', 2950::numeric, 'CT-025', 18234, 10418),
+                ('ET-002', 2950::numeric, 'CT-026', 34989, 19992),
+                ('ET-002', 2950::numeric, 'CT-027', 34989, 19992)
+              ) AS v(edge_code, height_value, colour_code, retail_price, dealer_price)
+              JOIN edge_type et ON et.code = v.edge_code
+              JOIN liner_dimension_option ldo ON ldo.edge_type_id = et.id AND ldo.value = v.height_value
+              JOIN colour_type ct ON ct.code = v.colour_code
+              JOIN colour_option co ON co.edge_type_id = et.id AND co.colour_type_id = ct.id
+
+  - changeSet:
+      id: 0025-5-add-edge-to-vertikal-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT dc.leaf_type_id, dc.frame_type_id, et.id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN leaf_type lt ON lt.id = dc.leaf_type_id
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN edge_type et
+              WHERE c.code = 'LC-001' AND dc.edge_type_id IS NULL AND et.code IN ('ET-001', 'ET-002')
