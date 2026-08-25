@@ -13,11 +13,13 @@ import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
+import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafCollection;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
+import com.example.furniturecalculator.domain.PostType;
 
 // Сущности домена не имеют публичных конструкторов/сеттеров (только Hibernate field-access),
 // поэтому тестовые фикстуры собираются через ReflectionTestUtils.
@@ -58,6 +60,21 @@ public final class TestEntities {
 
     public static ColourType colourType(long id) {
         return referenceType(ColourType.class, id);
+    }
+
+    public static PostType postType(long id) {
+        return referenceType(PostType.class, id);
+    }
+
+    public static FramePost framePost(long id, BigDecimal retailPrice, BigDecimal dealerPrice, FrameType frameType) {
+        FramePost post = instantiate(FramePost.class);
+        ReflectionTestUtils.setField(post, "id", id);
+        ReflectionTestUtils.setField(post, "frameType", frameType);
+        ReflectionTestUtils.setField(post, "postType", postType(id));
+        ReflectionTestUtils.setField(post, "quantity", 1);
+        ReflectionTestUtils.setField(post, "retailPrice", retailPrice);
+        ReflectionTestUtils.setField(post, "dealerPrice", dealerPrice);
+        return post;
     }
 
     public static DoorConfiguration doorConfiguration(

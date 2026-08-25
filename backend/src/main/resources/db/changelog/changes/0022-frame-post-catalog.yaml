@@ -1,0 +1,122 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0022-1-create-post-type-table
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: post_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0022-2-add-post-type-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: post_type
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_post_type_code
+
+  - changeSet:
+      id: 0022-3-create-frame-post-table
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: frame_post
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_post_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: post_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_frame_post_post_type
+                    references: post_type(id)
+              - column:
+                  name: quantity
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: length
+                  type: DECIMAL
+              - column:
+                  name: retail_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dealer_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0022-4-unique-frame-post-frame-type-post-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_frame_post_frame_type_post_type ON frame_post (frame_type_id, post_type_id)
+
+  - changeSet:
+      id: 0022-5-insert-post-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: post_type
+            columns:
+              - column: { name: name, value: "Незарезная стойка" }
+              - column: { name: code, value: "PT-001" }
+        - insert:
+            tableName: post_type
+            columns:
+              - column: { name: name, value: "Комплект зарезных стоек" }
+              - column: { name: code, value: "PT-002" }
+
+  - changeSet:
+      id: 0022-6-insert-komplanar-frame-post-data
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, dealer_price, retail_price)
+              SELECT ft.id, pt.id, 1, NULL, 2027, 3549
+              FROM frame_type ft, post_type pt
+              WHERE ft.code = 'FT-002' AND pt.code = 'PT-001'
+        - sql:
+            sql: >-
+              INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, dealer_price, retail_price)
+              SELECT ft.id, pt.id, 2, 2170, 4027, 7047
+              FROM frame_type ft, post_type pt
+              WHERE ft.code = 'FT-002' AND pt.code = 'PT-002'

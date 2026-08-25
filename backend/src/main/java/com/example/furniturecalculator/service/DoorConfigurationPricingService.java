@@ -18,6 +18,7 @@ import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
+import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
@@ -28,6 +29,7 @@ import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
+import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,7 @@ public class DoorConfigurationPricingService {
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final ColourOptionRepository colourOptionRepository;
     private final ConfigurationPriceRepository configurationPriceRepository;
+    private final FramePostRepository framePostRepository;
 
     @Transactional(readOnly = true)
     public PricingResponseDto calculate(Long doorConfigurationId, PricingRequestDto request) {
@@ -82,6 +85,11 @@ public class DoorConfigurationPricingService {
             return;
         }
 
+        if (type instanceof FrameType frameType) {
+            components.add(framePostPrice(componentName, frameType));
+            return;
+        }
+
         LinerDimensionOption lengthOption = validatedDimensionOption(componentName, type, selection.lengthOptionId());
         LinerDimensionOption heightOption = validatedDimensionOption(componentName, type, selection.heightOptionId());
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
@@ -91,6 +99,16 @@ public class DoorConfigurationPricingService {
         components.add(matched
                 .map(price -> new ComponentPriceDto(componentName, true, price.getRetailPrice(), price.getDealerPrice()))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null)));
+    }
+
+    private ComponentPriceDto framePostPrice(String componentName, FrameType frameType) {
+        List<FramePost> posts = framePostRepository.findByFrameTypeId(frameType.getId());
+        if (posts.isEmpty()) {
+            return new ComponentPriceDto(componentName, false, null, null);
+        }
+        BigDecimal retailPrice = posts.stream().map(FramePost::getRetailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal dealerPrice = posts.stream().map(FramePost::getDealerPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice);
     }
 
     private LinerDimensionOption validatedDimensionOption(String componentName, CatalogType type, Long optionId) {
@@ -179,7 +197,6 @@ public class DoorConfigurationPricingService {
     private List<ConfigurationPrice> pricesFor(CatalogType type) {
         return switch (type) {
             case LeafType t -> configurationPriceRepository.findByLeafTypeId(t.getId());
-            case FrameType t -> configurationPriceRepository.findByFrameTypeId(t.getId());
             case EdgeType t -> configurationPriceRepository.findByEdgeTypeId(t.getId());
             case DoorCasingType t -> configurationPriceRepository.findByDoorCasingTypeId(t.getId());
             case FrameExtensionsType t -> configurationPriceRepository.findByFrameExtensionsTypeId(t.getId());

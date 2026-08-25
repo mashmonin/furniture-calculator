@@ -16,12 +16,14 @@ import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
+import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
+import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.support.TestEntities;
 
@@ -34,6 +36,8 @@ class DoorConfigurationCatalogServiceTest {
     private LinerDimensionOptionRepository linerDimensionOptionRepository;
     @Mock
     private ColourOptionRepository colourOptionRepository;
+    @Mock
+    private FramePostRepository framePostRepository;
 
     @InjectMocks
     private DoorConfigurationCatalogService service;
@@ -98,9 +102,31 @@ class DoorConfigurationCatalogServiceTest {
         assertThat(dto.leaf().collection()).isNotNull();
         assertThat(dto.frame()).isNotNull();
         assertThat(dto.frame().collection()).isNull();
+        assertThat(dto.frame().posts()).isEmpty();
         assertThat(dto.edge()).isNotNull();
         assertThat(dto.doorCasing()).isNotNull();
         assertThat(dto.frameExtensions()).isNotNull();
+    }
+
+    @Test
+    void короб_с_несколькими_frame_post_возвращает_обе_позиции_в_каталоге() {
+        LeafType leafType = TestEntities.leafType(1L);
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        FramePost topPost = TestEntities.framePost(100L, BigDecimal.valueOf(3549), BigDecimal.valueOf(2027), frameType);
+        FramePost sidePostsKit = TestEntities.framePost(101L, BigDecimal.valueOf(7047), BigDecimal.valueOf(4027), frameType);
+
+        when(doorConfigurationRepository.findAllWithTypes()).thenReturn(List.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(topPost, sidePostsKit));
+
+        DoorConfigurationDto dto = service.getAllConfigurations().get(0);
+
+        assertThat(dto.frame().posts()).hasSize(2);
+        assertThat(dto.frame().posts()).extracting("id").containsExactlyInAnyOrder(100L, 101L);
     }
 
     @Test

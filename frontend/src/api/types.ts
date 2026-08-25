@@ -16,11 +16,21 @@ export interface ColourOptionDto {
   colourType: ReferenceDto
 }
 
+export interface FramePostDto {
+  id: number
+  postType: ReferenceDto
+  quantity: number
+  length: number | null
+  retailPrice: number
+  dealerPrice: number
+}
+
 export interface ComponentCatalogDto {
   type: ReferenceDto
   collection: ReferenceDto | null
   dimensionOptions: LinerDimensionOptionDto[]
   colourOptions: ColourOptionDto[]
+  posts: FramePostDto[]
 }
 
 export interface DoorConfigurationDto {

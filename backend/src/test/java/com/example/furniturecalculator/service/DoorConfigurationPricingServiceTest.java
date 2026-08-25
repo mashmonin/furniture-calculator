@@ -19,6 +19,7 @@ import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
 import com.example.furniturecalculator.domain.DoorConfiguration;
+import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
@@ -30,6 +31,7 @@ import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
+import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.support.TestEntities;
 
@@ -44,6 +46,8 @@ class DoorConfigurationPricingServiceTest {
     private ColourOptionRepository colourOptionRepository;
     @Mock
     private ConfigurationPriceRepository configurationPriceRepository;
+    @Mock
+    private FramePostRepository framePostRepository;
 
     @InjectMocks
     private DoorConfigurationPricingService service;
@@ -142,7 +146,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafLength));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
-        when(configurationPriceRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
                 new ComponentSelectionDto(1000L, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
@@ -204,12 +208,11 @@ class DoorConfigurationPricingServiceTest {
 
         ConfigurationPrice leafPrice = TestEntities.configurationPrice(
                 1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
-        ConfigurationPrice framePrice = TestEntities.configurationPrice(
-                2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), frameType, null, null, null, null);
+        FramePost framePost = TestEntities.framePost(2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), frameType);
 
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
-        when(configurationPriceRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePrice));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
 
         PricingRequestDto request =
                 new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
@@ -220,5 +223,31 @@ class DoorConfigurationPricingServiceTest {
         assertThat(response.totalDealerPrice()).isEqualByComparingTo("1300");
         assertThat(response.components()).hasSize(2);
         assertThat(response.components()).allMatch(ComponentPriceDto::priced);
+    }
+
+    @Test
+    void стоимость_короба_складывается_из_нескольких_записей_frame_post() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+
+        FramePost topPost = TestEntities.framePost(100L, BigDecimal.valueOf(3549), BigDecimal.valueOf(2027), frameType);
+        FramePost sidePostsKit = TestEntities.framePost(101L, BigDecimal.valueOf(7047), BigDecimal.valueOf(4027), frameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(topPost, sidePostsKit));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isTrue();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("10596");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("6054");
     }
 }

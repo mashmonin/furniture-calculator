@@ -262,6 +262,21 @@ function App() {
               return (
                 <Card key={key} size="small" title={`${COMPONENT_LABELS[key]}: ${component.type.name}`}>
                   <Space direction="vertical" size="middle">
+                    {component.posts.length > 0 && (
+                      <List
+                        size="small"
+                        header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+                        bordered
+                        dataSource={component.posts}
+                        renderItem={(post) => (
+                          <List.Item>
+                            {post.postType.name} × {post.quantity}
+                            {post.length !== null ? `, длина ${post.length}` : ''} — {post.retailPrice} ₽ / {post.dealerPrice} ₽
+                            (дилер)
+                          </List.Item>
+                        )}
+                      />
+                    )}
                     <OptionGroup
                       label="Длина"
                       options={component.dimensionOptions

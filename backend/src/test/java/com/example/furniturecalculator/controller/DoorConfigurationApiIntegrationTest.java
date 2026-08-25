@@ -54,6 +54,27 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     @Test
+    void каталог_возвращает_позиции_frame_post_для_короба() throws Exception {
+        Long leafTypeId = insertLeafType("IT-CATALOG-POSTS-LEAF-1");
+        Long frameTypeId = insertFrameType("IT-CATALOG-POSTS-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        Long topPostTypeId = insertPostType("IT-CATALOG-POSTS-TOP-1");
+        Long sidePostTypeId = insertPostType("IT-CATALOG-POSTS-SIDE-1");
+        insertFramePost(frameTypeId, topPostTypeId, 1, null, BigDecimal.valueOf(3549), BigDecimal.valueOf(2027));
+        insertFramePost(frameTypeId, sidePostTypeId, 2, BigDecimal.valueOf(2170), BigDecimal.valueOf(7047), BigDecimal.valueOf(4027));
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.frame()).isNotNull();
+        assertThat(created.frame().posts()).hasSize(2);
+        assertThat(created.frame().posts())
+                .extracting(post -> post.postType().id())
+                .containsExactlyInAnyOrder(topPostTypeId, sidePostTypeId);
+    }
+
+    @Test
     void расчёт_стоимости_суммирует_найденные_компоненты() throws Exception {
         Long leafTypeId = insertLeafType("IT-PRICE-LEAF-1");
         Long frameTypeId = insertFrameType("IT-PRICE-FRAME-1");
@@ -66,8 +87,8 @@ class DoorConfigurationApiIntegrationTest {
 
         insertConfigurationPrice(
                 BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafTypeId, null, null, null, lengthOptionId, null, null);
-        insertConfigurationPrice(
-                BigDecimal.valueOf(300), BigDecimal.valueOf(250), null, frameTypeId, null, null, null, null, null);
+        Long postTypeId = insertPostType("IT-PRICE-POST-1");
+        insertFramePost(frameTypeId, postTypeId, 1, null, BigDecimal.valueOf(300), BigDecimal.valueOf(250));
 
         PricingRequestDto request = new PricingRequestDto(
                 new ComponentSelectionDto(lengthOptionId, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
@@ -78,6 +99,31 @@ class DoorConfigurationApiIntegrationTest {
         assertThat(response.totalDealerPrice()).isEqualByComparingTo("1150");
         assertThat(response.components()).hasSize(2);
         assertThat(response.components()).allMatch(c -> c.priced());
+    }
+
+    @Test
+    void стоимость_короба_суммирует_несколько_записей_frame_post() throws Exception {
+        Long leafTypeId = insertLeafType("IT-FRAME-POST-LEAF-1");
+        Long frameTypeId = insertFrameType("IT-FRAME-POST-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        Long topPostTypeId = insertPostType("IT-FRAME-POST-TOP-1");
+        Long sidePostTypeId = insertPostType("IT-FRAME-POST-SIDE-1");
+        insertFramePost(frameTypeId, topPostTypeId, 1, null, BigDecimal.valueOf(3549), BigDecimal.valueOf(2027));
+        insertFramePost(frameTypeId, sidePostTypeId, 2, BigDecimal.valueOf(2170), BigDecimal.valueOf(7047), BigDecimal.valueOf(4027));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = performPost(configurationId, request, PricingResponseDto.class);
+
+        var framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isTrue();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("10596");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("6054");
     }
 
     @Test
@@ -150,6 +196,18 @@ class DoorConfigurationApiIntegrationTest {
 
     private Long insertFrameType(String code) {
         return jdbcTemplate.queryForObject("INSERT INTO frame_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+    }
+
+    private Long insertPostType(String code) {
+        return jdbcTemplate.queryForObject("INSERT INTO post_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+    }
+
+    private Long insertFramePost(
+            Long frameTypeId, Long postTypeId, int quantity, BigDecimal length, BigDecimal retailPrice, BigDecimal dealerPrice) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, retail_price, dealer_price) "
+                        + "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                Long.class, frameTypeId, postTypeId, quantity, length, retailPrice, dealerPrice);
     }
 
     private Long insertDoorConfiguration(
