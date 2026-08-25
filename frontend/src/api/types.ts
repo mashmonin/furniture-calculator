@@ -8,6 +8,7 @@ export interface LinerDimensionOptionDto {
   id: number
   dimensionType: ReferenceDto
   value: number
+  minValue: number | null
   standard: boolean
 }
 

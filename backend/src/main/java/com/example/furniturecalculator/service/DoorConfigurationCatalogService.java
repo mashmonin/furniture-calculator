@@ -116,6 +116,7 @@ public class DoorConfigurationCatalogService {
                 option.getId(),
                 ReferenceDto.from(option.getLinerDimensionType()),
                 option.getValue(),
+                option.getMinValue(),
                 option.isStandard());
     }
 

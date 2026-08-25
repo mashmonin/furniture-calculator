@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Divider, Empty, List, Space, Spin, Statistic, Typography } from 'antd'
 import { calculatePrice, fetchDoorConfigurations } from './api/doorConfigurations'
 import type {
+  ComponentCatalogDto,
   ComponentKey,
   ComponentSelectionDto,
   DoorConfigurationDto,
+  LinerDimensionOptionDto,
   PricingRequestDto,
   PricingResponseDto,
   ReferenceDto,
@@ -60,6 +62,19 @@ interface CascadeStep {
   availableTypes: ReferenceDto[]
   hasNoneOption: boolean
   selectedId?: number
+}
+
+// Диапазон высоты кромки [minValue, value] должен покрывать высоту уже выбранного полотна (см. design.md).
+function edgeHeightOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
+  if (leafHeightValue === undefined) {
+    return []
+  }
+  return component.dimensionOptions.filter(
+    (option) =>
+      option.dimensionType.code === HEIGHT_TYPE_CODE &&
+      (option.minValue === null || option.minValue <= leafHeightValue) &&
+      leafHeightValue <= option.value,
+  )
 }
 
 function uniqueById(types: ReferenceDto[]): ReferenceDto[] {
@@ -158,6 +173,10 @@ function App() {
 
   const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection)
 
+  const leafHeightValue = selectedConfiguration?.leaf.dimensionOptions.find(
+    (option) => option.id === selection.leaf.heightOptionId,
+  )?.value
+
   function handleCollectionChange(id: number | undefined) {
     setSelectedCollectionId(id)
     setCascadeSelection({})
@@ -188,10 +207,18 @@ function App() {
   }
 
   function updateSelection(key: ComponentKey, patch: Partial<ComponentSelectionDto>) {
-    setSelection((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], ...patch },
-    }))
+    const isLeafHeightChange = key === 'leaf' && 'heightOptionId' in patch
+    setSelection((prev) => {
+      const next = { ...prev, [key]: { ...prev[key], ...patch } }
+      if (isLeafHeightChange) {
+        next.edge = { ...next.edge, heightOptionId: undefined }
+      }
+      return next
+    })
+    if (isLeafHeightChange) {
+      setPricingResult(null)
+      setPricingError(null)
+    }
   }
 
   async function handleCalculate() {
@@ -287,9 +314,10 @@ function App() {
                     />
                     <OptionGroup
                       label="Высота"
-                      options={component.dimensionOptions
-                        .filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
-                        .map((option) => ({ id: option.id, label: String(option.value) }))}
+                      options={(key === 'edge'
+                        ? edgeHeightOptions(component, leafHeightValue)
+                        : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
+                      ).map((option) => ({ id: option.id, label: String(option.value) }))}
                       selectedId={selection[key].heightOptionId}
                       onChange={(id) => updateSelection(key, { heightOptionId: id })}
                     />

@@ -68,3 +68,6 @@ databaseChangeLog:
   - include:
       file: changes/0023-neo-frame-post-prices.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0024-liner-dimension-option-range.yaml
+      relativeToChangelogFile: true
