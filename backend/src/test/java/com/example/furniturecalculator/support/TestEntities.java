@@ -58,6 +58,12 @@ public final class TestEntities {
         return referenceType(LinerDimensionType.class, id);
     }
 
+    public static LinerDimensionType linerDimensionType(long id, String code) {
+        LinerDimensionType type = linerDimensionType(id);
+        ReflectionTestUtils.setField(type, "code", code);
+        return type;
+    }
+
     public static ColourType colourType(long id) {
         return referenceType(ColourType.class, id);
     }
@@ -98,6 +104,14 @@ public final class TestEntities {
         ReflectionTestUtils.setField(option, "value", value);
         ReflectionTestUtils.setField(option, "standard", standard);
         setOwner(option, owner);
+        return option;
+    }
+
+    public static LinerDimensionOption linerDimensionOptionRange(
+            long id, LinerDimensionType dimensionType, BigDecimal minValue, BigDecimal maxValue, boolean standard,
+            CatalogType owner) {
+        LinerDimensionOption option = linerDimensionOption(id, dimensionType, maxValue, standard, owner);
+        ReflectionTestUtils.setField(option, "minValue", minValue);
         return option;
     }
 

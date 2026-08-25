@@ -32,6 +32,9 @@ public class LinerDimensionOption {
     @Column(nullable = false)
     private BigDecimal value;
 
+    @Column(name = "min_value")
+    private BigDecimal minValue;
+
     @Column(name = "is_standard", nullable = false)
     private boolean standard;
 

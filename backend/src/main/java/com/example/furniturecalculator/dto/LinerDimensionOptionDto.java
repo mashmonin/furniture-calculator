@@ -2,5 +2,6 @@ package com.example.furniturecalculator.dto;
 
 import java.math.BigDecimal;
 
-public record LinerDimensionOptionDto(Long id, ReferenceDto dimensionType, BigDecimal value, boolean standard) {
+public record LinerDimensionOptionDto(
+        Long id, ReferenceDto dimensionType, BigDecimal value, BigDecimal minValue, boolean standard) {
 }

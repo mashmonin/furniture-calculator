@@ -38,6 +38,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DoorConfigurationPricingService {
 
+    // Код типа размера "ВЫСОТА" из справочника liner_dimension_type (см. db.changelog 0004) — стабильный бизнес-ключ.
+    private static final String HEIGHT_TYPE_CODE = "DT-002";
+
     private final DoorConfigurationRepository doorConfigurationRepository;
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final ColourOptionRepository colourOptionRepository;
@@ -50,12 +53,16 @@ public class DoorConfigurationPricingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "door_configuration с id=" + doorConfigurationId + " не найдена"));
 
+        ComponentSelectionDto leafSelection = selectionOf(request, PricingRequestDto::leaf);
+        LinerDimensionOption leafHeightOption =
+                validatedDimensionOption("leaf", configuration.getLeafType(), leafSelection.heightOptionId());
+
         List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "leaf", configuration.getLeafType(), selectionOf(request, PricingRequestDto::leaf));
-        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame));
-        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge));
-        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing));
-        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions));
+        addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightOption);
+        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame), leafHeightOption);
+        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge), leafHeightOption);
+        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightOption);
+        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightOption);
 
         BigDecimal totalRetail = components.stream()
                 .filter(ComponentPriceDto::priced)
@@ -80,7 +87,8 @@ public class DoorConfigurationPricingService {
     }
 
     private void addComponentIfPresent(
-            List<ComponentPriceDto> components, String componentName, CatalogType type, ComponentSelectionDto selection) {
+            List<ComponentPriceDto> components, String componentName, CatalogType type, ComponentSelectionDto selection,
+            LinerDimensionOption leafHeightOption) {
         if (type == null) {
             return;
         }
@@ -91,14 +99,39 @@ public class DoorConfigurationPricingService {
         }
 
         LinerDimensionOption lengthOption = validatedDimensionOption(componentName, type, selection.lengthOptionId());
-        LinerDimensionOption heightOption = validatedDimensionOption(componentName, type, selection.heightOptionId());
+        LinerDimensionOption heightOption = type instanceof LeafType
+                ? leafHeightOption
+                : validatedDimensionOption(componentName, type, selection.heightOptionId());
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
         ColourOption colourOption = validatedColourOption(componentName, type, selection.colourOptionId());
+
+        if (type instanceof EdgeType && heightOption != null) {
+            validateHeightWithinLeafRange(componentName, heightOption, leafHeightOption);
+        }
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
                 .map(price -> new ComponentPriceDto(componentName, true, price.getRetailPrice(), price.getDealerPrice()))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null)));
+    }
+
+    private void validateHeightWithinLeafRange(
+            String componentName, LinerDimensionOption edgeHeightOption, LinerDimensionOption leafHeightOption) {
+        if (!HEIGHT_TYPE_CODE.equals(edgeHeightOption.getLinerDimensionType().getCode())) {
+            return;
+        }
+        if (leafHeightOption == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "для компонента " + componentName + " выбрана высота, но высота полотна не выбрана");
+        }
+        BigDecimal leafHeight = leafHeightOption.getValue();
+        BigDecimal min = edgeHeightOption.getMinValue();
+        BigDecimal max = edgeHeightOption.getValue();
+        boolean withinRange = (min == null || leafHeight.compareTo(min) >= 0) && leafHeight.compareTo(max) <= 0;
+        if (!withinRange) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "liner_dimension_option с id=" + edgeHeightOption.getId() + " не совместима с высотой полотна");
+        }
     }
 
     private ComponentPriceDto framePostPrice(String componentName, FrameType frameType) {

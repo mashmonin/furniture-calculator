@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0024-1-add-liner-dimension-option-min-value
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimension_option
+            columns:
+              - column:
+                  name: min_value
+                  type: DECIMAL
