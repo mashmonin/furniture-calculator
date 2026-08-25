@@ -59,3 +59,6 @@ databaseChangeLog:
   - include:
       file: changes/0020-vertikal-atmosfera-komplanar-dobor-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0021-leaf-collection-catalog.yaml
+      relativeToChangelogFile: true

@@ -1,0 +1,150 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0021-1-create-collection-table
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: collection
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+  - changeSet:
+      id: 0021-2-add-collection-attributes
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: collection
+            columns:
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_collection_code
+
+  - changeSet:
+      id: 0021-3-insert-collection-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Вертикаль" }
+              - column: { name: code, value: "LC-001" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Атмосфера" }
+              - column: { name: code, value: "LC-002" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Элегант" }
+              - column: { name: code, value: "LC-003" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Гармония" }
+              - column: { name: code, value: "LC-004" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Свобода" }
+              - column: { name: code, value: "LC-005" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Геометрия" }
+              - column: { name: code, value: "LC-006" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Сияние" }
+              - column: { name: code, value: "LC-007" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Сибирь" }
+              - column: { name: code, value: "LC-008" }
+        - insert:
+            tableName: collection
+            columns:
+              - column: { name: name, value: "Фантом" }
+              - column: { name: code, value: "LC-009" }
+
+  - changeSet:
+      id: 0021-4-add-leaf-type-collection-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: leaf_type
+            columns:
+              - column:
+                  name: collection_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_leaf_type_collection
+                    references: collection(id)
+
+  - changeSet:
+      id: 0021-5-backfill-leaf-type-collection
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-001')
+              WHERE code IN ('LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-002')
+              WHERE code IN ('LT-008', 'LT-009', 'LT-010', 'LT-011', 'LT-012', 'LT-013')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-003')
+              WHERE code IN ('LT-014', 'LT-015', 'LT-016', 'LT-017', 'LT-018', 'LT-019')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-004')
+              WHERE code IN ('LT-020', 'LT-021', 'LT-022', 'LT-023', 'LT-024', 'LT-025')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-005')
+              WHERE code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029', 'LT-030', 'LT-031', 'LT-032', 'LT-033')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-006')
+              WHERE code IN ('LT-034', 'LT-035', 'LT-036', 'LT-037')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-007')
+              WHERE code IN ('LT-038')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-008')
+              WHERE code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET collection_id = (SELECT id FROM collection WHERE code = 'LC-009')
+              WHERE code IN ('LT-045')
+
+  - changeSet:
+      id: 0021-6-leaf-type-collection-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: leaf_type
+            columnName: collection_id
+            columnDataType: BIGINT

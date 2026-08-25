@@ -11,7 +11,8 @@ public interface DoorConfigurationRepository extends JpaRepository<DoorConfigura
 
     @Query("""
             SELECT dc FROM DoorConfiguration dc
-            JOIN FETCH dc.leafType
+            JOIN FETCH dc.leafType lt
+            JOIN FETCH lt.collection
             LEFT JOIN FETCH dc.frameType
             LEFT JOIN FETCH dc.edgeType
             LEFT JOIN FETCH dc.doorCasingType

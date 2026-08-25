@@ -61,6 +61,8 @@ class DoorConfigurationCatalogServiceTest {
         DoorConfigurationDto dto = result.get(0);
         assertThat(dto.leaf()).isNotNull();
         assertThat(dto.leaf().type().id()).isEqualTo(1L);
+        assertThat(dto.leaf().collection()).isNotNull();
+        assertThat(dto.leaf().collection().id()).isEqualTo(leafType.getCollection().getId());
         assertThat(dto.frame()).isNull();
         assertThat(dto.edge()).isNull();
         assertThat(dto.doorCasing()).isNull();
@@ -93,7 +95,9 @@ class DoorConfigurationCatalogServiceTest {
 
         DoorConfigurationDto dto = result.get(0);
         assertThat(dto.leaf()).isNotNull();
+        assertThat(dto.leaf().collection()).isNotNull();
         assertThat(dto.frame()).isNotNull();
+        assertThat(dto.frame().collection()).isNull();
         assertThat(dto.edge()).isNotNull();
         assertThat(dto.doorCasing()).isNotNull();
         assertThat(dto.frameExtensions()).isNotNull();
