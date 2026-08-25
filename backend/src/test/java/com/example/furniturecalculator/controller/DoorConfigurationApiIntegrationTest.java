@@ -46,6 +46,7 @@ class DoorConfigurationApiIntegrationTest {
         DoorConfigurationDto created = findById(configurations, configurationId);
         assertThat(created.leaf()).isNotNull();
         assertThat(created.leaf().type().id()).isEqualTo(leafTypeId);
+        assertThat(created.leaf().collection()).isNotNull();
         assertThat(created.frame()).isNull();
         assertThat(created.edge()).isNull();
         assertThat(created.doorCasing()).isNull();
@@ -136,7 +137,15 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     private Long insertLeafType(String code) {
-        return jdbcTemplate.queryForObject("INSERT INTO leaf_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+        Long collectionId = insertLeafCollection("COLL-" + code);
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO leaf_type (code, name, collection_id) VALUES (?, ?, ?) RETURNING id",
+                Long.class, code, code, collectionId);
+    }
+
+    private Long insertLeafCollection(String code) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO collection (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
     }
 
     private Long insertFrameType(String code) {

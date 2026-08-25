@@ -27,6 +27,8 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
   frameExtensions: 'Добор',
 }
 
+const COLLECTION_LABEL = 'Коллекция'
+
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
 const NONE_OPTION_ID = 0
 
@@ -113,6 +115,7 @@ function App() {
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState<string | null>(null)
 
+  const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
   const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
   const [selection, setSelection] = useState(emptySelection)
 
@@ -145,7 +148,23 @@ function App() {
     }
   }, [])
 
-  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(configurations, cascadeSelection)
+  const collectionOptions = uniqueById(
+    configurations.map((configuration) => configuration.leaf.collection).filter((type): type is ReferenceDto => Boolean(type)),
+  )
+  const collectionFilteredConfigurations =
+    selectedCollectionId === undefined
+      ? []
+      : configurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
+
+  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection)
+
+  function handleCollectionChange(id: number | undefined) {
+    setSelectedCollectionId(id)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setPricingResult(null)
+    setPricingError(null)
+  }
 
   function handleCascadeStepChange(key: ComponentKey, id: number | undefined) {
     setCascadeSelection((prev) => {
@@ -209,6 +228,12 @@ function App() {
       )}
       {!catalogLoading && !catalogError && configurations.length > 0 && (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <OptionGroup
+            label={COLLECTION_LABEL}
+            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
+            selectedId={selectedCollectionId}
+            onChange={handleCollectionChange}
+          />
           {cascadeSteps.map((step) => (
             <OptionGroup
               key={step.key}

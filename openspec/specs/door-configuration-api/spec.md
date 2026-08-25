@@ -5,7 +5,7 @@
 ## Requirements
 
 ### Requirement: Получение каталога конфигураций
-Система ДОЛЖНА (SHALL) предоставлять эндпоинт, возвращающий все строки door_configuration. Для каждой конфигурации в ответе ДОЛЖНЫ (SHALL) присутствовать данные (id, code, name) её leaf_type, и, только если они заданы у этой конфигурации, — данные её frame_type, edge_type, door_casing_type и frame_extensions_type.
+Система ДОЛЖНА (SHALL) предоставлять эндпоинт, возвращающий все строки door_configuration. Для каждой конфигурации в ответе ДОЛЖНЫ (SHALL) присутствовать данные (id, code, name) её leaf_type вместе с данными (id, code, name) collection, которой принадлежит этот leaf_type, и, только если они заданы у этой конфигурации, — данные её frame_type, edge_type, door_casing_type и frame_extensions_type.
 
 #### Scenario: Конфигурация только с полотном
 - **WHEN** запрашивается каталог конфигураций и в базе есть door_configuration только со ссылкой на leaf_type (без frame_type, edge_type, door_casing_type, frame_extensions_type)
@@ -18,6 +18,10 @@
 #### Scenario: Пустой каталог
 - **WHEN** запрашивается каталог конфигураций и в базе нет ни одной строки door_configuration
 - **THEN** эндпоинт возвращает пустой список с кодом 200, а не ошибку
+
+#### Scenario: Полотно всегда включает данные своей коллекции
+- **WHEN** запрашивается каталог конфигураций и в базе есть door_configuration со ссылкой на leaf_type
+- **THEN** в ответе для leaf-компонента этой конфигурации присутствуют данные (id, code, name) collection, которой принадлежит этот leaf_type
 
 ### Requirement: Допустимые опции размеров и цвета для каждого компонента конфигурации
 Для каждого типа компонента, присутствующего в конкретной door_configuration (leaf_type и, если заданы, frame_type, edge_type, door_casing_type, frame_extensions_type), ответ каталога ДОЛЖЕН (SHALL) включать список допустимых для этого типа liner_dimension_option (id, тип размера, значение, признак стандартного размера) и список допустимых colour_option (id, цвет), сгруппированные по компоненту, к которому они относятся.

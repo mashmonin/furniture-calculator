@@ -18,6 +18,7 @@ export interface ColourOptionDto {
 
 export interface ComponentCatalogDto {
   type: ReferenceDto
+  collection: ReferenceDto | null
   dimensionOptions: LinerDimensionOptionDto[]
   colourOptions: ColourOptionDto[]
 }

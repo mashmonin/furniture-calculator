@@ -14,6 +14,7 @@ import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.LeafCollection;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
@@ -26,7 +27,13 @@ public final class TestEntities {
     }
 
     public static LeafType leafType(long id) {
-        return referenceType(LeafType.class, id);
+        LeafType leafType = referenceType(LeafType.class, id);
+        ReflectionTestUtils.setField(leafType, "collection", leafCollection(id));
+        return leafType;
+    }
+
+    public static LeafCollection leafCollection(long id) {
+        return referenceType(LeafCollection.class, id);
     }
 
     public static FrameType frameType(long id) {

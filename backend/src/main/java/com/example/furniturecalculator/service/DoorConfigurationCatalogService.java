@@ -43,11 +43,20 @@ public class DoorConfigurationCatalogService {
     private DoorConfigurationDto toDto(DoorConfiguration configuration) {
         return new DoorConfigurationDto(
                 configuration.getId(),
-                buildComponent(configuration.getLeafType()),
+                buildLeafComponent(configuration.getLeafType()),
                 buildComponent(configuration.getFrameType()),
                 buildComponent(configuration.getEdgeType()),
                 buildComponent(configuration.getDoorCasingType()),
                 buildComponent(configuration.getFrameExtensionsType()));
+    }
+
+    private ComponentCatalogDto buildLeafComponent(LeafType leafType) {
+        ComponentCatalogDto component = buildComponent(leafType);
+        return new ComponentCatalogDto(
+                component.type(),
+                ReferenceDto.from(leafType.getCollection()),
+                component.dimensionOptions(),
+                component.colourOptions());
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -60,7 +69,7 @@ public class DoorConfigurationCatalogService {
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()
                 .map(this::toDto)
                 .toList();
-        return new ComponentCatalogDto(ReferenceDto.from(type), dimensionOptions, colourOptions);
+        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions);
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
