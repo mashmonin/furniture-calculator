@@ -6,5 +6,6 @@ public record ComponentCatalogDto(
         ReferenceDto type,
         ReferenceDto collection,
         List<LinerDimensionOptionDto> dimensionOptions,
-        List<ColourOptionDto> colourOptions) {
+        List<ColourOptionDto> colourOptions,
+        List<FramePostDto> posts) {
 }

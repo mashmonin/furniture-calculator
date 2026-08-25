@@ -11,16 +11,19 @@ import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
+import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.dto.ColourOptionDto;
 import com.example.furniturecalculator.dto.ComponentCatalogDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
+import com.example.furniturecalculator.dto.FramePostDto;
 import com.example.furniturecalculator.dto.LinerDimensionOptionDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
+import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,7 @@ public class DoorConfigurationCatalogService {
     private final DoorConfigurationRepository doorConfigurationRepository;
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final ColourOptionRepository colourOptionRepository;
+    private final FramePostRepository framePostRepository;
 
     @Transactional(readOnly = true)
     public List<DoorConfigurationDto> getAllConfigurations() {
@@ -44,7 +48,7 @@ public class DoorConfigurationCatalogService {
         return new DoorConfigurationDto(
                 configuration.getId(),
                 buildLeafComponent(configuration.getLeafType()),
-                buildComponent(configuration.getFrameType()),
+                buildFrameComponent(configuration.getFrameType()),
                 buildComponent(configuration.getEdgeType()),
                 buildComponent(configuration.getDoorCasingType()),
                 buildComponent(configuration.getFrameExtensionsType()));
@@ -56,7 +60,20 @@ public class DoorConfigurationCatalogService {
                 component.type(),
                 ReferenceDto.from(leafType.getCollection()),
                 component.dimensionOptions(),
-                component.colourOptions());
+                component.colourOptions(),
+                component.posts());
+    }
+
+    private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
+        if (frameType == null) {
+            return null;
+        }
+        ComponentCatalogDto component = buildComponent(frameType);
+        List<FramePostDto> posts = framePostRepository.findByFrameTypeId(frameType.getId()).stream()
+                .map(this::toDto)
+                .toList();
+        return new ComponentCatalogDto(
+                component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts);
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -69,7 +86,7 @@ public class DoorConfigurationCatalogService {
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()
                 .map(this::toDto)
                 .toList();
-        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions);
+        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of());
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
@@ -104,5 +121,15 @@ public class DoorConfigurationCatalogService {
 
     private ColourOptionDto toDto(ColourOption option) {
         return new ColourOptionDto(option.getId(), ReferenceDto.from(option.getColourType()));
+    }
+
+    private FramePostDto toDto(FramePost post) {
+        return new FramePostDto(
+                post.getId(),
+                ReferenceDto.from(post.getPostType()),
+                post.getQuantity(),
+                post.getLength(),
+                post.getRetailPrice(),
+                post.getDealerPrice());
     }
 }
