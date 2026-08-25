@@ -65,3 +65,6 @@ databaseChangeLog:
   - include:
       file: changes/0022-frame-post-catalog.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0023-neo-frame-post-prices.yaml
+      relativeToChangelogFile: true
