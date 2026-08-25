@@ -25,4 +25,7 @@ public class FrameType implements CatalogType {
 
     @Column(nullable = false)
     private String code;
+
+    @Column(name = "is_reverse", nullable = false)
+    private boolean reverse;
 }

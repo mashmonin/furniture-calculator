@@ -42,6 +42,12 @@ public final class TestEntities {
         return referenceType(FrameType.class, id);
     }
 
+    public static FrameType frameTypeReverse(long id) {
+        FrameType frameType = frameType(id);
+        ReflectionTestUtils.setField(frameType, "reverse", true);
+        return frameType;
+    }
+
     public static EdgeType edgeType(long id) {
         return referenceType(EdgeType.class, id);
     }

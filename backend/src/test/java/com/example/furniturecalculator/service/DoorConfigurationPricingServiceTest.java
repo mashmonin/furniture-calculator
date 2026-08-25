@@ -327,6 +327,103 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void надбавка_за_реверс_применяется_к_цене_полотна_если_короб_реверсивный() {
+        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1100");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("990");
+    }
+
+    @Test
+    void надбавка_за_реверс_округляется_до_целого() {
+        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(33264), BigDecimal.valueOf(19007), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("36590");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("20908");
+    }
+
+    @Test
+    void надбавка_за_реверс_не_применяется_для_обычного_короба() {
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1000");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("900");
+    }
+
+    @Test
+    void надбавка_за_реверс_не_влияет_на_цену_короба() {
+        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        FramePost framePost = TestEntities.framePost(2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), reverseFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+        when(framePostRepository.findByFrameTypeId(3L)).thenReturn(List.of(framePost));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("500");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("400");
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("1600");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("1390");
+    }
+
+    @Test
     void кромка_без_выбранной_высоты_не_проверяется() {
         EdgeType edgeType = TestEntities.edgeType(3L);
         DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, edgeType, null, null);

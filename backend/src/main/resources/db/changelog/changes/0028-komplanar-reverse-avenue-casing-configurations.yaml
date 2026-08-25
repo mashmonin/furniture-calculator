@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0028-1-insert-komplanar-reverse-avenue-casing-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id)
+              SELECT lt.id, ft.id, dct.id
+              FROM leaf_type lt
+              CROSS JOIN frame_type ft
+              CROSS JOIN door_casing_type dct
+              WHERE lt.code IN (
+                'LT-001', 'LT-002', 'LT-003', 'LT-004', 'LT-005', 'LT-006', 'LT-007',
+                'LT-008', 'LT-009', 'LT-010', 'LT-011', 'LT-012', 'LT-013'
+              )
+                AND ft.code = 'FT-004'
+                AND dct.code = 'DCT-002'
