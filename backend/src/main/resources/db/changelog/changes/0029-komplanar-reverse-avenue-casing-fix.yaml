@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0029-1-insert-komplanar-reverse-avenue-casing-type
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Авеню для системы КОМПЛАНАР РЕВЕРС *" }
+              - column: { name: code, value: "DCT-005" }
+
+  - changeSet:
+      id: 0029-2-insert-komplanar-reverse-avenue-casing-height-option
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, door_casing_type_id)
+              SELECT dt.id, 2100, true, dct.id
+              FROM liner_dimension_type dt
+              CROSS JOIN door_casing_type dct
+              WHERE dt.code = 'DT-002' AND dct.code = 'DCT-005'
+
+  - changeSet:
+      id: 0029-3-insert-komplanar-reverse-avenue-casing-price
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, door_casing_type_id, height_option_id)
+              SELECT 3622, 2070, dct.id, ldo.id
+              FROM door_casing_type dct
+              JOIN liner_dimension_option ldo ON ldo.door_casing_type_id = dct.id AND ldo.value = 2100
+              WHERE dct.code = 'DCT-005'
+
+  - changeSet:
+      id: 0029-4-fix-komplanar-reverse-door-configurations-casing
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE door_configuration
+              SET door_casing_type_id = (SELECT id FROM door_casing_type WHERE code = 'DCT-005')
+              WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')
+                AND door_casing_type_id = (SELECT id FROM door_casing_type WHERE code = 'DCT-002')
