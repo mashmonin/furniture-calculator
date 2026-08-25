@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0026-1-add-frame-type-is-reverse
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_type
+            columns:
+              - column:
+                  name: is_reverse
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0026-2-insert-komplanar-reverse-frame-type
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_type
+            columns:
+              - column: { name: name, value: "КОМПЛАНАР РЕВЕРС (в проем)" }
+              - column: { name: code, value: "FT-004" }
+              - column: { name: is_reverse, valueBoolean: true }
+
+  - changeSet:
+      id: 0026-3-add-reverse-frame-to-vertikal-atmosfera-leaves
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id)
+              SELECT lt.id, ft.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              WHERE c.code IN ('LC-001', 'LC-002') AND ft.code = 'FT-004'

@@ -74,3 +74,12 @@ databaseChangeLog:
   - include:
       file: changes/0025-vertikal-edge-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0026-reverse-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0027-komplanar-reverse-frame-post-prices.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0028-komplanar-reverse-avenue-casing-configurations.yaml
+      relativeToChangelogFile: true

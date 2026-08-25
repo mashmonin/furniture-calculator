@@ -1,6 +1,7 @@
 package com.example.furniturecalculator.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -41,6 +42,12 @@ public class DoorConfigurationPricingService {
     // Код типа размера "ВЫСОТА" из справочника liner_dimension_type (см. db.changelog 0004) — стабильный бизнес-ключ.
     private static final String HEIGHT_TYPE_CODE = "DT-002";
 
+    // Временно: если выбранный короб реверсивный (frame_type.is_reverse), надбавка за реверс —
+    // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
+    // в движок бизнес-правил (Drools); тогда applyReverseSurcharge заменится вызовом правил
+    // вместо жёстко заданного множителя.
+    private static final BigDecimal REVERSE_SURCHARGE_MULTIPLIER = new BigDecimal("1.10");
+
     private final DoorConfigurationRepository doorConfigurationRepository;
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final ColourOptionRepository colourOptionRepository;
@@ -56,13 +63,15 @@ public class DoorConfigurationPricingService {
         ComponentSelectionDto leafSelection = selectionOf(request, PricingRequestDto::leaf);
         LinerDimensionOption leafHeightOption =
                 validatedDimensionOption("leaf", configuration.getLeafType(), leafSelection.heightOptionId());
+        boolean reverseFrameSelected =
+                configuration.getFrameType() != null && configuration.getFrameType().isReverse();
 
         List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightOption);
-        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame), leafHeightOption);
-        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge), leafHeightOption);
-        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightOption);
-        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightOption);
+        addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightOption, reverseFrameSelected);
+        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame), leafHeightOption, false);
+        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge), leafHeightOption, false);
+        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightOption, false);
+        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightOption, false);
 
         BigDecimal totalRetail = components.stream()
                 .filter(ComponentPriceDto::priced)
@@ -88,7 +97,7 @@ public class DoorConfigurationPricingService {
 
     private void addComponentIfPresent(
             List<ComponentPriceDto> components, String componentName, CatalogType type, ComponentSelectionDto selection,
-            LinerDimensionOption leafHeightOption) {
+            LinerDimensionOption leafHeightOption, boolean applyReverseSurcharge) {
         if (type == null) {
             return;
         }
@@ -111,8 +120,22 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
-                .map(price -> new ComponentPriceDto(componentName, true, price.getRetailPrice(), price.getDealerPrice()))
+                .map(price -> componentPriceFrom(componentName, price, applyReverseSurcharge))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null)));
+    }
+
+    private ComponentPriceDto componentPriceFrom(String componentName, ConfigurationPrice price, boolean applyReverseSurcharge) {
+        BigDecimal retailPrice = price.getRetailPrice();
+        BigDecimal dealerPrice = price.getDealerPrice();
+        if (applyReverseSurcharge) {
+            retailPrice = applyReverseSurcharge(retailPrice);
+            dealerPrice = applyReverseSurcharge(dealerPrice);
+        }
+        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice);
+    }
+
+    private BigDecimal applyReverseSurcharge(BigDecimal price) {
+        return price.multiply(REVERSE_SURCHARGE_MULTIPLIER).setScale(0, RoundingMode.HALF_UP);
     }
 
     private void validateHeightWithinLeafRange(

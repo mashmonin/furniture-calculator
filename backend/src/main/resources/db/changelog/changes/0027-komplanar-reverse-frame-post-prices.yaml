@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0027-1-insert-komplanar-reverse-frame-post-data
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, dealer_price, retail_price)
+              SELECT ft.id, pt.id, 1, NULL, 2027, 3549
+              FROM frame_type ft, post_type pt
+              WHERE ft.code = 'FT-004' AND pt.code = 'PT-001'
+        - sql:
+            sql: >-
+              INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, dealer_price, retail_price)
+              SELECT ft.id, pt.id, 2, 2170, 4027, 7047
+              FROM frame_type ft, post_type pt
+              WHERE ft.code = 'FT-004' AND pt.code = 'PT-002'

@@ -127,6 +127,29 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     @Test
+    void надбавка_за_реверс_применяется_к_цене_полотна_если_короб_реверсивный() throws Exception {
+        Long leafTypeId = insertLeafType("IT-REVERSE-LEAF-1");
+        Long frameTypeId = insertReverseFrameType("IT-REVERSE-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        insertConfigurationPrice(
+                BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafTypeId, null, null, null, null, null, null);
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = performPost(configurationId, request, PricingResponseDto.class);
+
+        var leafPrice = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leafPrice.priced()).isTrue();
+        assertThat(leafPrice.retailPrice()).isEqualByComparingTo("1100");
+        assertThat(leafPrice.dealerPrice()).isEqualByComparingTo("990");
+    }
+
+    @Test
     void расчёт_для_несуществующей_конфигурации_возвращает_404() throws Exception {
         mockMvc.perform(post("/api/door-configurations/{id}/price", 999_999_999L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,6 +219,11 @@ class DoorConfigurationApiIntegrationTest {
 
     private Long insertFrameType(String code) {
         return jdbcTemplate.queryForObject("INSERT INTO frame_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+    }
+
+    private Long insertReverseFrameType(String code) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO frame_type (code, name, is_reverse) VALUES (?, ?, true) RETURNING id", Long.class, code, code);
     }
 
     private Long insertPostType(String code) {
