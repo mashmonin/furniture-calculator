@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0041-1-add-edge-to-komplanar-reverse-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT dc.leaf_type_id, dc.frame_type_id, et.id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              CROSS JOIN edge_type et
+              WHERE ft.code = 'FT-004'
+                AND dc.edge_type_id IS NULL
+                AND et.code IN ('ET-001', 'ET-002')

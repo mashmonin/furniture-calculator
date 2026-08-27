@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0034-1-add-edge-to-elegant-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT dc.leaf_type_id, dc.frame_type_id, et.id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN leaf_type lt ON lt.id = dc.leaf_type_id
+              JOIN collection c ON c.id = lt.collection_id
+              LEFT JOIN frame_type ft ON ft.id = dc.frame_type_id
+              CROSS JOIN edge_type et
+              WHERE c.code = 'LC-003'
+                AND dc.edge_type_id IS NULL
+                AND et.code IN ('ET-001', 'ET-002')
+                AND (ft.code IS NULL OR ft.code != 'FT-004')

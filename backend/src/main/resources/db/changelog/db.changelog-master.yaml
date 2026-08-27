@@ -89,3 +89,36 @@ databaseChangeLog:
   - include:
       file: changes/0030-komplanar-neo-no-casing-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0031-elegant-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0032-elegant-komplanar-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0033-elegant-neo-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0034-elegant-edge-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0035-elegant-aura-casing.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0036-garmoniya-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0037-garmoniya-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0038-svoboda-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0039-svoboda-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0040-svoboda-ariya-casing.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0041-komplanar-reverse-edge-configurations.yaml
+      relativeToChangelogFile: true

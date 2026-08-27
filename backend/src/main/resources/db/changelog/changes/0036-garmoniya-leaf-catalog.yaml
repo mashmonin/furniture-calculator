@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0036-1-insert-garmoniya-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-020', 'LT-021', 'LT-022', 'LT-023', 'LT-024', 'LT-025')
+
+  - changeSet:
+      id: 0036-2-insert-garmoniya-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-020', 'LT-021', 'LT-022', 'LT-023', 'LT-024', 'LT-025')
+
+  - changeSet:
+      id: 0036-3-insert-garmoniya-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-020', 'LT-021', 'LT-022', 'LT-023', 'LT-024', 'LT-025')
+
+  - changeSet:
+      id: 0036-4-insert-garmoniya-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type
+              WHERE code IN ('LT-020', 'LT-021', 'LT-022', 'LT-023', 'LT-024', 'LT-025')
+
+  - changeSet:
+      id: 0036-5-insert-garmoniya-gluhoe-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 38932, 22245, id FROM leaf_type
+              WHERE code IN ('LT-020', 'LT-021', 'LT-022')
+
+  - changeSet:
+      id: 0036-6-insert-garmoniya-glass-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 43860, 25061, id FROM leaf_type
+              WHERE code IN ('LT-023', 'LT-024', 'LT-025')
