@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0030-1-insert-komplanar-no-casing-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, frame_extensions_type_id)
+              SELECT DISTINCT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              WHERE ft.code = 'FT-002' AND dc.door_casing_type_id IS NOT NULL
+
+  - changeSet:
+      id: 0030-2-insert-neo-no-casing-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, frame_extensions_type_id)
+              SELECT DISTINCT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              WHERE ft.code = 'FT-003' AND dc.door_casing_type_id IS NOT NULL

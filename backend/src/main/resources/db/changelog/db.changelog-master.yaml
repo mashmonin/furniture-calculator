@@ -86,3 +86,6 @@ databaseChangeLog:
   - include:
       file: changes/0029-komplanar-reverse-avenue-casing-fix.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0030-komplanar-neo-no-casing-configurations.yaml
+      relativeToChangelogFile: true

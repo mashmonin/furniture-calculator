@@ -16,10 +16,12 @@ import './App.css'
 
 const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 'frameExtensions']
 
-// Порядок шагов каскадного подбора конфигурации: наличник/добор требуют
+// Порядок шагов каскадного подбора конфигурации: кромка выбирается сразу
+// после полотна, перед коробом/наличником/добором (см. design.md изменения
+// reorder-cascade-add-no-casing-option). Наличник/добор по-прежнему требуют
 // заданного короба (см. chk_door_configuration_casing_extensions_require_frame),
-// поэтому короб идёт раньше них; кромка — после наличника (см. design.md).
-const CASCADE_ORDER: ComponentKey[] = ['leaf', 'frame', 'doorCasing', 'edge', 'frameExtensions']
+// поэтому короб идёт раньше них.
+const CASCADE_ORDER: ComponentKey[] = ['leaf', 'edge', 'frame', 'doorCasing', 'frameExtensions']
 
 const COMPONENT_LABELS: Record<ComponentKey, string> = {
   leaf: 'Полотно',
