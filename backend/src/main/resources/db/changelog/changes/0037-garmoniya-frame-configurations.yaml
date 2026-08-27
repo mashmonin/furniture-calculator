@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0037-1-insert-garmoniya-frame-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT DISTINCT glt.id, dc.frame_type_id, dc.edge_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN leaf_type template_lt ON template_lt.id = dc.leaf_type_id
+              CROSS JOIN leaf_type glt
+              JOIN collection gc ON gc.id = glt.collection_id
+              WHERE template_lt.code = 'LT-014'
+                AND gc.code = 'LC-004'
+                AND NOT (dc.frame_type_id IS NULL AND dc.edge_type_id IS NULL)

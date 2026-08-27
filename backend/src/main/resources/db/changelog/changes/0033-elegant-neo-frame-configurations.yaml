@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0033-1-insert-elegant-neo-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT DISTINCT elt.id, dc.frame_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              JOIN leaf_type template_lt ON template_lt.id = dc.leaf_type_id
+              CROSS JOIN leaf_type elt
+              JOIN collection ec ON ec.id = elt.collection_id
+              WHERE template_lt.code = 'LT-001'
+                AND ft.code = 'FT-003'
+                AND dc.edge_type_id IS NULL
+                AND ec.code = 'LC-003'

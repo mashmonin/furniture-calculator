@@ -1,0 +1,69 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0035-1-insert-aura-casing-types
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Аура" }
+              - column: { name: code, value: "DCT-006" }
+        - insert:
+            tableName: door_casing_type
+            columns:
+              - column: { name: name, value: "Аура для системы КОМПЛАНАР РЕВЕРС *" }
+              - column: { name: code, value: "DCT-007" }
+
+  - changeSet:
+      id: 0035-2-insert-aura-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, door_casing_type_id)
+              SELECT dt.id, 2100, true, dct.id
+              FROM liner_dimension_type dt
+              CROSS JOIN door_casing_type dct
+              WHERE dt.code = 'DT-002' AND dct.code IN ('DCT-006', 'DCT-007')
+
+  - changeSet:
+      id: 0035-3-insert-aura-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, door_casing_type_id, height_option_id)
+              SELECT 4165, 2379, dct.id, ldo.id
+              FROM door_casing_type dct
+              JOIN liner_dimension_option ldo ON ldo.door_casing_type_id = dct.id AND ldo.value = 2100
+              WHERE dct.code IN ('DCT-006', 'DCT-007')
+
+  - changeSet:
+      id: 0035-4-link-aura-to-elegant-komplanar
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT DISTINCT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dct.id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN leaf_type lt ON lt.id = dc.leaf_type_id
+              JOIN collection c ON c.id = lt.collection_id
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              CROSS JOIN door_casing_type dct
+              WHERE c.code = 'LC-003' AND ft.code = 'FT-002' AND dc.door_casing_type_id IS NOT NULL AND dct.code = 'DCT-006'
+
+  - changeSet:
+      id: 0035-5-link-aura-reverse-to-elegant-komplanar-reverse
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT DISTINCT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dct.id, dc.frame_extensions_type_id
+              FROM door_configuration dc
+              JOIN leaf_type lt ON lt.id = dc.leaf_type_id
+              JOIN collection c ON c.id = lt.collection_id
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              CROSS JOIN door_casing_type dct
+              WHERE c.code = 'LC-003' AND ft.code = 'FT-004' AND dc.door_casing_type_id IS NOT NULL AND dct.code = 'DCT-007'

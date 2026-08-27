@@ -1,0 +1,82 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0038-1-insert-svoboda-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029', 'LT-030', 'LT-031', 'LT-032', 'LT-033')
+
+  - changeSet:
+      id: 0038-2-insert-svoboda-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029', 'LT-030', 'LT-031', 'LT-032', 'LT-033')
+
+  - changeSet:
+      id: 0038-3-insert-svoboda-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029', 'LT-030', 'LT-031', 'LT-032', 'LT-033')
+
+  - changeSet:
+      id: 0038-4-insert-svoboda-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type
+              WHERE code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029', 'LT-030', 'LT-031', 'LT-032', 'LT-033')
+
+  - changeSet:
+      id: 0038-5-insert-svoboda-gluhoe-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 38932, 22245, id FROM leaf_type
+              WHERE code IN ('LT-026', 'LT-027', 'LT-028', 'LT-029')
+
+  - changeSet:
+      id: 0038-6-insert-svoboda-glass-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 43860, 25061, id FROM leaf_type
+              WHERE code IN ('LT-030', 'LT-031', 'LT-032')
+
+  - changeSet:
+      id: 0038-7-insert-svoboda-01g-price
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 47548, 27170, id FROM leaf_type
+              WHERE code = 'LT-033'
