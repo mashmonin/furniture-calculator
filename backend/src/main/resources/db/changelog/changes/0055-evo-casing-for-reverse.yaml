@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0055-1-add-evo-casing-to-reverse-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id, is_reverse)
+              SELECT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dct.id, dc.frame_extensions_type_id, true
+              FROM door_configuration dc
+              CROSS JOIN door_casing_type dct
+              WHERE dc.is_reverse = true
+                AND dc.door_casing_type_id IS NULL
+                AND dct.code = 'DCT-001'

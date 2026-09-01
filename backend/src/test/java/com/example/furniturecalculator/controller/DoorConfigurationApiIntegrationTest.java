@@ -129,8 +129,8 @@ class DoorConfigurationApiIntegrationTest {
     @Test
     void надбавка_за_реверс_применяется_к_цене_полотна_если_короб_реверсивный() throws Exception {
         Long leafTypeId = insertLeafType("IT-REVERSE-LEAF-1");
-        Long frameTypeId = insertReverseFrameType("IT-REVERSE-FRAME-1");
-        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+        Long frameTypeId = insertFrameType("IT-REVERSE-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null, true);
 
         insertConfigurationPrice(
                 BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafTypeId, null, null, null, null, null, null);
@@ -221,11 +221,6 @@ class DoorConfigurationApiIntegrationTest {
         return jdbcTemplate.queryForObject("INSERT INTO frame_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
     }
 
-    private Long insertReverseFrameType(String code) {
-        return jdbcTemplate.queryForObject(
-                "INSERT INTO frame_type (code, name, is_reverse) VALUES (?, ?, true) RETURNING id", Long.class, code, code);
-    }
-
     private Long insertPostType(String code) {
         return jdbcTemplate.queryForObject("INSERT INTO post_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
     }
@@ -240,10 +235,17 @@ class DoorConfigurationApiIntegrationTest {
 
     private Long insertDoorConfiguration(
             Long leafTypeId, Long frameTypeId, Long edgeTypeId, Long doorCasingTypeId, Long frameExtensionsTypeId) {
+        return insertDoorConfiguration(leafTypeId, frameTypeId, edgeTypeId, doorCasingTypeId, frameExtensionsTypeId, false);
+    }
+
+    private Long insertDoorConfiguration(
+            Long leafTypeId, Long frameTypeId, Long edgeTypeId, Long doorCasingTypeId, Long frameExtensionsTypeId,
+            boolean isReverse) {
         return jdbcTemplate.queryForObject(
-                "INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id) "
-                        + "VALUES (?, ?, ?, ?, ?) RETURNING id",
-                Long.class, leafTypeId, frameTypeId, edgeTypeId, doorCasingTypeId, frameExtensionsTypeId);
+                "INSERT INTO door_configuration "
+                        + "(leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id, is_reverse) "
+                        + "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                Long.class, leafTypeId, frameTypeId, edgeTypeId, doorCasingTypeId, frameExtensionsTypeId, isReverse);
     }
 
     private Long insertLinerDimensionOption(

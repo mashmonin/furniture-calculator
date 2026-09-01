@@ -41,6 +41,7 @@ export interface DoorConfigurationDto {
   edge: ComponentCatalogDto | null
   doorCasing: ComponentCatalogDto | null
   frameExtensions: ComponentCatalogDto | null
+  reverse: boolean
 }
 
 export type ComponentKey = 'leaf' | 'frame' | 'edge' | 'doorCasing' | 'frameExtensions'

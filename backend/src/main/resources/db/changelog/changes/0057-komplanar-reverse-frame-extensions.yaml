@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0057-1-add-komplanar-reverse-frame-extensions
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id, is_reverse)
+              SELECT dc.leaf_type_id, dc.frame_type_id, dc.edge_type_id, dc.door_casing_type_id, fet.id, true
+              FROM door_configuration dc
+              JOIN frame_type ft ON ft.id = dc.frame_type_id
+              CROSS JOIN frame_extensions_type fet
+              WHERE ft.code = 'FT-002'
+                AND dc.is_reverse = true
+                AND dc.frame_extensions_type_id IS NULL
+                AND fet.code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')

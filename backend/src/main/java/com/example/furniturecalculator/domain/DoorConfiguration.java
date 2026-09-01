@@ -1,5 +1,6 @@
 package com.example.furniturecalculator.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -41,4 +42,7 @@ public class DoorConfiguration {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "frame_extensions_type_id")
     private FrameExtensionsType frameExtensionsType;
+
+    @Column(name = "is_reverse", nullable = false)
+    private boolean reverse;
 }

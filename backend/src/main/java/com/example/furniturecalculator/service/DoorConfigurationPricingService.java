@@ -42,7 +42,7 @@ public class DoorConfigurationPricingService {
     // Код типа размера "ВЫСОТА" из справочника liner_dimension_type (см. db.changelog 0004) — стабильный бизнес-ключ.
     private static final String HEIGHT_TYPE_CODE = "DT-002";
 
-    // Временно: если выбранный короб реверсивный (frame_type.is_reverse), надбавка за реверс —
+    // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
     // в движок бизнес-правил (Drools); тогда applyReverseSurcharge заменится вызовом правил
     // вместо жёстко заданного множителя.
@@ -63,8 +63,7 @@ public class DoorConfigurationPricingService {
         ComponentSelectionDto leafSelection = selectionOf(request, PricingRequestDto::leaf);
         LinerDimensionOption leafHeightOption =
                 validatedDimensionOption("leaf", configuration.getLeafType(), leafSelection.heightOptionId());
-        boolean reverseFrameSelected =
-                configuration.getFrameType() != null && configuration.getFrameType().isReverse();
+        boolean reverseFrameSelected = configuration.isReverse();
 
         List<ComponentPriceDto> components = new ArrayList<>();
         addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightOption, reverseFrameSelected);
