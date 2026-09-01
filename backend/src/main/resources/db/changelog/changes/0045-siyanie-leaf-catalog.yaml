@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0045-1-insert-siyanie-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001' AND lt.code = 'LT-038'
+
+  - changeSet:
+      id: 0045-2-insert-siyanie-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002' AND lt.code = 'LT-038'
+
+  - changeSet:
+      id: 0045-3-insert-siyanie-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003' AND lt.code = 'LT-038'
+
+  - changeSet:
+      id: 0045-4-insert-siyanie-door-configuration
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type WHERE code = 'LT-038'
+
+  - changeSet:
+      id: 0045-5-insert-siyanie-price
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 22080, 13800, id FROM leaf_type WHERE code = 'LT-038'

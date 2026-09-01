@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0042-1-insert-geometriya-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-034', 'LT-035', 'LT-036', 'LT-037')
+
+  - changeSet:
+      id: 0042-2-insert-geometriya-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-034', 'LT-035', 'LT-036', 'LT-037')
+
+  - changeSet:
+      id: 0042-3-insert-geometriya-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-034', 'LT-035', 'LT-036', 'LT-037')
+
+  - changeSet:
+      id: 0042-4-insert-geometriya-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type
+              WHERE code IN ('LT-034', 'LT-035', 'LT-036', 'LT-037')
+
+  - changeSet:
+      id: 0042-5-insert-geometriya-gluhoe-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 23443, 14652, id FROM leaf_type
+              WHERE code IN ('LT-034', 'LT-035')
+
+  - changeSet:
+      id: 0042-6-insert-geometriya-glass-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 27667, 17292, id FROM leaf_type
+              WHERE code IN ('LT-036', 'LT-037')

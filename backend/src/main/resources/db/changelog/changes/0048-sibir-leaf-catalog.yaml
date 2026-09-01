@@ -1,0 +1,106 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0048-1-update-sibir-names-with-direction
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET name = name || ' (' || v.direction || ')'
+              FROM (VALUES
+                ('LT-039', 'вертикальное направление'),
+                ('LT-040', 'горизонтальное направление'),
+                ('LT-041', 'угловое направление'),
+                ('LT-042', 'горизонтальное/вертикальное'),
+                ('LT-043', 'угловое/угловое'),
+                ('LT-044', 'вертикальное/горизонтальное')
+              ) AS v(code, direction)
+              WHERE leaf_type.code = v.code
+
+  - changeSet:
+      id: 0048-2-insert-sibir-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')
+
+  - changeSet:
+      id: 0048-3-insert-sibir-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')
+
+  - changeSet:
+      id: 0048-4-insert-sibir-thickness-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (44)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')
+
+  - changeSet:
+      id: 0048-5-insert-sibir-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id)
+              SELECT id FROM leaf_type
+              WHERE code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')
+
+  - changeSet:
+      id: 0048-6-insert-sibir-01-02-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 35728, 20415, id FROM leaf_type
+              WHERE code IN ('LT-039', 'LT-040')
+
+  - changeSet:
+      id: 0048-7-insert-sibir-03-06-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 44352, 25342, id FROM leaf_type
+              WHERE code IN ('LT-041', 'LT-042', 'LT-043', 'LT-044')
+
+  - changeSet:
+      id: 0048-8-insert-sibir-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, leaf_type_id)
+              SELECT ct.id, lt.id
+              FROM colour_type ct
+              CROSS JOIN leaf_type lt
+              WHERE ct.code IN (
+                'CT-001', 'CT-002', 'CT-003', 'CT-004', 'CT-005', 'CT-006', 'CT-007',
+                'CT-008', 'CT-009', 'CT-010', 'CT-011', 'CT-012', 'CT-013', 'CT-014',
+                'CT-015', 'CT-016', 'CT-017', 'CT-018', 'CT-019', 'CT-020', 'CT-021', 'CT-022'
+              )
+                AND lt.code IN ('LT-039', 'LT-040', 'LT-041', 'LT-042', 'LT-043', 'LT-044')

@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0043-1-insert-geometriya-komplanar-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT lt.id, ft.id, dct.id, fet.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              CROSS JOIN (SELECT id FROM door_casing_type WHERE code IN ('DCT-001', 'DCT-002') UNION SELECT NULL) AS dct(id)
+              CROSS JOIN (SELECT id FROM frame_extensions_type WHERE code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013') UNION SELECT NULL) AS fet(id)
+              WHERE c.code = 'LC-006' AND ft.code = 'FT-002'
+
+  - changeSet:
+      id: 0043-2-insert-geometriya-neo-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT lt.id, ft.id, dct.id, fet.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              CROSS JOIN (SELECT id FROM door_casing_type WHERE code IN ('DCT-003', 'DCT-004') UNION SELECT NULL) AS dct(id)
+              CROSS JOIN (SELECT id FROM frame_extensions_type WHERE code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007') UNION SELECT NULL) AS fet(id)
+              WHERE c.code = 'LC-006' AND ft.code = 'FT-003'
+
+  - changeSet:
+      id: 0043-3-insert-geometriya-komplanar-reverse-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id)
+              SELECT lt.id, ft.id, dct.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              CROSS JOIN (SELECT id FROM door_casing_type WHERE code = 'DCT-005' UNION SELECT NULL) AS dct(id)
+              WHERE c.code = 'LC-006' AND ft.code = 'FT-004'

@@ -122,3 +122,30 @@ databaseChangeLog:
   - include:
       file: changes/0041-komplanar-reverse-edge-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0042-geometriya-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0043-geometriya-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0044-geometriya-edge-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0045-siyanie-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0046-siyanie-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0047-siyanie-edge-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0048-sibir-leaf-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0049-sibir-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0050-sibir-edge-configurations.yaml
+      relativeToChangelogFile: true
