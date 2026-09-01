@@ -1,0 +1,43 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0049-1-insert-sibir-komplanar-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT lt.id, ft.id, dct.id, fet.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              CROSS JOIN (SELECT id FROM door_casing_type WHERE code = 'DCT-001' UNION SELECT NULL) AS dct(id)
+              CROSS JOIN (SELECT id FROM frame_extensions_type WHERE code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013') UNION SELECT NULL) AS fet(id)
+              WHERE c.code = 'LC-008' AND ft.code = 'FT-002'
+
+  - changeSet:
+      id: 0049-2-insert-sibir-neo-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, door_casing_type_id, frame_extensions_type_id)
+              SELECT lt.id, ft.id, dct.id, fet.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              CROSS JOIN (SELECT id FROM door_casing_type WHERE code IN ('DCT-003', 'DCT-004') UNION SELECT NULL) AS dct(id)
+              CROSS JOIN (SELECT id FROM frame_extensions_type WHERE code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007') UNION SELECT NULL) AS fet(id)
+              WHERE c.code = 'LC-008' AND ft.code = 'FT-003'
+
+  - changeSet:
+      id: 0049-3-insert-sibir-komplanar-reverse-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id)
+              SELECT lt.id, ft.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              WHERE c.code = 'LC-008' AND ft.code = 'FT-004'
