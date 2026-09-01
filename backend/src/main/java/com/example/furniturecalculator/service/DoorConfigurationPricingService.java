@@ -103,7 +103,8 @@ public class DoorConfigurationPricingService {
         }
 
         if (type instanceof FrameType frameType) {
-            components.add(framePostPrice(componentName, frameType));
+            ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
+            components.add(framePostPrice(componentName, frameType, colourOption));
             return;
         }
 
@@ -157,14 +158,24 @@ public class DoorConfigurationPricingService {
         }
     }
 
-    private ComponentPriceDto framePostPrice(String componentName, FrameType frameType) {
+    private ComponentPriceDto framePostPrice(String componentName, FrameType frameType, ColourOption colourOption) {
         List<FramePost> posts = framePostRepository.findByFrameTypeId(frameType.getId());
-        if (posts.isEmpty()) {
-            return new ComponentPriceDto(componentName, false, null, null);
+        BigDecimal postsRetailPrice = posts.stream().map(FramePost::getRetailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal postsDealerPrice = posts.stream().map(FramePost::getDealerPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<ColourOption> availableColours = colourOptionRepository.findByFrameTypeId(frameType.getId());
+        if (availableColours.isEmpty()) {
+            if (posts.isEmpty()) {
+                return new ComponentPriceDto(componentName, false, null, null);
+            }
+            return new ComponentPriceDto(componentName, true, postsRetailPrice, postsDealerPrice);
         }
-        BigDecimal retailPrice = posts.stream().map(FramePost::getRetailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal dealerPrice = posts.stream().map(FramePost::getDealerPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice);
+
+        Optional<ConfigurationPrice> matched = findMostSpecificPrice(frameType, null, null, null, colourOption);
+        return matched
+                .map(price -> new ComponentPriceDto(
+                        componentName, true, postsRetailPrice.add(price.getRetailPrice()), postsDealerPrice.add(price.getDealerPrice())))
+                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null));
     }
 
     private LinerDimensionOption validatedDimensionOption(String componentName, CatalogType type, Long optionId) {
@@ -253,6 +264,7 @@ public class DoorConfigurationPricingService {
     private List<ConfigurationPrice> pricesFor(CatalogType type) {
         return switch (type) {
             case LeafType t -> configurationPriceRepository.findByLeafTypeId(t.getId());
+            case FrameType t -> configurationPriceRepository.findByFrameTypeId(t.getId());
             case EdgeType t -> configurationPriceRepository.findByEdgeTypeId(t.getId());
             case DoorCasingType t -> configurationPriceRepository.findByDoorCasingTypeId(t.getId());
             case FrameExtensionsType t -> configurationPriceRepository.findByFrameExtensionsTypeId(t.getId());

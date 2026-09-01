@@ -23,6 +23,11 @@ const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 
 // поэтому короб идёт раньше них.
 const CASCADE_ORDER: ComponentKey[] = ['leaf', 'edge', 'frame', 'doorCasing', 'frameExtensions']
 
+// Короб без записей frame_post, у которого цена задаётся выбором цвета
+// (см. change activate-fantom-frame-type), физически всё равно состоит
+// из комплекта стоек — эта строка чисто описательная, в расчёт не входит.
+const FRAME_KIT_WITHOUT_POSTS_DESCRIPTION = 'Комплект (2 стойки и верх)'
+
 const COMPONENT_LABELS: Record<ComponentKey, string> = {
   leaf: 'Полотно',
   frame: 'Коробка',
@@ -291,7 +296,7 @@ function App() {
               return (
                 <Card key={key} size="small" title={`${COMPONENT_LABELS[key]}: ${component.type.name}`}>
                   <Space direction="vertical" size="middle">
-                    {component.posts.length > 0 && (
+                    {key === 'frame' && component.posts.length > 0 && (
                       <List
                         size="small"
                         header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
@@ -304,6 +309,15 @@ function App() {
                             (дилер)
                           </List.Item>
                         )}
+                      />
+                    )}
+                    {key === 'frame' && component.posts.length === 0 && component.colourOptions.length > 0 && (
+                      <List
+                        size="small"
+                        header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+                        bordered
+                        dataSource={[FRAME_KIT_WITHOUT_POSTS_DESCRIPTION]}
+                        renderItem={(item) => <List.Item>{item}</List.Item>}
                       />
                     )}
                     <OptionGroup
