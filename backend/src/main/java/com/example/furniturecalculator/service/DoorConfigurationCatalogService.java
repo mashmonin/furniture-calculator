@@ -51,7 +51,8 @@ public class DoorConfigurationCatalogService {
                 buildFrameComponent(configuration.getFrameType()),
                 buildComponent(configuration.getEdgeType()),
                 buildComponent(configuration.getDoorCasingType()),
-                buildComponent(configuration.getFrameExtensionsType()));
+                buildComponent(configuration.getFrameExtensionsType()),
+                configuration.isReverse());
     }
 
     private ComponentCatalogDto buildLeafComponent(LeafType leafType) {

@@ -441,8 +441,8 @@ class DoorConfigurationPricingServiceTest {
 
     @Test
     void надбавка_за_реверс_применяется_к_цене_полотна_если_короб_реверсивный() {
-        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
-        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
         ConfigurationPrice leafPrice = TestEntities.configurationPrice(
                 1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
 
@@ -465,8 +465,8 @@ class DoorConfigurationPricingServiceTest {
 
     @Test
     void надбавка_за_реверс_округляется_до_целого() {
-        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
-        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
         ConfigurationPrice leafPrice = TestEntities.configurationPrice(
                 1L, BigDecimal.valueOf(33264), BigDecimal.valueOf(19007), leafType, null, null, null, null);
 
@@ -511,11 +511,11 @@ class DoorConfigurationPricingServiceTest {
 
     @Test
     void надбавка_за_реверс_не_влияет_на_цену_короба() {
-        FrameType reverseFrameType = TestEntities.frameTypeReverse(3L);
-        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, reverseFrameType, null, null, null);
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
         ConfigurationPrice leafPrice = TestEntities.configurationPrice(
                 1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
-        FramePost framePost = TestEntities.framePost(2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), reverseFrameType);
+        FramePost framePost = TestEntities.framePost(2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), frameType);
 
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));

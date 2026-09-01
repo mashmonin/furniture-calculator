@@ -6,5 +6,6 @@ public record DoorConfigurationDto(
         ComponentCatalogDto frame,
         ComponentCatalogDto edge,
         ComponentCatalogDto doorCasing,
-        ComponentCatalogDto frameExtensions) {
+        ComponentCatalogDto frameExtensions,
+        boolean reverse) {
 }

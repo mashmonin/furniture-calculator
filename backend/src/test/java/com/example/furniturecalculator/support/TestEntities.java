@@ -42,12 +42,6 @@ public final class TestEntities {
         return referenceType(FrameType.class, id);
     }
 
-    public static FrameType frameTypeReverse(long id) {
-        FrameType frameType = frameType(id);
-        ReflectionTestUtils.setField(frameType, "reverse", true);
-        return frameType;
-    }
-
     public static EdgeType edgeType(long id) {
         return referenceType(EdgeType.class, id);
     }
@@ -92,6 +86,18 @@ public final class TestEntities {
     public static DoorConfiguration doorConfiguration(
             long id, LeafType leafType, FrameType frameType, EdgeType edgeType,
             DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType) {
+        return doorConfiguration(id, leafType, frameType, edgeType, doorCasingType, frameExtensionsType, false);
+    }
+
+    public static DoorConfiguration doorConfigurationReverse(
+            long id, LeafType leafType, FrameType frameType, EdgeType edgeType,
+            DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType) {
+        return doorConfiguration(id, leafType, frameType, edgeType, doorCasingType, frameExtensionsType, true);
+    }
+
+    private static DoorConfiguration doorConfiguration(
+            long id, LeafType leafType, FrameType frameType, EdgeType edgeType,
+            DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType, boolean isReverse) {
         DoorConfiguration configuration = instantiate(DoorConfiguration.class);
         ReflectionTestUtils.setField(configuration, "id", id);
         ReflectionTestUtils.setField(configuration, "leafType", leafType);
@@ -99,6 +105,7 @@ public final class TestEntities {
         ReflectionTestUtils.setField(configuration, "edgeType", edgeType);
         ReflectionTestUtils.setField(configuration, "doorCasingType", doorCasingType);
         ReflectionTestUtils.setField(configuration, "frameExtensionsType", frameExtensionsType);
+        ReflectionTestUtils.setField(configuration, "reverse", isReverse);
         return configuration;
     }
 

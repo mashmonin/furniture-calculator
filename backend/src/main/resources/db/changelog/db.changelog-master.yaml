@@ -158,3 +158,15 @@ databaseChangeLog:
   - include:
       file: changes/0053-fantom-post-colours.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0054-rework-reverse-mechanism.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0055-evo-casing-for-reverse.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0056-fantom-reverse-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0057-komplanar-reverse-frame-extensions.yaml
+      relativeToChangelogFile: true
