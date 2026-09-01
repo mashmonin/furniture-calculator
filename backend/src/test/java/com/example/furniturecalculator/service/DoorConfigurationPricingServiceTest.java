@@ -253,6 +253,119 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void короб_с_выбранным_цветом_считается_по_цене_цвета() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        ColourOption colourOption = TestEntities.colourOption(2000L, colourType, frameType);
+        ConfigurationPrice colourPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(16850), BigDecimal.valueOf(9903), frameType, null, null, null, colourOption);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(colourOption));
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourPrice));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isTrue();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("16850");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("9903");
+    }
+
+    @Test
+    void короб_с_цветом_и_frame_post_складывает_обе_суммы() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        ColourOption colourOption = TestEntities.colourOption(2000L, colourType, frameType);
+        ConfigurationPrice colourPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(16850), BigDecimal.valueOf(9903), frameType, null, null, null, colourOption);
+        FramePost framePost = TestEntities.framePost(3L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), frameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(colourOption));
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourPrice));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isTrue();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("17350");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("10303");
+    }
+
+    @Test
+    void короб_с_цветовыми_опциями_без_выбора_цвета_некалькулируем() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        ColourOption colourOption = TestEntities.colourOption(2000L, colourType, frameType);
+        FramePost framePost = TestEntities.framePost(3L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), frameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
+
+        PricingRequestDto request =
+                new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isFalse();
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void короб_с_неоднозначным_совпадением_цвета_некалькулируем() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+        ColourOption colourOption = TestEntities.colourOption(2000L, colourType, frameType);
+        ConfigurationPrice priceA = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(16850), BigDecimal.valueOf(9903), frameType, null, null, null, colourOption);
+        ConfigurationPrice priceB = TestEntities.configurationPrice(
+                2L, BigDecimal.valueOf(17000), BigDecimal.valueOf(10000), frameType, null, null, null, colourOption);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(colourOption));
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of(colourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameTypeId(2L)).thenReturn(List.of(priceA, priceB));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isFalse();
+    }
+
+    @Test
     void высота_полотна_внутри_диапазона_кромки_расчёт_выполняется() {
         EdgeType edgeType = TestEntities.edgeType(3L);
         LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");

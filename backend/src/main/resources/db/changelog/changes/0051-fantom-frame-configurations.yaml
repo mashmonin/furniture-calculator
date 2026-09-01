@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0051-1-insert-fantom-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id)
+              SELECT lt.id, ft.id
+              FROM leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              CROSS JOIN frame_type ft
+              WHERE c.code IN ('LC-001', 'LC-002', 'LC-003', 'LC-004', 'LC-005', 'LC-006', 'LC-007', 'LC-008')
+                AND ft.code = 'FT-001'

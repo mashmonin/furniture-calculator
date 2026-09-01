@@ -149,3 +149,12 @@ databaseChangeLog:
   - include:
       file: changes/0050-sibir-edge-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0051-fantom-frame-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0052-fantom-edge-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0053-fantom-post-colours.yaml
+      relativeToChangelogFile: true

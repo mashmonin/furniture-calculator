@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0053-1-insert-fantom-colour-type-data
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Золото/бронза" }
+              - column: { name: code, value: "CT-028" }
+
+  - changeSet:
+      id: 0053-2-insert-fantom-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, frame_type_id)
+              SELECT ct.id, ft.id
+              FROM frame_type ft
+              CROSS JOIN colour_type ct
+              WHERE ft.code = 'FT-001'
+                AND ct.code IN ('CT-023', 'CT-025', 'CT-027', 'CT-028')
+
+  - changeSet:
+      id: 0053-3-insert-fantom-configuration-prices
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, frame_type_id, colour_option_id)
+              SELECT v.retail_price, v.dealer_price, ft.id, co.id
+              FROM (VALUES
+                ('CT-023', 16850::numeric, 9903::numeric),
+                ('CT-025', 18722::numeric, 11003::numeric),
+                ('CT-027', 33700::numeric, 19806::numeric),
+                ('CT-028', 33700::numeric, 19806::numeric)
+              ) AS v(colour_code, retail_price, dealer_price)
+              JOIN colour_type ct ON ct.code = v.colour_code
+              CROSS JOIN frame_type ft
+              JOIN colour_option co ON co.frame_type_id = ft.id AND co.colour_type_id = ct.id
+              WHERE ft.code = 'FT-001'
