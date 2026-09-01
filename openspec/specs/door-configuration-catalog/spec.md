@@ -24,11 +24,30 @@ Door_configuration ДОЛЖЕН (SHALL) ссылаться ровно на од�
 - **То** база данных отклоняет вставку
 
 ### Requirement: Уникальность door_configuration
-Комбинация leaf_type, frame_type, edge_type, door_casing_type и frame_extensions_type в door_configuration ДОЛЖНА (SHALL) быть уникальной — включая случаи, когда один или несколько из необязательных типов не заданы.
+Комбинация leaf_type, frame_type, edge_type, door_casing_type, frame_extensions_type и is_reverse в door_configuration ДОЛЖНА (SHALL) быть уникальной — включая случаи, когда один или несколько из необязательных типов не заданы.
 
 #### Scenario: Повторная конфигурация отклоняется
-- **Когда** вставляется вторая строка door_configuration с точно такой же комбинацией leaf_type/frame_type/edge_type/door_casing_type/frame_extensions_type (в том числе если оба раза какой-то из необязательных типов не задан)
+- **Когда** вставляется вторая строка door_configuration с точно такой же комбинацией leaf_type/frame_type/edge_type/door_casing_type/frame_extensions_type/is_reverse (в том числе если оба раза какой-то из необязательных типов не задан)
 - **То** база данных отклоняет вставку
+
+#### Scenario: Обычная и реверсивная конфигурации с одинаковыми ссылками не считаются дублем
+- **Когда** вставляются две строки door_configuration с одинаковыми leaf_type/frame_type/edge_type/door_casing_type/frame_extensions_type, но разным значением is_reverse
+- **То** обе строки успешно сохраняются
+
+### Requirement: Структура признака реверса door_configuration
+Door_configuration ДОЛЖЕН (SHALL) иметь булев признак is_reverse со значением по умолчанию false. Строка со значением is_reverse = true ДОЛЖНА (SHALL) ссылаться на frame_type (реверс-исполнение требует заданного короба, как и наличник/добор). Признак принадлежит конкретной конфигурации, а не типу короба или полотна — один и тот же frame_type и leaf_type могут участвовать как в обычных, так и в реверсивных строках door_configuration.
+
+#### Scenario: Реверс по умолчанию выключен
+- **WHEN** строка door_configuration вставляется без явного значения is_reverse
+- **THEN** строка сохраняется с is_reverse = false
+
+#### Scenario: Реверс без короба недопустим
+- **WHEN** строка door_configuration вставляется с is_reverse = true, но без ссылки на frame_type
+- **THEN** база данных отклоняет вставку
+
+#### Scenario: Один и тот же короб используется и для обычных, и для реверсивных конфигураций
+- **WHEN** для одного frame_type существуют door_configuration как с is_reverse = false, так и с is_reverse = true
+- **THEN** обе группы строк успешно сосуществуют, ссылаясь на один и тот же frame_type
 
 ### Requirement: Структура liner_dimension_option
 Liner_dimension_option ДОЛЖЕН (SHALL) ссылаться ровно на один liner_dimension_type и ровно на один справочник типа компонента среди leaf_type, frame_type, edge_type, door_casing_type, frame_extensions_type. Каждая строка описывает одно допустимое значение размера для этого типа компонента, а не размер конкретного экземпляра.
@@ -121,14 +140,3 @@ Configuration_price ДОЛЖЕН (SHALL) хранить retail_price и dealer_p
 #### Scenario: Повторная цена на ту же комбинацию отклоняется
 - **Когда** вставляется вторая строка configuration_price с точно такими же ссылками на владельца, длину, высоту, толщину и цвет (в том числе если какие-то из них одинаково не заданы)
 - **То** база данных отклоняет вставку
-
-### Requirement: Реверсивность frame_type
-Frame_type МОЖЕТ (MAY) быть отмечен как реверсивный (is_reverse). Признак реверсивности принадлежит коробу, а не полотну — leaf_type не имеет собственных реверс-вариантов; реверс-исполнение выражается исключительно выбором реверсивного короба в паре с обычной (неизменённой) моделью полотна.
-
-#### Scenario: Реверсивный короб — обычная запись frame_type
-- **WHEN** вставляется строка frame_type с is_reverse = true
-- **THEN** строка успешно сохраняется наравне с любым другим коробом, без дополнительных ограничений
-
-#### Scenario: Каталог полотна не меняется при добавлении реверс-короба
-- **WHEN** запрашивается каталог конфигураций после добавления реверсивного frame_type и связывающих его с leaf_type door_configuration
-- **THEN** список и атрибуты (name, code, collection) существующих leaf_type в ответе остаются без изменений — новые строки leaf_type не появляются
