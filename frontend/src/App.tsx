@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Divider, Empty, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
+import { Alert, Button, Card, Divider, Empty, InputNumber, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
 import { calculatePrice, fetchDoorConfigurations } from './api/doorConfigurations'
 import type {
   ComponentCatalogDto,
@@ -235,9 +235,9 @@ function App() {
     selectedConfiguration,
   } = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection, reverseSelection)
 
-  const leafHeightValue = selectedConfiguration?.leaf.dimensionOptions.find(
-    (option) => option.id === selection.leaf.heightOptionId,
-  )?.value
+  const leafHeightValue =
+    selection.leaf.customHeightValueMm ??
+    selectedConfiguration?.leaf.dimensionOptions.find((option) => option.id === selection.leaf.heightOptionId)?.value
 
   function handleCollectionChange(id: number | undefined) {
     setSelectedCollectionId(id)
@@ -289,7 +289,7 @@ function App() {
   }
 
   function updateSelection(key: ComponentKey, patch: Partial<ComponentSelectionDto>) {
-    const isLeafHeightChange = key === 'leaf' && 'heightOptionId' in patch
+    const isLeafHeightChange = key === 'leaf' && ('heightOptionId' in patch || 'customHeightValueMm' in patch)
     setSelection((prev) => {
       const next = { ...prev, [key]: { ...prev[key], ...patch } }
       if (isLeafHeightChange) {
@@ -423,8 +423,20 @@ function App() {
                         .filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
                         .map((option) => ({ id: option.id, label: String(option.value) }))}
                       selectedId={selection[key].lengthOptionId}
-                      onChange={(id) => updateSelection(key, { lengthOptionId: id })}
+                      onChange={(id) => updateSelection(key, { lengthOptionId: id, customLengthValueMm: undefined })}
                     />
+                    {key === 'leaf' && (
+                      <Space align="center">
+                        <Typography.Text type="secondary">Другое значение длины (мм)</Typography.Text>
+                        <InputNumber
+                          min={1}
+                          value={selection.leaf.customLengthValueMm}
+                          onChange={(value) =>
+                            updateSelection('leaf', { customLengthValueMm: value ?? undefined, lengthOptionId: undefined })
+                          }
+                        />
+                      </Space>
+                    )}
                     <OptionGroup
                       label="Высота"
                       options={(key === 'edge'
@@ -432,8 +444,20 @@ function App() {
                         : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
                       ).map((option) => ({ id: option.id, label: String(option.value) }))}
                       selectedId={selection[key].heightOptionId}
-                      onChange={(id) => updateSelection(key, { heightOptionId: id })}
+                      onChange={(id) => updateSelection(key, { heightOptionId: id, customHeightValueMm: undefined })}
                     />
+                    {key === 'leaf' && (
+                      <Space align="center">
+                        <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>
+                        <InputNumber
+                          min={1}
+                          value={selection.leaf.customHeightValueMm}
+                          onChange={(value) =>
+                            updateSelection('leaf', { customHeightValueMm: value ?? undefined, heightOptionId: undefined })
+                          }
+                        />
+                      </Space>
+                    )}
                     <OptionGroup
                       label="Толщина"
                       options={component.dimensionOptions

@@ -1,6 +1,14 @@
 package com.example.furniturecalculator.dto;
 
-public record ComponentSelectionDto(Long lengthOptionId, Long heightOptionId, Long thicknessOptionId, Long colourOptionId) {
+import java.math.BigDecimal;
 
-    public static final ComponentSelectionDto EMPTY = new ComponentSelectionDto(null, null, null, null);
+public record ComponentSelectionDto(
+        Long lengthOptionId,
+        Long heightOptionId,
+        Long thicknessOptionId,
+        Long colourOptionId,
+        BigDecimal customLengthValueMm,
+        BigDecimal customHeightValueMm) {
+
+    public static final ComponentSelectionDto EMPTY = new ComponentSelectionDto(null, null, null, null, null, null);
 }

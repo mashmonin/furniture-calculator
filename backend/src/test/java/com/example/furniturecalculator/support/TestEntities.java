@@ -9,6 +9,7 @@ import com.example.furniturecalculator.domain.CatalogType;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
+import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
@@ -126,6 +127,16 @@ public final class TestEntities {
         LinerDimensionOption option = linerDimensionOption(id, dimensionType, maxValue, standard, owner);
         ReflectionTestUtils.setField(option, "minValue", minValue);
         return option;
+    }
+
+    public static DimensionSurchargeRule dimensionSurchargeRule(
+            long id, LinerDimensionType dimensionType, BigDecimal value, BigDecimal surchargePercent) {
+        DimensionSurchargeRule rule = instantiate(DimensionSurchargeRule.class);
+        ReflectionTestUtils.setField(rule, "id", id);
+        ReflectionTestUtils.setField(rule, "linerDimensionType", dimensionType);
+        ReflectionTestUtils.setField(rule, "value", value);
+        ReflectionTestUtils.setField(rule, "surchargePercent", surchargePercent);
+        return rule;
     }
 
     public static ColourOption colourOption(long id, ColourType colourType, CatalogType owner) {
