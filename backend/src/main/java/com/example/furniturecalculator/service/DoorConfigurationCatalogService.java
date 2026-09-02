@@ -15,6 +15,7 @@ import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
+import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.dto.ColourOptionDto;
 import com.example.furniturecalculator.dto.ComponentCatalogDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
@@ -25,6 +26,7 @@ import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
+import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +38,7 @@ public class DoorConfigurationCatalogService {
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final ColourOptionRepository colourOptionRepository;
     private final FramePostRepository framePostRepository;
+    private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
 
     @Transactional(readOnly = true)
     public List<DoorConfigurationDto> getAllConfigurations() {
@@ -57,12 +60,16 @@ public class DoorConfigurationCatalogService {
 
     private ComponentCatalogDto buildLeafComponent(LeafType leafType) {
         ComponentCatalogDto component = buildComponent(leafType);
+        List<ReferenceDto> mirrorFinishOptions = mirrorFinishOptionRepository.findByLeafTypeId(leafType.getId()).stream()
+                .map(this::toDto)
+                .toList();
         return new ComponentCatalogDto(
                 component.type(),
                 ReferenceDto.from(leafType.getCollection()),
                 component.dimensionOptions(),
                 component.colourOptions(),
-                component.posts());
+                component.posts(),
+                mirrorFinishOptions);
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -74,7 +81,8 @@ public class DoorConfigurationCatalogService {
                 .map(this::toDto)
                 .toList();
         return new ComponentCatalogDto(
-                component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts);
+                component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
+                List.of());
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -87,7 +95,7 @@ public class DoorConfigurationCatalogService {
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()
                 .map(this::toDto)
                 .toList();
-        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of());
+        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of());
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
@@ -123,6 +131,13 @@ public class DoorConfigurationCatalogService {
 
     private ColourOptionDto toDto(ColourOption option) {
         return new ColourOptionDto(option.getId(), ReferenceDto.from(option.getColourType()));
+    }
+
+    // id — mirror_finish_type.id (не mirror_finish_option.id): тот же id клиент передаёт в запросе расчёта
+    // и по нему же ищет процент в ответе GET /api/pricing-surcharges — единое пространство id для каталога,
+    // запроса и разбивки надбавок (см. change add-mirror-finish-leaf-option).
+    private ReferenceDto toDto(MirrorFinishOption option) {
+        return new ReferenceDto(option.getMirrorFinishType().getId(), null, option.getMirrorFinishType().getName());
     }
 
     private FramePostDto toDto(FramePost post) {

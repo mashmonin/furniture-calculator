@@ -39,5 +39,7 @@ class PricingSurchargesControllerTest {
                     assertThat(rule.value()).isEqualByComparingTo("950");
                     assertThat(rule.surchargePercent()).isEqualByComparingTo("20");
                 });
+        assertThat(result.mirrorFinishSurcharges())
+                .anySatisfy(surcharge -> assertThat(surcharge.surchargePercent()).isEqualByComparingTo("30"));
     }
 }

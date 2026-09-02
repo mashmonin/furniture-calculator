@@ -1,0 +1,81 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0060-1-create-mirror-finish-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: mirror_finish_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: surcharge_percent
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0060-2-create-mirror-finish-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: mirror_finish_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: mirror_finish_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_mirror_finish_option_type
+                    references: mirror_finish_type(id)
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_mirror_finish_option_leaf_type
+                    references: leaf_type(id)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_mirror_finish_option_type_leaf ON mirror_finish_option (mirror_finish_type_id, leaf_type_id)
+
+  - changeSet:
+      id: 0060-3-insert-mirror-finish-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO mirror_finish_type (name, surcharge_percent) VALUES
+              ('Глухое плоское полотно с зеркалом с одной стороны', 30),
+              ('Глухое плоское полотно с зеркалом с фацетом с одной стороны', 40),
+              ('Глухое плоское полотно с зеркалом серое/бронза с одной стороны', 50)
+
+  - changeSet:
+      id: 0060-4-insert-mirror-finish-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO mirror_finish_option (mirror_finish_type_id, leaf_type_id)
+              SELECT mft.id, lt.id
+              FROM mirror_finish_type mft
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE c.code IN ('LC-003', 'LC-004', 'LC-005', 'LC-006', 'LC-007', 'LC-008')

@@ -20,6 +20,8 @@ import com.example.furniturecalculator.domain.LeafCollection;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
+import com.example.furniturecalculator.domain.MirrorFinishOption;
+import com.example.furniturecalculator.domain.MirrorFinishType;
 import com.example.furniturecalculator.domain.PostType;
 
 // Сущности домена не имеют публичных конструкторов/сеттеров (только Hibernate field-access),
@@ -137,6 +139,22 @@ public final class TestEntities {
         ReflectionTestUtils.setField(rule, "value", value);
         ReflectionTestUtils.setField(rule, "surchargePercent", surchargePercent);
         return rule;
+    }
+
+    public static MirrorFinishType mirrorFinishType(long id, BigDecimal surchargePercent) {
+        MirrorFinishType type = instantiate(MirrorFinishType.class);
+        ReflectionTestUtils.setField(type, "id", id);
+        ReflectionTestUtils.setField(type, "name", "Исполнение зеркала " + id);
+        ReflectionTestUtils.setField(type, "surchargePercent", surchargePercent);
+        return type;
+    }
+
+    public static MirrorFinishOption mirrorFinishOption(long id, MirrorFinishType mirrorFinishType, LeafType leafType) {
+        MirrorFinishOption option = instantiate(MirrorFinishOption.class);
+        ReflectionTestUtils.setField(option, "id", id);
+        ReflectionTestUtils.setField(option, "mirrorFinishType", mirrorFinishType);
+        ReflectionTestUtils.setField(option, "leafType", leafType);
+        return option;
     }
 
     public static ColourOption colourOption(long id, ColourType colourType, CatalogType owner) {
