@@ -8,7 +8,8 @@ public record ComponentSelectionDto(
         Long thicknessOptionId,
         Long colourOptionId,
         BigDecimal customLengthValueMm,
-        BigDecimal customHeightValueMm) {
+        BigDecimal customHeightValueMm,
+        Integer quantity) {
 
-    public static final ComponentSelectionDto EMPTY = new ComponentSelectionDto(null, null, null, null, null, null);
+    public static final ComponentSelectionDto EMPTY = new ComponentSelectionDto(null, null, null, null, null, null, null);
 }

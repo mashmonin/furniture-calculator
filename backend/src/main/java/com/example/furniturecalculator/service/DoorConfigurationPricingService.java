@@ -122,6 +122,8 @@ public class DoorConfigurationPricingService {
                     "произвольное значение размера допустимо только для компонента leaf, а не для " + componentName);
         }
 
+        int quantity = resolveQuantity(componentName, type, selection.quantity());
+
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
             components.add(framePostPrice(componentName, frameType, colourOption));
@@ -147,21 +149,49 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
-                .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, applyReverseSurcharge))
+                .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, applyReverseSurcharge, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null)));
+    }
+
+    // Количество применимо только к doorCasing/frameExtensions (см. change add-casing-extensions-quantity);
+    // для остальных компонентов (включая frame, у которого своя проверка в вызывающем коде) переданное
+    // количество — ошибка. Отсутствие количества равносильно 1 — сохраняет расчёт как за одну единицу.
+    private int resolveQuantity(String componentName, CatalogType type, Integer quantity) {
+        boolean quantityEligible = type instanceof DoorCasingType || type instanceof FrameExtensionsType;
+        if (quantity != null && !quantityEligible) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "количество допустимо только для компонентов doorCasing и frameExtensions, а не для " + componentName);
+        }
+        if (quantity == null) {
+            return 1;
+        }
+        if (quantity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "количество для компонента " + componentName + " должно быть положительным числом");
+        }
+        return quantity;
     }
 
     // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → реверс),
     // а не единым перемножением коэффициентов — так итоговая цена зависит от порядка шагов, как того требует бизнес-логика
-    // (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной композиции).
-    // price.getRetailPrice()/getDealerPrice() — цена компонента до применения этих наценок; передаётся в ответе
-    // как baseRetailPrice/baseDealerPrice (см. change redesign-door-configurator-flow), чтобы фронтенд мог
-    // показать её рядом с итоговой ценой этого компонента.
+    // (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной композиции). Количество
+    // (см. change add-casing-extensions-quantity) умножает уже посчитанную (с надбавками) цену — для
+    // компонентов, где количество вообще допустимо (doorCasing/frameExtensions), надбавок никогда нет,
+    // поэтому порядок «сначала надбавки, потом количество» не имеет практического значения.
+    // price.getRetailPrice()/getDealerPrice() — цена компонента до применения этих наценок; умноженная на
+    // количество, она передаётся в ответе как baseRetailPrice/baseDealerPrice (см. change
+    // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
-            String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge, boolean applyReverseSurcharge) {
-        BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge, applyReverseSurcharge);
-        BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge, applyReverseSurcharge);
-        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, price.getRetailPrice(), price.getDealerPrice());
+            String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
+            boolean applyReverseSurcharge, int quantity) {
+        BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
+        BigDecimal retailPrice =
+                applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge, applyReverseSurcharge).multiply(quantityMultiplier);
+        BigDecimal dealerPrice =
+                applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge, applyReverseSurcharge).multiply(quantityMultiplier);
+        BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
+        BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
+        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
     private BigDecimal applySequentialSurcharges(

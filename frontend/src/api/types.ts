@@ -53,6 +53,7 @@ export interface ComponentSelectionDto {
   colourOptionId?: number
   customLengthValueMm?: number
   customHeightValueMm?: number
+  quantity?: number
 }
 
 export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>>
