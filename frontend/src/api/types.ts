@@ -62,10 +62,23 @@ export interface ComponentPriceDto {
   priced: boolean
   retailPrice: number | null
   dealerPrice: number | null
+  baseRetailPrice: number | null
+  baseDealerPrice: number | null
 }
 
 export interface PricingResponseDto {
   totalRetailPrice: number
   totalDealerPrice: number
   components: ComponentPriceDto[]
+}
+
+export interface DimensionSurchargeRuleDto {
+  dimensionType: ReferenceDto
+  value: number
+  surchargePercent: number
+}
+
+export interface PricingSurchargesDto {
+  reverseSurchargePercent: number
+  dimensionSurchargeRules: DimensionSurchargeRuleDto[]
 }

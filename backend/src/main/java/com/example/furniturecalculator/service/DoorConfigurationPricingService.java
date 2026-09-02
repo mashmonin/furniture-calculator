@@ -61,6 +61,12 @@ public class DoorConfigurationPricingService {
     private final ConfigurationPriceRepository configurationPriceRepository;
     private final FramePostRepository framePostRepository;
 
+    // Читается PricingSurchargesController для отображения процента надбавки фронтенду
+    // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
+    public BigDecimal reverseSurchargePercent() {
+        return REVERSE_SURCHARGE_MULTIPLIER.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
+    }
+
     @Transactional(readOnly = true)
     public PricingResponseDto calculate(Long doorConfigurationId, PricingRequestDto request) {
         DoorConfiguration configuration = doorConfigurationRepository.findById(doorConfigurationId)
@@ -142,17 +148,20 @@ public class DoorConfigurationPricingService {
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
                 .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, applyReverseSurcharge))
-                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null)));
+                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null)));
     }
 
     // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → реверс),
     // а не единым перемножением коэффициентов — так итоговая цена зависит от порядка шагов, как того требует бизнес-логика
     // (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной композиции).
+    // price.getRetailPrice()/getDealerPrice() — цена компонента до применения этих наценок; передаётся в ответе
+    // как baseRetailPrice/baseDealerPrice (см. change redesign-door-configurator-flow), чтобы фронтенд мог
+    // показать её рядом с итоговой ценой этого компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge, boolean applyReverseSurcharge) {
         BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge, applyReverseSurcharge);
         BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge, applyReverseSurcharge);
-        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice);
+        return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, price.getRetailPrice(), price.getDealerPrice());
     }
 
     private BigDecimal applySequentialSurcharges(
@@ -236,6 +245,8 @@ public class DoorConfigurationPricingService {
         }
     }
 
+    // Короб не участвует ни в одной наценке (только полотно) — baseRetailPrice/baseDealerPrice
+    // всегда совпадают с итоговой ценой этого компонента (см. change redesign-door-configurator-flow).
     private ComponentPriceDto framePostPrice(String componentName, FrameType frameType, ColourOption colourOption) {
         List<FramePost> posts = framePostRepository.findByFrameTypeId(frameType.getId());
         BigDecimal postsRetailPrice = posts.stream().map(FramePost::getRetailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -244,16 +255,19 @@ public class DoorConfigurationPricingService {
         List<ColourOption> availableColours = colourOptionRepository.findByFrameTypeId(frameType.getId());
         if (availableColours.isEmpty()) {
             if (posts.isEmpty()) {
-                return new ComponentPriceDto(componentName, false, null, null);
+                return new ComponentPriceDto(componentName, false, null, null, null, null);
             }
-            return new ComponentPriceDto(componentName, true, postsRetailPrice, postsDealerPrice);
+            return new ComponentPriceDto(componentName, true, postsRetailPrice, postsDealerPrice, postsRetailPrice, postsDealerPrice);
         }
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(frameType, null, null, null, colourOption);
         return matched
-                .map(price -> new ComponentPriceDto(
-                        componentName, true, postsRetailPrice.add(price.getRetailPrice()), postsDealerPrice.add(price.getDealerPrice())))
-                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null));
+                .map(price -> {
+                    BigDecimal retailPrice = postsRetailPrice.add(price.getRetailPrice());
+                    BigDecimal dealerPrice = postsDealerPrice.add(price.getDealerPrice());
+                    return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, retailPrice, dealerPrice);
+                })
+                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
     }
 
     private LinerDimensionOption validatedDimensionOption(String componentName, CatalogType type, Long optionId) {

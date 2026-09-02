@@ -173,3 +173,6 @@ databaseChangeLog:
   - include:
       file: changes/0058-dimension-surcharge-rules.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0059-reverse-without-frame.yaml
+      relativeToChangelogFile: true
