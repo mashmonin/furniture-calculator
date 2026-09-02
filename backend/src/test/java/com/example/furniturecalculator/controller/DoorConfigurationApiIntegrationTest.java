@@ -91,7 +91,7 @@ class DoorConfigurationApiIntegrationTest {
         insertFramePost(frameTypeId, postTypeId, 1, null, BigDecimal.valueOf(300), BigDecimal.valueOf(250));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(lengthOptionId, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
+                new ComponentSelectionDto(lengthOptionId, null, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = performPost(configurationId, request, PricingResponseDto.class);
 
@@ -169,7 +169,7 @@ class DoorConfigurationApiIntegrationTest {
                 lengthDimensionTypeId, BigDecimal.valueOf(600), true, null, frameTypeId, null, null, null);
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(frameLengthOptionId, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(frameLengthOptionId, null, null, null, null, null, null), null, null, null, null);
 
         mockMvc.perform(post("/api/door-configurations/{id}/price", configurationId)
                         .contentType(MediaType.APPLICATION_JSON)

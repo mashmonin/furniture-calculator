@@ -508,6 +508,16 @@ function App() {
                         selectedId={selection[step.key].colourOptionId}
                         onChange={(id) => updateSelection(step.key, { colourOptionId: id })}
                       />
+                      {(step.key === 'doorCasing' || step.key === 'frameExtensions') && (
+                        <Space align="center">
+                          <Typography.Text type="secondary">Количество</Typography.Text>
+                          <InputNumber
+                            min={1}
+                            value={selection[step.key].quantity ?? 1}
+                            onChange={(value) => updateSelection(step.key, { quantity: value ?? undefined })}
+                          />
+                        </Space>
+                      )}
                     </Space>
                   </Card>
                 )}
@@ -556,14 +566,18 @@ function App() {
                 renderItem={(item) => {
                   const hasSurcharge =
                     item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
+                  const key = item.component as ComponentKey
+                  const hasQuantity = key === 'doorCasing' || key === 'frameExtensions'
+                  const quantity = hasQuantity ? (selection[key].quantity ?? 1) : undefined
                   return (
                     <List.Item>
                       <Space direction="vertical" size={0}>
                         <span>
-                          {COMPONENT_LABELS[item.component as ComponentKey] ?? item.component}:{' '}
+                          {COMPONENT_LABELS[key] ?? item.component}:{' '}
                           {item.priced
                             ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)`
                             : 'цена не найдена'}
+                          {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
                         </span>
                         {hasSurcharge && (
                           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
