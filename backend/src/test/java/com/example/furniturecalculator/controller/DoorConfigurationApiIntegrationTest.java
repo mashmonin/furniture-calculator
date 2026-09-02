@@ -75,6 +75,34 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     @Test
+    void каталог_возвращает_исполнения_зеркала_только_для_полотна() throws Exception {
+        Long leafTypeId = insertLeafType("IT-MIRROR-LEAF-1");
+        Long frameTypeId = insertFrameType("IT-MIRROR-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        Long mirrorFinishTypeId = insertMirrorFinishType("Зеркало с фацетом", BigDecimal.valueOf(40));
+        insertMirrorFinishOption(mirrorFinishTypeId, leafTypeId);
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.leaf().mirrorFinishOptions()).hasSize(1);
+        assertThat(created.leaf().mirrorFinishOptions().get(0).name()).isEqualTo("Зеркало с фацетом");
+        assertThat(created.frame().mirrorFinishOptions()).isEmpty();
+    }
+
+    @Test
+    void каталог_возвращает_пустой_список_исполнений_зеркала_если_их_нет() throws Exception {
+        Long leafTypeId = insertLeafType("IT-MIRROR-LEAF-2");
+        Long configurationId = insertDoorConfiguration(leafTypeId, null, null, null, null);
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.leaf().mirrorFinishOptions()).isEmpty();
+    }
+
+    @Test
     void расчёт_стоимости_суммирует_найденные_компоненты() throws Exception {
         Long leafTypeId = insertLeafType("IT-PRICE-LEAF-1");
         Long frameTypeId = insertFrameType("IT-PRICE-FRAME-1");
@@ -91,7 +119,7 @@ class DoorConfigurationApiIntegrationTest {
         insertFramePost(frameTypeId, postTypeId, 1, null, BigDecimal.valueOf(300), BigDecimal.valueOf(250));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(lengthOptionId, null, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
+                new ComponentSelectionDto(lengthOptionId, null, null, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = performPost(configurationId, request, PricingResponseDto.class);
 
@@ -169,7 +197,7 @@ class DoorConfigurationApiIntegrationTest {
                 lengthDimensionTypeId, BigDecimal.valueOf(600), true, null, frameTypeId, null, null, null);
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(frameLengthOptionId, null, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(frameLengthOptionId, null, null, null, null, null, null, null), null, null, null, null);
 
         mockMvc.perform(post("/api/door-configurations/{id}/price", configurationId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -268,5 +296,17 @@ class DoorConfigurationApiIntegrationTest {
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 Long.class, retailPrice, dealerPrice, leafTypeId, frameTypeId, edgeTypeId, doorCasingTypeId,
                 lengthOptionId, heightOptionId, colourOptionId);
+    }
+
+    private Long insertMirrorFinishType(String name, BigDecimal surchargePercent) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO mirror_finish_type (name, surcharge_percent) VALUES (?, ?) RETURNING id",
+                Long.class, name, surchargePercent);
+    }
+
+    private Long insertMirrorFinishOption(Long mirrorFinishTypeId, Long leafTypeId) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO mirror_finish_option (mirror_finish_type_id, leaf_type_id) VALUES (?, ?) RETURNING id",
+                Long.class, mirrorFinishTypeId, leafTypeId);
     }
 }

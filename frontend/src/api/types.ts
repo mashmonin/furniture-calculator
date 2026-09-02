@@ -32,6 +32,7 @@ export interface ComponentCatalogDto {
   dimensionOptions: LinerDimensionOptionDto[]
   colourOptions: ColourOptionDto[]
   posts: FramePostDto[]
+  mirrorFinishOptions: ReferenceDto[]
 }
 
 export interface DoorConfigurationDto {
@@ -54,6 +55,7 @@ export interface ComponentSelectionDto {
   customLengthValueMm?: number
   customHeightValueMm?: number
   quantity?: number
+  mirrorFinishTypeId?: number
 }
 
 export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>>
@@ -79,7 +81,14 @@ export interface DimensionSurchargeRuleDto {
   surchargePercent: number
 }
 
+export interface MirrorFinishSurchargeDto {
+  id: number
+  name: string
+  surchargePercent: number
+}
+
 export interface PricingSurchargesDto {
   reverseSurchargePercent: number
   dimensionSurchargeRules: DimensionSurchargeRuleDto[]
+  mirrorFinishSurcharges: MirrorFinishSurchargeDto[]
 }

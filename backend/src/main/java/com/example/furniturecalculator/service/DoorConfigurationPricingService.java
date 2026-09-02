@@ -25,6 +25,7 @@ import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
+import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
@@ -36,6 +37,7 @@ import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
+import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -60,6 +62,7 @@ public class DoorConfigurationPricingService {
     private final ColourOptionRepository colourOptionRepository;
     private final ConfigurationPriceRepository configurationPriceRepository;
     private final FramePostRepository framePostRepository;
+    private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
 
     // Читается PricingSurchargesController для отображения процента надбавки фронтенду
     // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
@@ -123,6 +126,7 @@ public class DoorConfigurationPricingService {
         }
 
         int quantity = resolveQuantity(componentName, type, selection.quantity());
+        BigDecimal mirrorFinishMultiplier = resolveMirrorFinishMultiplier(componentName, type, selection.mirrorFinishTypeId());
 
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
@@ -149,7 +153,8 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
-                .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, applyReverseSurcharge, quantity))
+                .map(price -> componentPriceFrom(
+                        componentName, price, leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null)));
     }
 
@@ -172,6 +177,26 @@ public class DoorConfigurationPricingService {
         return quantity;
     }
 
+    // Исполнение зеркала допустимо только для leaf (см. change add-mirror-finish-leaf-option). Запрос ссылается
+    // на mirror_finish_type.id (глобальный) — то же пространство id, что каталог и GET /api/pricing-surcharges,
+    // а не на владение (mirror_finish_option.id), в отличие от colour_option/liner_dimension_option: наценка
+    // не зависит от конкретной строки владения, только от типа, поэтому владение достаточно проверить, не выдавая
+    // его id клиенту отдельно.
+    private BigDecimal resolveMirrorFinishMultiplier(String componentName, CatalogType type, Long mirrorFinishTypeId) {
+        if (mirrorFinishTypeId == null) {
+            return BigDecimal.ONE;
+        }
+        if (!(type instanceof LeafType leafType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "исполнение зеркала допустимо только для компонента leaf, а не для " + componentName);
+        }
+        MirrorFinishOption option = mirrorFinishOptionRepository
+                .findByMirrorFinishTypeIdAndLeafTypeId(mirrorFinishTypeId, leafType.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "исполнение зеркала с id=" + mirrorFinishTypeId + " недопустимо для этого полотна"));
+        return BigDecimal.ONE.add(option.getMirrorFinishType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+    }
+
     // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → реверс),
     // а не единым перемножением коэффициентов — так итоговая цена зависит от порядка шагов, как того требует бизнес-логика
     // (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной композиции). Количество
@@ -183,21 +208,27 @@ public class DoorConfigurationPricingService {
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            boolean applyReverseSurcharge, int quantity) {
+            BigDecimal mirrorFinishMultiplier, boolean applyReverseSurcharge, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
-        BigDecimal retailPrice =
-                applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge, applyReverseSurcharge).multiply(quantityMultiplier);
-        BigDecimal dealerPrice =
-                applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge, applyReverseSurcharge).multiply(quantityMultiplier);
+        BigDecimal retailPrice = applySequentialSurcharges(
+                price.getRetailPrice(), leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge)
+                .multiply(quantityMultiplier);
+        BigDecimal dealerPrice = applySequentialSurcharges(
+                price.getDealerPrice(), leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge)
+                .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
         BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
         return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
+    // Порядок шагов: длина → высота → исполнение зеркала → реверс (см. change add-mirror-finish-leaf-option) —
+    // зеркало встаёт строго между высотой и реверсом, тем же принципом округления после каждого шага.
     private BigDecimal applySequentialSurcharges(
-            BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, boolean applyReverseSurcharge) {
+            BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal mirrorFinishMultiplier,
+            boolean applyReverseSurcharge) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
+        result = applyPercentMultiplier(result, mirrorFinishMultiplier);
         if (applyReverseSurcharge) {
             result = applyReverseSurcharge(result);
         }

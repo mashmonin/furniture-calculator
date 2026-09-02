@@ -37,6 +37,8 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
 }
 
 const COLLECTION_LABEL = 'Коллекция'
+const MIRROR_FINISH_NEEDED_LABEL = 'Нужно зеркало'
+const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
 
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
 const NONE_OPTION_ID = 0
@@ -118,6 +120,35 @@ function resolveReverseStep(
   return { resolvedReverse: configurations.length > 0 ? configurations[0].reverse : false }
 }
 
+interface MirrorFinishStep {
+  visible: boolean
+  options: ReferenceDto[]
+}
+
+// Исполнение зеркала — пред-коллекционный псевдо-шаг, симметричный resolveReverseStep, но независимый от него:
+// оценивается уже по configurations, суженным реверсом (см. design.md). Переключатель «Нужно зеркало»
+// выключен по умолчанию (аналог «без зеркала»); включение показывает варианты исполнения зеркала.
+function resolveMirrorFinishStep(configurations: DoorConfigurationDto[]): MirrorFinishStep {
+  const options = uniqueById(configurations.flatMap((configuration) => configuration.leaf.mirrorFinishOptions))
+  return { visible: options.length > 0, options }
+}
+
+function filterByMirrorFinish(
+  configurations: DoorConfigurationDto[],
+  mirrorFinishEnabled: boolean,
+  mirrorFinishTypeId: number | undefined,
+): DoorConfigurationDto[] {
+  if (!mirrorFinishEnabled) {
+    return configurations
+  }
+  if (mirrorFinishTypeId === undefined) {
+    return configurations.filter((configuration) => configuration.leaf.mirrorFinishOptions.length > 0)
+  }
+  return configurations.filter((configuration) =>
+    configuration.leaf.mirrorFinishOptions.some((option) => option.id === mirrorFinishTypeId),
+  )
+}
+
 // Сужает candidates по одному шагу CASCADE_ORDER; возвращает undefined в steps-массиве
 // вызывающей стороны, если шаг ещё не разрешён (кандидат не сужен дальше).
 function applyCascadeStep(
@@ -186,6 +217,7 @@ interface SurchargeBreakdownItem {
 function computeSurchargeBreakdown(
   pricingSurcharges: PricingSurchargesDto | null,
   leafSelection: ComponentSelectionDto,
+  mirrorFinishTypeId: number | undefined,
   isReverse: boolean,
 ): SurchargeBreakdownItem[] {
   if (!pricingSurcharges) {
@@ -210,6 +242,13 @@ function computeSurchargeBreakdown(
   if (heightRule) {
     items.push({ label: 'За нестандартную высоту', percent: heightRule.surchargePercent })
   }
+  const mirrorFinishSurcharge =
+    mirrorFinishTypeId !== undefined
+      ? pricingSurcharges.mirrorFinishSurcharges.find((surcharge) => surcharge.id === mirrorFinishTypeId)
+      : undefined
+  if (mirrorFinishSurcharge) {
+    items.push({ label: 'За исполнение зеркала', percent: mirrorFinishSurcharge.surchargePercent })
+  }
   if (isReverse) {
     items.push({ label: 'За реверс', percent: pricingSurcharges.reverseSurchargePercent })
   }
@@ -224,6 +263,8 @@ function App() {
   const [pricingSurcharges, setPricingSurcharges] = useState<PricingSurchargesDto | null>(null)
 
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
+  const [mirrorFinishEnabled, setMirrorFinishEnabled] = useState(false)
+  const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
   const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
   const [selection, setSelection] = useState(emptySelection)
@@ -277,15 +318,18 @@ function App() {
   const { reverseStep, resolvedReverse } = resolveReverseStep(configurations, reverseSelection)
   const reverseFilteredConfigurations = configurations.filter((configuration) => configuration.reverse === resolvedReverse)
 
+  const mirrorFinishStep = resolveMirrorFinishStep(reverseFilteredConfigurations)
+  const mirrorFilteredConfigurations = filterByMirrorFinish(reverseFilteredConfigurations, mirrorFinishEnabled, mirrorFinishTypeId)
+
   const collectionOptions = uniqueById(
-    reverseFilteredConfigurations
+    mirrorFilteredConfigurations
       .map((configuration) => configuration.leaf.collection)
       .filter((type): type is ReferenceDto => Boolean(type)),
   )
   const collectionFilteredConfigurations =
     selectedCollectionId === undefined
       ? []
-      : reverseFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
+      : mirrorFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
 
   const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection)
 
@@ -296,6 +340,25 @@ function App() {
 
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
+    setSelectedCollectionId(undefined)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setPricingResult(null)
+    setPricingError(null)
+  }
+
+  function handleMirrorFinishEnabledChange(checked: boolean) {
+    setMirrorFinishEnabled(checked)
+    setMirrorFinishTypeId(undefined)
+    setSelectedCollectionId(undefined)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setPricingResult(null)
+    setPricingError(null)
+  }
+
+  function handleMirrorFinishTypeChange(id: number | undefined) {
+    setMirrorFinishTypeId(id)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
@@ -372,7 +435,8 @@ function App() {
       const request: PricingRequestDto = {}
       for (const key of COMPONENT_ORDER) {
         if (selectedConfiguration[key]) {
-          request[key] = selection[key]
+          request[key] =
+            key === 'leaf' && mirrorFinishTypeId !== undefined ? { ...selection.leaf, mirrorFinishTypeId } : selection[key]
         }
       }
       const result = await calculatePrice(selectedConfiguration.id, request)
@@ -384,7 +448,12 @@ function App() {
     }
   }
 
-  const surchargeBreakdown = computeSurchargeBreakdown(pricingSurcharges, selection.leaf, selectedConfiguration?.reverse ?? false)
+  const surchargeBreakdown = computeSurchargeBreakdown(
+    pricingSurcharges,
+    selection.leaf,
+    mirrorFinishTypeId,
+    selectedConfiguration?.reverse ?? false,
+  )
 
   return (
     <div className="page">
@@ -398,11 +467,29 @@ function App() {
       )}
       {!catalogLoading && !catalogError && configurations.length > 0 && (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {reverseStep?.visible && (
-            <Space align="center">
-              <Typography.Text>Реверс</Typography.Text>
-              <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+          {(reverseStep?.visible || mirrorFinishStep.visible) && (
+            <Space align="center" size="large">
+              {reverseStep?.visible && (
+                <Space align="center">
+                  <Typography.Text>Реверс</Typography.Text>
+                  <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+                </Space>
+              )}
+              {mirrorFinishStep.visible && (
+                <Space align="center">
+                  <Typography.Text>{MIRROR_FINISH_NEEDED_LABEL}</Typography.Text>
+                  <Switch checked={mirrorFinishEnabled} onChange={handleMirrorFinishEnabledChange} />
+                </Space>
+              )}
             </Space>
+          )}
+          {mirrorFinishStep.visible && mirrorFinishEnabled && (
+            <OptionGroup
+              label={MIRROR_FINISH_LABEL}
+              options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: type.name }))}
+              selectedId={mirrorFinishTypeId}
+              onChange={handleMirrorFinishTypeChange}
+            />
           )}
           <OptionGroup
             label={COLLECTION_LABEL}
