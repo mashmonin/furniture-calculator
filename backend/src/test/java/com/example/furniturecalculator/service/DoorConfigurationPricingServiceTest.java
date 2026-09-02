@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
+import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FramePost;
@@ -31,9 +32,11 @@ import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
+import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
+import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.support.TestEntities;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +46,10 @@ class DoorConfigurationPricingServiceTest {
     private DoorConfigurationRepository doorConfigurationRepository;
     @Mock
     private LinerDimensionOptionRepository linerDimensionOptionRepository;
+    @Mock
+    private LinerDimensionTypeRepository linerDimensionTypeRepository;
+    @Mock
+    private DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
     @Mock
     private ColourOptionRepository colourOptionRepository;
     @Mock
@@ -77,7 +84,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(frameLength));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null), null, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -101,7 +108,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(lessSpecific, moreSpecific));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -127,7 +134,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(mismatched));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -150,7 +157,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(1000L, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
+                new ComponentSelectionDto(1000L, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -179,7 +186,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(priceA, priceB));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -268,7 +275,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -298,7 +305,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -354,7 +361,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -382,9 +389,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByEdgeTypeId(3L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null),
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null),
                 null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -407,9 +414,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(edgeHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null),
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null),
                 null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -431,7 +438,7 @@ class DoorConfigurationPricingServiceTest {
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null),
                 null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -534,6 +541,194 @@ class DoorConfigurationPricingServiceTest {
         assertThat(framePrice.dealerPrice()).isEqualByComparingTo("400");
         assertThat(response.totalRetailPrice()).isEqualByComparingTo("1600");
         assertThat(response.totalDealerPrice()).isEqualByComparingTo("1390");
+    }
+
+    @Test
+    void произвольная_длина_совпадающая_со_стандартным_размером_не_даёт_наценки() {
+        LinerDimensionType leafLengthType = TestEntities.linerDimensionType(101L, "DT-001");
+        LinerDimensionOption standardLength =
+                TestEntities.linerDimensionOption(1001L, leafLengthType, BigDecimal.valueOf(600), true, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of(standardLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(600), null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1000");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("900");
+    }
+
+    @Test
+    void произвольная_длина_совпадающая_с_правилом_даёт_наценку() {
+        LinerDimensionType leafLengthType = TestEntities.linerDimensionType(101L, "DT-001");
+        DimensionSurchargeRule rule = TestEntities.dimensionSurchargeRule(
+                1L, leafLengthType, BigDecimal.valueOf(950), BigDecimal.valueOf(20));
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(950)))
+                .thenReturn(Optional.of(rule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1200");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1080");
+    }
+
+    @Test
+    void неизвестное_произвольное_значение_отклоняется_400() {
+        LinerDimensionType leafLengthType = TestEntities.linerDimensionType(101L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(999)))
+                .thenReturn(Optional.empty());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(999), null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void одновременно_id_опции_и_произвольное_значение_для_одной_оси_отклоняется_400() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(1000L, null, null, null, BigDecimal.valueOf(950), null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void произвольное_значение_для_не_leaf_компонента_отклоняется_400() {
+        EdgeType edgeType = TestEntities.edgeType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, edgeType, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null,
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null),
+                null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void наценка_за_высоту_и_надбавка_за_реверс_применяются_последовательно() {
+        LinerDimensionType leafHeightType = TestEntities.linerDimensionType(102L, "DT-002");
+        DimensionSurchargeRule rule = TestEntities.dimensionSurchargeRule(
+                1L, leafHeightType, BigDecimal.valueOf(2200), BigDecimal.valueOf(20));
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(2200)))
+                .thenReturn(Optional.of(rule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200)),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        // Наценка отсутствует по длине (шаг пропускается), поэтому высота (+20%) и реверс (+10%) применяются
+        // друг за другом: 1000 -> округление(1000*1.20)=1200 -> округление(1200*1.10)=1320.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1320");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1188");
+    }
+
+    @Test
+    void наценка_за_длину_высоту_и_реверс_дают_иной_результат_чем_прежнее_единое_перемножение_коэффициентов() {
+        LinerDimensionType leafLengthType = TestEntities.linerDimensionType(101L, "DT-001");
+        LinerDimensionType leafHeightType = TestEntities.linerDimensionType(102L, "DT-002");
+        DimensionSurchargeRule lengthRule = TestEntities.dimensionSurchargeRule(
+                1L, leafLengthType, BigDecimal.valueOf(950), BigDecimal.valueOf(20));
+        DimensionSurchargeRule heightRule = TestEntities.dimensionSurchargeRule(
+                2L, leafHeightType, BigDecimal.valueOf(1900), BigDecimal.valueOf(30));
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1007), BigDecimal.valueOf(907), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
+        when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(950)))
+                .thenReturn(Optional.of(lengthRule));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(1900)))
+                .thenReturn(Optional.of(heightRule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), BigDecimal.valueOf(1900)),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        // Последовательно, с округлением после каждого шага:
+        // retail: 1007 -> округление(1007*1.20)=1208 -> округление(1208*1.30)=1570 -> округление(1570*1.10)=1727.
+        // dealer:  907 -> округление(907*1.20)=1088 -> округление(1088*1.30)=1414 -> округление(1414*1.10)=1555.
+        // Прежнее единое перемножение коэффициентов (без промежуточного округления) дало бы другой результат:
+        // retail: округление(1007*1.20*1.30)=1571 -> округление(1571*1.10)=1728;
+        // dealer: округление(907*1.20*1.30)=1415 -> округление(1415*1.10)=1557.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1727");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1555");
     }
 
     @Test

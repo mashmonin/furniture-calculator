@@ -1,0 +1,85 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0058-1-create-dimension-surcharge-rule
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: dimension_surcharge_rule
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: liner_dimension_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_dimension_surcharge_rule_liner_dimension_type
+                    references: liner_dimension_type(id)
+              - column:
+                  name: value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: surcharge_percent
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0058-2-unique-dimension-surcharge-rule-value
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_dimension_surcharge_rule_type_value ON dimension_surcharge_rule (liner_dimension_type_id, value)
+
+  - changeSet:
+      id: 0058-3-insert-leaf-length-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO dimension_surcharge_rule (liner_dimension_type_id, value, surcharge_percent)
+              SELECT dt.id, v.value, v.surcharge_percent
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES
+                (450::numeric, 20::numeric),
+                (500::numeric, 20::numeric),
+                (550::numeric, 20::numeric),
+                (650::numeric, 20::numeric),
+                (750::numeric, 20::numeric),
+                (850::numeric, 20::numeric),
+                (950::numeric, 20::numeric),
+                (1000::numeric, 20::numeric),
+                (900::numeric, 10::numeric)
+              ) AS v(value, surcharge_percent)
+              WHERE dt.code = 'DT-001'
+
+  - changeSet:
+      id: 0058-4-insert-leaf-height-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO dimension_surcharge_rule (liner_dimension_type_id, value, surcharge_percent)
+              SELECT dt.id, v.value, v.surcharge_percent
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES
+                (2200::numeric, 20::numeric),
+                (2300::numeric, 20::numeric),
+                (1900::numeric, 30::numeric),
+                (1950::numeric, 30::numeric),
+                (2050::numeric, 30::numeric),
+                (2150::numeric, 30::numeric),
+                (2400::numeric, 30::numeric),
+                (2500::numeric, 50::numeric),
+                (2600::numeric, 50::numeric),
+                (2700::numeric, 50::numeric)
+              ) AS v(value, surcharge_percent)
+              WHERE dt.code = 'DT-002'

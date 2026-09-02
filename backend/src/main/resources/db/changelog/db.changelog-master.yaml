@@ -170,3 +170,6 @@ databaseChangeLog:
   - include:
       file: changes/0057-komplanar-reverse-frame-extensions.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0058-dimension-surcharge-rules.yaml
+      relativeToChangelogFile: true
