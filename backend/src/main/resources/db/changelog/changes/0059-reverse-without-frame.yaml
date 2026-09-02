@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0059-1-drop-reverse-requires-frame-check
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration DROP CONSTRAINT chk_door_configuration_reverse_requires_frame
+
+  - changeSet:
+      id: 0059-2-insert-reverse-without-frame-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, edge_type_id, is_reverse)
+              SELECT DISTINCT dc.leaf_type_id, dc.edge_type_id, true
+              FROM door_configuration dc
+              WHERE dc.is_reverse = true
+                AND NOT EXISTS (
+                  SELECT 1 FROM door_configuration dc2
+                  WHERE dc2.is_reverse = true
+                    AND dc2.leaf_type_id = dc.leaf_type_id
+                    AND COALESCE(dc2.edge_type_id, 0) = COALESCE(dc.edge_type_id, 0)
+                    AND dc2.frame_type_id IS NULL
+                )
