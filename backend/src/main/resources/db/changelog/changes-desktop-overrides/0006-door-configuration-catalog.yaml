@@ -1,0 +1,361 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0006-door-configuration-catalog.yaml (задача 2.3
+  # change add-desktop-app-packaging). Оригинальный файл не редактируется — он уже
+  # применён к PostgreSQL. Эта версия используется только для профиля desktop
+  # (см. context "desktop" на include в db.changelog-master.yaml). Структура таблиц
+  # и check-констрейнты идентичны оригиналу; отличаются только unique-индексы —
+  # H2 не поддерживает функциональные и partial unique-индексы, поэтому вместо
+  # COALESCE(...)/WHERE ... IS NOT NULL используются generated-колонки (ANSI SQL,
+  # работает и на H2, и на PostgreSQL) поверх обычных многоколоночных индексов.
+
+  # 1. door_configuration
+  - changeSet:
+      id: 0006-1-create-door-configuration
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: door_configuration
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_door_configuration_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_door_configuration_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_door_configuration_edge_type
+                    references: edge_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_door_configuration_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_door_configuration_frame_extensions_type
+                    references: frame_extensions_type(id)
+
+  - changeSet:
+      id: 0006-2-check-door-configuration-casing-extensions-require-frame
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD CONSTRAINT chk_door_configuration_casing_extensions_require_frame CHECK (
+                (door_casing_type_id IS NULL OR frame_type_id IS NOT NULL) AND
+                (frame_extensions_type_id IS NULL OR frame_type_id IS NOT NULL)
+              )
+
+  - changeSet:
+      id: 0006-3-unique-door-configuration-combination
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD COLUMN frame_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(frame_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD COLUMN edge_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(edge_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD COLUMN door_casing_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(door_casing_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD COLUMN frame_extensions_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(frame_extensions_type_id, 0))
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_door_configuration_combination ON door_configuration (
+                leaf_type_id,
+                frame_type_norm,
+                edge_type_norm,
+                door_casing_type_norm,
+                frame_extensions_type_norm
+              )
+
+  # 2. liner_dimension_option
+  - changeSet:
+      id: 0006-4-create-liner-dimension-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: liner_dimension_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: liner_dimension_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_liner_dimension_option_liner_dimension_type
+                    references: liner_dimension_type(id)
+              - column:
+                  name: value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_standard
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimension_option_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimension_option_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimension_option_edge_type
+                    references: edge_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimension_option_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_liner_dimension_option_frame_extensions_type
+                    references: frame_extensions_type(id)
+
+  - changeSet:
+      id: 0006-5-check-liner-dimension-option-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD CONSTRAINT chk_liner_dimension_option_single_owner CHECK (
+                (CASE WHEN leaf_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_type_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0006-6-unique-liner-dimension-option-leaf-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN leaf_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN leaf_type_id IS NOT NULL THEN leaf_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_leaf_type ON liner_dimension_option (leaf_type_key, liner_dimension_type_id, value)
+
+  - changeSet:
+      id: 0006-7-unique-liner-dimension-option-frame-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN frame_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_type_id IS NOT NULL THEN frame_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_frame_type ON liner_dimension_option (frame_type_key, liner_dimension_type_id, value)
+
+  - changeSet:
+      id: 0006-8-unique-liner-dimension-option-edge-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN edge_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN edge_type_id IS NOT NULL THEN edge_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_edge_type ON liner_dimension_option (edge_type_key, liner_dimension_type_id, value)
+
+  - changeSet:
+      id: 0006-9-unique-liner-dimension-option-door-casing-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN door_casing_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN door_casing_type_id IS NOT NULL THEN door_casing_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_door_casing_type ON liner_dimension_option (door_casing_type_key, liner_dimension_type_id, value)
+
+  - changeSet:
+      id: 0006-10-unique-liner-dimension-option-frame-extensions-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN frame_extensions_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_extensions_type_id IS NOT NULL THEN frame_extensions_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_frame_extensions_type ON liner_dimension_option (frame_extensions_type_key, liner_dimension_type_id, value)
+
+  # 3. colour_option
+  - changeSet:
+      id: 0006-11-create-colour-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: colour_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: colour_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_colour_option_colour_type
+                    references: colour_type(id)
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colour_option_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colour_option_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colour_option_edge_type
+                    references: edge_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colour_option_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_colour_option_frame_extensions_type
+                    references: frame_extensions_type(id)
+
+  - changeSet:
+      id: 0006-12-check-colour-option-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD CONSTRAINT chk_colour_option_single_owner CHECK (
+                (CASE WHEN leaf_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_type_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0006-13-unique-colour-option-leaf-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD COLUMN leaf_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN leaf_type_id IS NOT NULL THEN leaf_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_colour_option_leaf_type ON colour_option (leaf_type_key, colour_type_id)
+
+  - changeSet:
+      id: 0006-14-unique-colour-option-frame-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD COLUMN frame_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_type_id IS NOT NULL THEN frame_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_colour_option_frame_type ON colour_option (frame_type_key, colour_type_id)
+
+  - changeSet:
+      id: 0006-15-unique-colour-option-edge-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD COLUMN edge_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN edge_type_id IS NOT NULL THEN edge_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_colour_option_edge_type ON colour_option (edge_type_key, colour_type_id)
+
+  - changeSet:
+      id: 0006-16-unique-colour-option-door-casing-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD COLUMN door_casing_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN door_casing_type_id IS NOT NULL THEN door_casing_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_colour_option_door_casing_type ON colour_option (door_casing_type_key, colour_type_id)
+
+  - changeSet:
+      id: 0006-17-unique-colour-option-frame-extensions-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE colour_option ADD COLUMN frame_extensions_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_extensions_type_id IS NOT NULL THEN frame_extensions_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_colour_option_frame_extensions_type ON colour_option (frame_extensions_type_key, colour_type_id)
