@@ -1,0 +1,94 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0054-rework-reverse-mechanism.yaml (задача 2.3
+  # change add-desktop-app-packaging). Оригинал не редактируется. Используется
+  # только для профиля desktop (context "desktop" на include в
+  # db.changelog-master.yaml). Изменён только changeset 0054-3 (пересборка
+  # unique-индекса) — вместо COALESCE(...) используются уже существующие
+  # generated-колонки *_norm, добавленные в changes-desktop-overrides/0006.
+  # Остальные changeset'ы (данные, drop constraint/column) идентичны оригиналу.
+  - changeSet:
+      id: 0054-1-add-door-configuration-is-reverse-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: door_configuration
+            columns:
+              - column:
+                  name: is_reverse
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0054-2-add-door-configuration-reverse-requires-frame-check
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE door_configuration ADD CONSTRAINT chk_door_configuration_reverse_requires_frame CHECK (
+                is_reverse = false OR frame_type_id IS NOT NULL
+              )
+
+  - changeSet:
+      id: 0054-3-rebuild-door-configuration-unique-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_door_configuration_combination
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_door_configuration_combination ON door_configuration (
+                leaf_type_id,
+                frame_type_norm,
+                edge_type_norm,
+                door_casing_type_norm,
+                frame_extensions_type_norm,
+                is_reverse
+              )
+
+  - changeSet:
+      id: 0054-4-copy-komplanar-reverse-configurations-to-komplanar
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id, is_reverse)
+              SELECT dc.leaf_type_id, ft2.id, dc.edge_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id, true
+              FROM door_configuration dc
+              JOIN frame_type ft4 ON ft4.id = dc.frame_type_id
+              CROSS JOIN frame_type ft2
+              WHERE ft4.code = 'FT-004' AND ft2.code = 'FT-002'
+
+  - changeSet:
+      id: 0054-5-delete-komplanar-reverse-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')
+
+  - changeSet:
+      id: 0054-6-delete-komplanar-reverse-frame-post
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM frame_post
+              WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')
+
+  - changeSet:
+      id: 0054-7-delete-komplanar-reverse-frame-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DELETE FROM frame_type WHERE code = 'FT-004'
+
+  - changeSet:
+      id: 0054-8-drop-frame-type-is-reverse-column
+      author: furniture-calculator
+      changes:
+        - dropColumn:
+            tableName: frame_type
+            columnName: is_reverse

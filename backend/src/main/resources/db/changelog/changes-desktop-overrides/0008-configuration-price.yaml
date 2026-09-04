@@ -1,0 +1,152 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0008-configuration-price.yaml (задача 2.3 change
+  # add-desktop-app-packaging). Оригинал не редактируется. Используется только для
+  # профиля desktop (context "desktop" на include в db.changelog-master.yaml).
+  # Структура таблицы идентична оригиналу; отличается только unique-индекс —
+  # вместо функционального COALESCE(...) используются generated-колонки.
+  - changeSet:
+      id: 0008-1-create-configuration-price
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: configuration_price
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: retail_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dealer_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_leaf_type
+                    references: leaf_type(id)
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: edge_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_edge_type
+                    references: edge_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_frame_extensions_type
+                    references: frame_extensions_type(id)
+              - column:
+                  name: length_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_length_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: height_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_height_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: thickness_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_thickness_option
+                    references: liner_dimension_option(id)
+              - column:
+                  name: colour_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_configuration_price_colour_option
+                    references: colour_option(id)
+
+  - changeSet:
+      id: 0008-2-check-configuration-price-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD CONSTRAINT chk_configuration_price_single_owner CHECK (
+                (CASE WHEN leaf_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN edge_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_type_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0008-3-unique-configuration-price-combination
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN leaf_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(leaf_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN frame_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(frame_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN edge_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(edge_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN door_casing_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(door_casing_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN frame_extensions_type_norm BIGINT GENERATED ALWAYS AS (COALESCE(frame_extensions_type_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN length_option_norm BIGINT GENERATED ALWAYS AS (COALESCE(length_option_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN height_option_norm BIGINT GENERATED ALWAYS AS (COALESCE(height_option_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN thickness_option_norm BIGINT GENERATED ALWAYS AS (COALESCE(thickness_option_id, 0))
+        - sql:
+            sql: >-
+              ALTER TABLE configuration_price ADD COLUMN colour_option_norm BIGINT GENERATED ALWAYS AS (COALESCE(colour_option_id, 0))
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_configuration_price_combination ON configuration_price (
+                leaf_type_norm,
+                frame_type_norm,
+                edge_type_norm,
+                door_casing_type_norm,
+                frame_extensions_type_norm,
+                length_option_norm,
+                height_option_norm,
+                thickness_option_norm,
+                colour_option_norm
+              )

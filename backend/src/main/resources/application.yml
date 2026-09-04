@@ -11,6 +11,10 @@ spring:
     open-in-view: false
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+    # Без явного contexts Liquibase не фильтрует changeset'ы по контексту вообще
+    # (выполнил бы и "desktop", и "!desktop" — см. changes-desktop-overrides).
+    # "!desktop" явно исключает H2-варианты 0006/0008/0054 для этого (PostgreSQL) профиля.
+    contexts: "!desktop"
 
 server:
   port: 8080

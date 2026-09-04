@@ -17,12 +17,22 @@ databaseChangeLog:
   - include:
       file: changes/0006-door-configuration-catalog.yaml
       relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0006-door-configuration-catalog.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
   - include:
       file: changes/0007-vertikal-leaf-configurations.yaml
       relativeToChangelogFile: true
   - include:
       file: changes/0008-configuration-price.yaml
       relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0008-configuration-price.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
   - include:
       file: changes/0009-vertikal-configuration-prices.yaml
       relativeToChangelogFile: true
@@ -161,6 +171,11 @@ databaseChangeLog:
   - include:
       file: changes/0054-rework-reverse-mechanism.yaml
       relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0054-rework-reverse-mechanism.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
   - include:
       file: changes/0055-evo-casing-for-reverse.yaml
       relativeToChangelogFile: true

@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    # Файл БД — в стандартном пользовательском каталоге ОС (не внутри .app-бандла),
+    # чтобы переустановка/обновление приложения не затрагивала данные пользователя.
+    # H2 сам создаёт все недостающие родительские директории при первом подключении.
+    url: jdbc:h2:file:${user.home}/Library/Application Support/FurnitureCalculator/data/furniture-calculator;MODE=PostgreSQL;NON_KEYWORDS=VALUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  liquibase:
+    # Включает changes-desktop-overrides/ вместо оригинальных 0006/0008/0054
+    # (несовместимые с H2 unique-индексы) — см. design.md change add-desktop-app-packaging.
+    contexts: desktop
