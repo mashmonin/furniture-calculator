@@ -1,7 +1,9 @@
 plugins {
 	id 'java'
+	id 'application'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 group = 'com.example'
@@ -16,6 +18,16 @@ java {
 
 repositories {
 	mavenCentral()
+}
+
+javafx {
+	version = '21.0.5'
+	modules = ['javafx.controls', 'javafx.web']
+}
+
+application {
+	// Запуск desktop-обёртки: ./gradlew run (обычный сервер по-прежнему через bootRun)
+	mainClass = 'com.example.furniturecalculator.desktop.DesktopLauncher'
 }
 
 dependencies {
