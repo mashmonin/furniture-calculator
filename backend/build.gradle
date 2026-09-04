@@ -7,7 +7,11 @@ plugins {
 }
 
 group = 'com.example'
-version = '0.0.1-SNAPSHOT'
+// "-PappVersion=X.Y.Z" переопределяет версию проекта — используется, в частности,
+// для CFBundleVersion desktop-сборки (см. ниже). Не "-Pversion": project.version
+// уже имеет значение по умолчанию ("unspecified") само по себе, findProperty его
+// всегда находит, и ?: тут никогда не сработал бы.
+version = findProperty('appVersion') ?: '0.0.1-SNAPSHOT'
 description = 'Furniture calculator backend'
 
 java {
@@ -50,4 +54,140 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// --- Упаковка desktop-дистрибутива (.dmg) через jlink + jpackage ---
+// Только macOS в этой итерации (см. design.md change add-desktop-app-packaging).
+// classpath собирается через стандартный installDist (application-плагин):
+// JavaFX-jar'ы отделяются от остального classpath — современный JavaFX требует
+// module-path (--add-modules), простое помещение javafx-jar'ов в -cp не работает
+// ("JavaFX runtime components are missing"), а объединение их в module-path вместе
+// с backend-классами ловит конфликт split-package. Поэтому backend остаётся на
+// classpath (jpackage --input), а JavaFX — отдельно (jpackage --app-content),
+// подключается во время выполнения через --java-options с $APPDIR.
+def javaLauncher = javaToolchains.launcherFor(java.toolchain)
+
+def desktopRuntimeModules = [
+	'java.base', 'java.compiler', 'java.desktop', 'java.instrument', 'java.logging',
+	'java.management', 'java.naming', 'java.net.http', 'java.prefs', 'java.rmi',
+	'java.scripting', 'java.security.jgss', 'java.sql', 'java.sql.rowset',
+	'java.transaction.xa', 'java.xml', 'jdk.crypto.ec', 'jdk.jfr', 'jdk.unsupported',
+	'jdk.localedata', 'javafx.controls', 'javafx.web'
+].join(',')
+
+def desktopAppLibDir = layout.buildDirectory.dir('desktop/app-lib')
+def desktopFxLibsDir = layout.buildDirectory.dir('desktop/fxlibs')
+def desktopRuntimeDir = layout.buildDirectory.dir('desktop/runtime')
+def desktopDmgDir = layout.buildDirectory.dir('desktop/dmg')
+
+tasks.register('desktopAppLibs', Sync) {
+	group = 'desktop packaging'
+	description = 'Classpath backend\'а для jpackage (все runtime-jar\'ы, кроме JavaFX)'
+	dependsOn tasks.named('installDist')
+	from(layout.buildDirectory.dir('install/furniture-calculator/lib')) {
+		exclude 'javafx-*.jar'
+	}
+	into desktopAppLibDir
+}
+
+tasks.register('desktopFxLibs', Sync) {
+	group = 'desktop packaging'
+	description = 'JavaFX runtime-jar\'ы отдельно — идут на --module-path, не на classpath'
+	dependsOn tasks.named('installDist')
+	from(layout.buildDirectory.dir('install/furniture-calculator/lib')) {
+		include 'javafx-*.jar'
+	}
+	into desktopFxLibsDir
+}
+
+tasks.register('desktopFrontendBuild', Exec) {
+	group = 'desktop packaging'
+	description = 'Прод-сборка фронтенда (npm run build) для вложения в desktop-дистрибутив'
+	workingDir = layout.projectDirectory.dir('../frontend')
+	commandLine 'npm', 'run', 'build'
+}
+
+tasks.register('desktopFrontendJar', Jar) {
+	group = 'desktop packaging'
+	description = 'Упаковывает собранный фронтенд в отдельный jar (static/) — jpackage прописывает в classpath только jar\'ы из --input, голую директорию рядом с ними он не подхватывает'
+	dependsOn tasks.named('desktopFrontendBuild')
+	archiveBaseName = 'furniture-calculator-frontend'
+	destinationDirectory = layout.buildDirectory.dir('desktop/frontend-jar')
+	from(layout.projectDirectory.dir('../frontend/dist')) {
+		into 'static'
+	}
+}
+
+tasks.register('desktopFrontendAssets', Copy) {
+	group = 'desktop packaging'
+	description = 'Добавляет jar с фронтендом в classpath desktop-дистрибутива — раздаётся backend\'ом вместо dev-сервера, см. design.md'
+	dependsOn tasks.named('desktopAppLibs'), tasks.named('desktopFrontendJar')
+	from(tasks.named('desktopFrontendJar').flatMap { it.archiveFile })
+	into desktopAppLibDir
+}
+
+tasks.register('desktopJlinkRuntime', Exec) {
+	group = 'desktop packaging'
+	description = 'Собирает урезанный JRE (jlink) под нужные модули, включая JavaFX'
+	dependsOn tasks.named('desktopFxLibs')
+	inputs.dir(desktopFxLibsDir)
+	outputs.dir(desktopRuntimeDir)
+	doFirst {
+		delete(desktopRuntimeDir)
+	}
+	def jdkHome = javaLauncher.get().metadata.installationPath
+	commandLine "${jdkHome}/bin/jlink",
+			'--module-path', "${jdkHome}/jmods:${desktopFxLibsDir.get().asFile}",
+			'--add-modules', desktopRuntimeModules,
+			'--output', desktopRuntimeDir.get().asFile.absolutePath,
+			'--strip-debug', '--no-header-files', '--no-man-pages', '--compress', 'zip-6'
+}
+
+tasks.register('desktopAppImage', Exec) {
+	group = 'desktop packaging'
+	description = 'Собирает .dmg (jpackage) со встроенным JRE и JavaFX WebView-обёрткой'
+	dependsOn tasks.named('desktopFrontendAssets'), tasks.named('desktopFxLibs'), tasks.named('desktopJlinkRuntime')
+	inputs.dir(desktopAppLibDir)
+	inputs.dir(desktopFxLibsDir)
+	inputs.dir(desktopRuntimeDir)
+	outputs.dir(desktopDmgDir)
+	doFirst {
+		delete(desktopDmgDir)
+		mkdir(desktopDmgDir)
+	}
+	def jdkHome = javaLauncher.get().metadata.installationPath
+	// CFBundleVersion — версия проекта без "-SNAPSHOT" (macOS ждёт числовой формат
+	// X[.Y[.Z]]); для сборки двух последовательных версий (задача 4.4) — переопределить
+	// версию проекта через "-PappVersion=X.Y.Z" при запуске Gradle.
+	def appVersion = project.version.toString().replace('-SNAPSHOT', '')
+	// macOS требует, чтобы первая цифра версии была не меньше 1 (иначе jpackage
+	// отказывается собирать .dmg) — у project.version сейчас "0.0.1-SNAPSHOT".
+	// Пока текущая версия проекта < 1.0.0, подменяем первую цифру на 1, не трогая
+	// сам project.version. Переопределить конкретную версию сборки — "-PappVersion=X.Y.Z".
+	def versionParts = appVersion.split('\\.')
+	if (versionParts[0] == '0') {
+		versionParts[0] = '1'
+		appVersion = versionParts.join('.')
+	}
+	def mainJarName = tasks.named('jar').get().archiveFileName.get()
+	inputs.property('appVersion', appVersion)
+	commandLine "${jdkHome}/bin/jpackage",
+			'--type', 'dmg',
+			'--name', 'Furniture Calculator',
+			'--app-version', appVersion,
+			'--vendor', 'Furniture Calculator',
+			// Стабильный между сборками — повторная установка .dmg поверх старой
+			// заменяет приложение, а не создаёт вторую копию (см. design.md).
+			'--mac-package-identifier', 'com.example.furniturecalculator',
+			'--icon', file('src/main/resources/desktop/app-icon.icns').absolutePath,
+			'--input', desktopAppLibDir.get().asFile.absolutePath,
+			'--main-jar', mainJarName,
+			'--main-class', 'com.example.furniturecalculator.desktop.DesktopLauncher',
+			'--runtime-image', desktopRuntimeDir.get().asFile.absolutePath,
+			'--app-content', desktopFxLibsDir.get().asFile.absolutePath,
+			// $APPDIR у jpackage на macOS — это Contents/app, а --app-content
+			// кладёт свою директорию рядом, в Contents/fxlibs (не внутрь app/) —
+			// отсюда "..".
+			'--java-options', '--module-path $APPDIR/../fxlibs --add-modules javafx.controls,javafx.web',
+			'--dest', desktopDmgDir.get().asFile.absolutePath
 }
