@@ -15,10 +15,10 @@
 
 ## 3. Обёртка JavaFX WebView
 
-- [ ] 3.1 Добавить JavaFX-зависимости в `backend/build.gradle` (или отдельный Gradle-модуль desktop-обёртки)
-- [ ] 3.2 Реализовать точку входа, которая поднимает Spring Boot backend в фоне (профиль `desktop`) и открывает окно `WebView`, указывающее на `localhost:<порт>`
-- [ ] 3.3 Настроить жизненный цикл: закрытие окна останавливает backend и завершает приложение
-- [ ] 3.4 Задать иконку приложения и заголовок окна
+- [x] 3.1 Добавлены JavaFX-зависимости в `backend/build.gradle` (плагин `org.openjfx.javafxplugin`, модули `javafx.controls`, `javafx.web`) в том же модуле `backend` — отдельный Gradle-модуль не потребовался. Плагин `application` + `mainClass` добавлены для удобного `./gradlew run` (обычный сервер по-прежнему через `bootRun`).
+- [x] 3.2 `backend/src/main/java/com/example/furniturecalculator/desktop/DesktopLauncher.java` — поднимает Spring Boot backend в фоновом потоке (`SpringApplicationBuilder`, профиль `desktop`, `--server.port=0` как аргумент командной строки — через `.properties(...)` не сработало бы, там более низкий приоритет, чем у `application.yml`) и после старта открывает `WebView` на `http://localhost:<реальный порт>/` (порт берётся из `WebServerApplicationContext`). Проверено тестом `DesktopLauncherBackendStartupTest` (тот же способ запуска, без самого окна) и реальным `./gradlew run`.
+- [x] 3.3 Жизненный цикл: JavaFX по умолчанию вызывает `Application.stop()` при закрытии последнего окна — переопределён так, что закрывает Spring-контекст (останавливает backend) и завершает процесс (`System.exit(0)`).
+- [x] 3.4 Заголовок окна — "Furniture Calculator". Иконка — предоставлена пользователем (файл из другого его проекта, `doctor-appointment/frontend/public/images/logopic.png`, скопирован в `backend/src/main/resources/desktop/app-icon.png`), подключена через `Stage.getIcons()`. Проверено тестом `DesktopLauncherIconTest` (загрузка ресурса как JavaFX `Image`, без ошибок, корректные размеры).
 
 ## 4. Упаковка и идентификация версий
 
