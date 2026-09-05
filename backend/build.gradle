@@ -34,6 +34,13 @@ application {
 	mainClass = 'com.example.furniturecalculator.desktop.DesktopLauncher'
 }
 
+// Spring Boot Gradle-плагин по умолчанию берёт mainClass для bootRun из application{}
+// (см. выше), если плагин application подключён — из-за этого ./gradlew bootRun
+// пытался запускать DesktopLauncher вместо обычного backend. Явно отвязываем.
+tasks.named('bootRun') {
+	mainClass = 'com.example.furniturecalculator.FurnitureCalculatorApplication'
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
