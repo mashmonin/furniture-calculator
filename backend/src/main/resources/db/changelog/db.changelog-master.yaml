@@ -200,6 +200,11 @@ databaseChangeLog:
   - include:
       file: changes/0062-frame-type-height-range-index.yaml
       relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0062-frame-type-height-range-index.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
   - include:
       file: changes/0063-neo-frame-height-configurations.yaml
       relativeToChangelogFile: true

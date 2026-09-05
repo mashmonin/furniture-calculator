@@ -1,0 +1,36 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0062-frame-type-height-range-index.yaml (см. change
+  # link-frame-neo-height-to-leaf-height). Оригинальный файл не редактируется — он уже
+  # применён к PostgreSQL. Эта версия используется только для профиля desktop
+  # (см. context "desktop" на include в db.changelog-master.yaml). Итоговая уникальность
+  # идентична оригиналу; отличается только техника — H2 не поддерживает функциональные
+  # и partial unique-индексы, поэтому вместо COALESCE(...)/WHERE ... IS NOT NULL
+  # используются generated-колонки (тот же приём, что уже применён в
+  # changes-desktop-overrides/0006-door-configuration-catalog.yaml для frame_type_key).
+  - changeSet:
+      id: 0062-1-add-liner-dimension-option-range-norm-columns
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN min_value_norm DECIMAL GENERATED ALWAYS AS (COALESCE(min_value, -1))
+        - sql:
+            sql: >-
+              ALTER TABLE liner_dimension_option ADD COLUMN max_value_norm DECIMAL GENERATED ALWAYS AS (COALESCE(max_value, -1))
+
+  - changeSet:
+      id: 0062-2-drop-liner-dimension-option-frame-type-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_liner_dimension_option_frame_type
+
+  - changeSet:
+      id: 0062-3-recreate-liner-dimension-option-frame-type-index-with-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_frame_type ON liner_dimension_option (
+                frame_type_key, liner_dimension_type_id, value, min_value_norm, max_value_norm
+              )
