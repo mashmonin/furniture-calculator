@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Alert, Button, Card, Divider, Empty, InputNumber, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
 import { calculatePrice, fetchDoorConfigurations, fetchPricingSurcharges } from './api/doorConfigurations'
+import { fetchUpdateCheck } from './api/updateCheck'
 import type {
   ComponentCatalogDto,
   ComponentKey,
@@ -11,6 +12,7 @@ import type {
   PricingResponseDto,
   PricingSurchargesDto,
   ReferenceDto,
+  UpdateCheckDto,
 } from './api/types'
 import { OptionGroup } from './components/OptionGroup'
 import './App.css'
@@ -261,6 +263,7 @@ function App() {
   const [catalogError, setCatalogError] = useState<string | null>(null)
 
   const [pricingSurcharges, setPricingSurcharges] = useState<PricingSurchargesDto | null>(null)
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckDto | null>(null)
 
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [mirrorFinishEnabled, setMirrorFinishEnabled] = useState(false)
@@ -309,6 +312,24 @@ function App() {
       })
       .catch(() => {
         // Намеренно молча: разбивка надбавок просто не будет показана после расчёта.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    // Проверка обновлений не должна ничего блокировать — при ошибке просто не
+    // показываем баннер (см. change add-desktop-app-packaging, раздел 5).
+    fetchUpdateCheck()
+      .then((data) => {
+        if (!cancelled) {
+          setUpdateCheck(data)
+        }
+      })
+      .catch(() => {
+        // Намеренно молча.
       })
     return () => {
       cancelled = true
@@ -458,6 +479,23 @@ function App() {
   return (
     <div className="page">
       <Typography.Title level={2}>Конфигуратор межкомнатных дверей</Typography.Title>
+
+      {updateCheck?.updateAvailable && (
+        <Alert
+          style={{ marginBottom: 16 }}
+          type="info"
+          showIcon
+          closable
+          message={`Доступна новая версия приложения: ${updateCheck.latestVersion}`}
+          description={
+            updateCheck.downloadUrl && (
+              <a href={updateCheck.downloadUrl} target="_blank" rel="noreferrer">
+                Скачать обновление
+              </a>
+            )
+          }
+        />
+      )}
 
       <Typography.Title level={4}>Введите данные двери</Typography.Title>
       {catalogLoading && <Spin />}

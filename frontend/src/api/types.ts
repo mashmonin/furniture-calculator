@@ -92,3 +92,9 @@ export interface PricingSurchargesDto {
   dimensionSurchargeRules: DimensionSurchargeRuleDto[]
   mirrorFinishSurcharges: MirrorFinishSurchargeDto[]
 }
+
+export interface UpdateCheckDto {
+  updateAvailable: boolean
+  latestVersion: string | null
+  downloadUrl: string | null
+}
