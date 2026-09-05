@@ -194,3 +194,12 @@ databaseChangeLog:
   - include:
       file: changes/0060-mirror-finish.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0061-liner-dimension-option-max-value.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0062-frame-type-height-range-index.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0063-neo-frame-height-configurations.yaml
+      relativeToChangelogFile: true

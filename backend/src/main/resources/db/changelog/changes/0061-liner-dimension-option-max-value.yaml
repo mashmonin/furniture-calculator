@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0061-1-add-liner-dimension-option-max-value
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimension_option
+            columns:
+              - column:
+                  name: max_value
+                  type: DECIMAL
