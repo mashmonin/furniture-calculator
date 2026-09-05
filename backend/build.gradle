@@ -67,6 +67,27 @@ tasks.named('test') {
 // подключается во время выполнения через --java-options с $APPDIR.
 def javaLauncher = javaToolchains.launcherFor(java.toolchain)
 
+// Версия для CFBundleVersion (задача 4.3) и для Implementation-Version в манифесте
+// jar'а (используется UpdateCheckService для сравнения с latestVersion — задача 5.2):
+// без "-SNAPSHOT", и с первой цифрой не меньше 1 (иначе macOS отказывается собирать
+// .dmg) — у project.version сейчас "0.0.1-SNAPSHOT". Переопределить конкретную
+// версию сборки — "-PappVersion=X.Y.Z" при запуске Gradle.
+def desktopAppVersion = {
+	def v = project.version.toString().replace('-SNAPSHOT', '')
+	def parts = v.split('\\.')
+	if (parts[0] == '0') {
+		parts[0] = '1'
+		v = parts.join('.')
+	}
+	return v
+}.call()
+
+tasks.named('jar') {
+	manifest {
+		attributes 'Implementation-Version': desktopAppVersion
+	}
+}
+
 def desktopRuntimeModules = [
 	'java.base', 'java.compiler', 'java.desktop', 'java.instrument', 'java.logging',
 	'java.management', 'java.naming', 'java.net.http', 'java.prefs', 'java.rmi',
@@ -156,25 +177,12 @@ tasks.register('desktopAppImage', Exec) {
 		mkdir(desktopDmgDir)
 	}
 	def jdkHome = javaLauncher.get().metadata.installationPath
-	// CFBundleVersion — версия проекта без "-SNAPSHOT" (macOS ждёт числовой формат
-	// X[.Y[.Z]]); для сборки двух последовательных версий (задача 4.4) — переопределить
-	// версию проекта через "-PappVersion=X.Y.Z" при запуске Gradle.
-	def appVersion = project.version.toString().replace('-SNAPSHOT', '')
-	// macOS требует, чтобы первая цифра версии была не меньше 1 (иначе jpackage
-	// отказывается собирать .dmg) — у project.version сейчас "0.0.1-SNAPSHOT".
-	// Пока текущая версия проекта < 1.0.0, подменяем первую цифру на 1, не трогая
-	// сам project.version. Переопределить конкретную версию сборки — "-PappVersion=X.Y.Z".
-	def versionParts = appVersion.split('\\.')
-	if (versionParts[0] == '0') {
-		versionParts[0] = '1'
-		appVersion = versionParts.join('.')
-	}
 	def mainJarName = tasks.named('jar').get().archiveFileName.get()
-	inputs.property('appVersion', appVersion)
+	inputs.property('appVersion', desktopAppVersion)
 	commandLine "${jdkHome}/bin/jpackage",
 			'--type', 'dmg',
 			'--name', 'Я-Конфигуратор',
-			'--app-version', appVersion,
+			'--app-version', desktopAppVersion,
 			'--vendor', 'Furniture Calculator',
 			// Стабильный между сборками — повторная установка .dmg поверх старой
 			// заменяет приложение, а не создаёт вторую копию (см. design.md).

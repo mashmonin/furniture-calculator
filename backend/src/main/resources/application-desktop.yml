@@ -11,3 +11,11 @@ spring:
     # Включает changes-desktop-overrides/ вместо оригинальных 0006/0008/0054
     # (несовместимые с H2 unique-индексы) — см. design.md change add-desktop-app-packaging.
     contexts: desktop
+
+app:
+  update-check:
+    # Статический JSON {"latestVersion": "X.Y.Z", "downloadUrl": "..."}, публикуемый
+    # вместе с релизом (см. design.md, "Проверка обновлений"). Пусто — проверка
+    # тихо не выполняется (см. UpdateCheckService). Заполнить, когда появится
+    # реальное место публикации релизов (например, GitHub Releases).
+    url: ""
