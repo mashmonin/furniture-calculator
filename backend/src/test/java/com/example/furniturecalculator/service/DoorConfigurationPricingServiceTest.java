@@ -659,6 +659,169 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void высота_полотна_внутри_диапазона_короба_компланар_расчёт_выполняется() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+        // 2600-2850 -> 3000 мм — диапазон, специфичный для короба «Компланар» (у короба «НЕО» он недоступен).
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption komplanarHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null),
+                null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_вне_диапазона_короба_компланар_возвращает_400() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption komplanarHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null),
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_короба_компланар_выбрана_без_высоты_полотна_возвращает_400() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+        LinerDimensionOption komplanarHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(2170), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY,
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null),
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void короб_компланар_без_выбранной_высоты_возвращает_400() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY,
+                ComponentSelectionDto.EMPTY,
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_в_разрыве_между_диапазонами_короба_компланар_возвращает_400() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+        // 2900 не покрывается ни диапазоном [2600, 2850] -> 3000, ни каким-либо другим — разрыв 2900-2950,
+        // где короб «Компланар» недоступен.
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2900), true, leafType);
+        LinerDimensionOption komplanarHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null),
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_ровно_2300_проходит_диапазон_точку_короба_компланар() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, komplanarFrameType, null, null, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2300), true, leafType);
+        LinerDimensionOption komplanarHeightPoint = TestEntities.linerDimensionOptionRange(
+                2001L, heightType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2300), BigDecimal.valueOf(2300), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(komplanarHeightPoint));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2001L, null, null, null, null, null, null),
+                null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void правило_диапазона_короба_компланар_действует_и_для_реверсивной_конфигурации() {
+        FrameType komplanarFrameType = TestEntities.frameType(3L, "FT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, komplanarFrameType, null, null, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption komplanarHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, komplanarFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null),
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
     void надбавка_за_реверс_применяется_к_цене_полотна_если_короб_реверсивный() {
         FrameType frameType = TestEntities.frameType(3L);
         DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
