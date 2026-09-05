@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Divider, Empty, InputNumber, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
 import { calculatePrice, fetchDoorConfigurations, fetchPricingSurcharges } from './api/doorConfigurations'
 import { fetchUpdateCheck } from './api/updateCheck'
@@ -275,6 +275,12 @@ function App() {
   const [pricingResult, setPricingResult] = useState<PricingResponseDto | null>(null)
   const [pricingLoading, setPricingLoading] = useState(false)
   const [pricingError, setPricingError] = useState<string | null>(null)
+  // Растёт на каждую попытку расчёта (успешную или нет) — используется как триггер
+  // автопрокрутки вместо самих pricingResult/pricingError: два подряд одинаковых
+  // сообщения об ошибке не изменили бы примитивное значение state и не вызвали бы
+  // повторный эффект (см. change scroll-to-pricing-result).
+  const [pricingAttempt, setPricingAttempt] = useState(0)
+  const pricingResultSectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -335,6 +341,13 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    // pricingAttempt стартует с 0 — на первом рендере ничего прокручивать не нужно.
+    if (pricingAttempt > 0) {
+      pricingResultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [pricingAttempt])
 
   const { reverseStep, resolvedReverse } = resolveReverseStep(configurations, reverseSelection)
   const reverseFilteredConfigurations = configurations.filter((configuration) => configuration.reverse === resolvedReverse)
@@ -466,6 +479,7 @@ function App() {
       setPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
     } finally {
       setPricingLoading(false)
+      setPricingAttempt((attempt) => attempt + 1)
     }
   }
 
@@ -660,62 +674,64 @@ function App() {
             Рассчитать стоимость
           </Button>
 
-          {pricingError && (
-            <Alert style={{ marginTop: 16 }} type="error" message={pricingError} showIcon />
-          )}
+          <div ref={pricingResultSectionRef}>
+            {pricingError && (
+              <Alert style={{ marginTop: 16 }} type="error" message={pricingError} showIcon />
+            )}
 
-          {pricingResult && (
-            <div style={{ marginTop: 16 }}>
-              <Space size="large">
-                <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
-                <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
-              </Space>
-              {surchargeBreakdown.length > 0 && (
+            {pricingResult && (
+              <div style={{ marginTop: 16 }}>
+                <Space size="large">
+                  <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
+                  <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
+                </Space>
+                {surchargeBreakdown.length > 0 && (
+                  <List
+                    style={{ marginTop: 16 }}
+                    size="small"
+                    header={<Typography.Text type="secondary">Надбавки к цене полотна</Typography.Text>}
+                    bordered
+                    dataSource={surchargeBreakdown}
+                    renderItem={(item) => (
+                      <List.Item>
+                        {item.label}: +{item.percent}%
+                      </List.Item>
+                    )}
+                  />
+                )}
                 <List
                   style={{ marginTop: 16 }}
-                  size="small"
-                  header={<Typography.Text type="secondary">Надбавки к цене полотна</Typography.Text>}
                   bordered
-                  dataSource={surchargeBreakdown}
-                  renderItem={(item) => (
-                    <List.Item>
-                      {item.label}: +{item.percent}%
-                    </List.Item>
-                  )}
+                  dataSource={pricingResult.components}
+                  renderItem={(item) => {
+                    const hasSurcharge =
+                      item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
+                    const key = item.component as ComponentKey
+                    const hasQuantity = key === 'doorCasing' || key === 'frameExtensions'
+                    const quantity = hasQuantity ? (selection[key].quantity ?? 1) : undefined
+                    return (
+                      <List.Item>
+                        <Space direction="vertical" size={0}>
+                          <span>
+                            {COMPONENT_LABELS[key] ?? item.component}:{' '}
+                            {item.priced
+                              ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)`
+                              : 'цена не найдена'}
+                            {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
+                          </span>
+                          {hasSurcharge && (
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                              Без надбавок: {item.baseRetailPrice} ₽ / {item.baseDealerPrice} ₽ (дилер)
+                            </Typography.Text>
+                          )}
+                        </Space>
+                      </List.Item>
+                    )
+                  }}
                 />
-              )}
-              <List
-                style={{ marginTop: 16 }}
-                bordered
-                dataSource={pricingResult.components}
-                renderItem={(item) => {
-                  const hasSurcharge =
-                    item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
-                  const key = item.component as ComponentKey
-                  const hasQuantity = key === 'doorCasing' || key === 'frameExtensions'
-                  const quantity = hasQuantity ? (selection[key].quantity ?? 1) : undefined
-                  return (
-                    <List.Item>
-                      <Space direction="vertical" size={0}>
-                        <span>
-                          {COMPONENT_LABELS[key] ?? item.component}:{' '}
-                          {item.priced
-                            ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)`
-                            : 'цена не найдена'}
-                          {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
-                        </span>
-                        {hasSurcharge && (
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            Без надбавок: {item.baseRetailPrice} ₽ / {item.baseDealerPrice} ₽ (дилер)
-                          </Typography.Text>
-                        )}
-                      </Space>
-                    </List.Item>
-                  )
-                }}
-              />
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
