@@ -67,6 +67,21 @@ tasks.named('test') {
 // подключается во время выполнения через --java-options с $APPDIR.
 def javaLauncher = javaToolchains.launcherFor(java.toolchain)
 
+// Архитектура текущей JDK (не хоста!) — тот же сигнал, что уже использует
+// org.openjfx.javafxplugin для выбора classifier'а JavaFX-jar'ов (mac / mac-aarch64).
+// Кросс-сборка невозможна: jlink/jpackage всегда встраивают JRE той же архитектуры,
+// что и JDK, из которой они запущены (см. design.md change add-arm64-desktop-build-support).
+def desktopArch = {
+	def raw = System.getProperty('os.arch')
+	if (raw == 'amd64' || raw == 'x86_64') {
+		return 'x86_64'
+	}
+	if (raw == 'aarch64' || raw == 'arm64') {
+		return 'aarch64'
+	}
+	return raw
+}.call()
+
 // Версия для CFBundleVersion (задача 4.3) и для Implementation-Version в манифесте
 // jar'а (используется UpdateCheckService для сравнения с latestVersion — задача 5.2):
 // без "-SNAPSHOT", и с первой цифрой не меньше 1 (иначе macOS отказывается собирать
@@ -96,10 +111,14 @@ def desktopRuntimeModules = [
 	'jdk.localedata', 'javafx.controls', 'javafx.web'
 ].join(',')
 
-def desktopAppLibDir = layout.buildDirectory.dir('desktop/app-lib')
-def desktopFxLibsDir = layout.buildDirectory.dir('desktop/fxlibs')
-def desktopRuntimeDir = layout.buildDirectory.dir('desktop/runtime')
-def desktopDmgDir = layout.buildDirectory.dir('desktop/dmg')
+// Под-путь по архитектуре — чтобы сборки под разные архитектуры (например, тот же
+// checkout собранный сначала на Intel, потом на Apple Silicon Mac) не затирали
+// output друг друга и не путались между собой.
+def desktopAppName = 'Я-Конфигуратор'
+def desktopAppLibDir = layout.buildDirectory.dir("desktop/${desktopArch}/app-lib")
+def desktopFxLibsDir = layout.buildDirectory.dir("desktop/${desktopArch}/fxlibs")
+def desktopRuntimeDir = layout.buildDirectory.dir("desktop/${desktopArch}/runtime")
+def desktopDmgDir = layout.buildDirectory.dir("desktop/${desktopArch}/dmg")
 
 tasks.register('desktopAppLibs', Sync) {
 	group = 'desktop packaging'
@@ -181,7 +200,7 @@ tasks.register('desktopAppImage', Exec) {
 	inputs.property('appVersion', desktopAppVersion)
 	commandLine "${jdkHome}/bin/jpackage",
 			'--type', 'dmg',
-			'--name', 'Я-Конфигуратор',
+			'--name', desktopAppName,
 			'--app-version', desktopAppVersion,
 			'--vendor', 'Furniture Calculator',
 			// Стабильный между сборками — повторная установка .dmg поверх старой
@@ -198,4 +217,50 @@ tasks.register('desktopAppImage', Exec) {
 			// отсюда "..".
 			'--java-options', '--module-path $APPDIR/../fxlibs --add-modules javafx.controls,javafx.web',
 			'--dest', desktopDmgDir.get().asFile.absolutePath
+	doLast {
+		// jpackage сам называет файл "<name>-<version>.dmg" — добавляем архитектуру
+		// в имя файла (не в --name/CFBundleName выше, чтобы не менять то, что видит
+		// пользователь в самом приложении), см. design.md.
+		File dmgDir = desktopDmgDir.get().asFile
+		File original = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}.dmg")
+		File renamed = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.dmg")
+		if (!original.renameTo(renamed)) {
+			throw new GradleException("Не удалось переименовать ${original} в ${renamed}")
+		}
+	}
+}
+
+tasks.register('desktopVerifyArch') {
+	group = 'desktop packaging'
+	description = 'Проверяет, что бинарник внутри собранного .dmg соответствует ожидаемой архитектуре (aarch64/x86_64)'
+	dependsOn tasks.named('desktopAppImage')
+	doLast {
+		File dmgFile = new File(desktopDmgDir.get().asFile, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.dmg")
+		File mountPoint = layout.buildDirectory.dir("desktop/${desktopArch}/dmg-mount").get().asFile
+		mountPoint.mkdirs()
+		Process attach = ['hdiutil', 'attach', dmgFile.absolutePath, '-nobrowse', '-readonly', '-mountpoint',
+				mountPoint.absolutePath].execute()
+		attach.waitFor()
+		if (attach.exitValue() != 0) {
+			throw new GradleException("hdiutil attach завершился с ошибкой: ${attach.err.text}")
+		}
+		try {
+			File binary = new File(mountPoint, "${desktopAppName}.app/Contents/MacOS/${desktopAppName}")
+			Process fileProcess = ['file', binary.absolutePath].execute()
+			fileProcess.waitFor()
+			String fileOutput = fileProcess.in.text
+			String expectedMarker = desktopArch == 'aarch64' ? 'arm64' : 'x86_64'
+			if (!fileOutput.contains(expectedMarker)) {
+				throw new GradleException(
+						"Архитектура бинарника не совпадает с ожидаемой (${expectedMarker}): ${fileOutput.trim()}")
+			}
+			logger.lifecycle("Архитектура подтверждена (${expectedMarker}): ${fileOutput.trim()}")
+		} finally {
+			['hdiutil', 'detach', mountPoint.absolutePath].execute().waitFor()
+		}
+	}
+}
+
+tasks.named('desktopAppImage') {
+	finalizedBy tasks.named('desktopVerifyArch')
 }
