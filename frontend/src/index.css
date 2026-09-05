@@ -1,5 +1,5 @@
 :root {
-  --text: #6b6375;
+  --text: #000;
   --text-h: #08060d;
   --bg: #fff;
   --border: #e5e4e7;
@@ -22,8 +22,11 @@
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Встроенный WebKit в JavaFX WebView (desktop-сборка) визуально "съедает"
+     тонкие штрихи шрифта сглаживанием — даже чисто чёрный текст выглядит
+     блёклым. Тонкая обводка текста тем же цветом компенсирует это, почти не
+     заметна в обычном браузере. См. change increase-ui-text-contrast. */
+  -webkit-text-stroke: 0.35px currentColor;
 
   @media (max-width: 1024px) {
     font-size: 16px;
