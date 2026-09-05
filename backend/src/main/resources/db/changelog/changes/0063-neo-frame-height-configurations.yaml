@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0063-1-insert-neo-frame-height-dimension-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, max_value, is_standard, frame_type_id)
+              SELECT ldt.id, v.value, v.min_value, v.max_value, true, ft.id
+              FROM (VALUES
+                (2170::numeric, 1900::numeric, 2100::numeric),
+                (2400::numeric, 2150::numeric, 2250::numeric),
+                (2400::numeric, 2300::numeric, 2300::numeric),
+                (2700::numeric, 2350::numeric, 2550::numeric)
+              ) AS v(value, min_value, max_value)
+              JOIN frame_type ft ON ft.code = 'FT-003'
+              CROSS JOIN liner_dimension_type ldt
+              WHERE ldt.code = 'DT-002'

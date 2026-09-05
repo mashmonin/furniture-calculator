@@ -45,6 +45,12 @@ public final class TestEntities {
         return referenceType(FrameType.class, id);
     }
 
+    public static FrameType frameType(long id, String code) {
+        FrameType type = frameType(id);
+        ReflectionTestUtils.setField(type, "code", code);
+        return type;
+    }
+
     public static EdgeType edgeType(long id) {
         return referenceType(EdgeType.class, id);
     }
@@ -128,6 +134,18 @@ public final class TestEntities {
             CatalogType owner) {
         LinerDimensionOption option = linerDimensionOption(id, dimensionType, maxValue, standard, owner);
         ReflectionTestUtils.setField(option, "minValue", minValue);
+        return option;
+    }
+
+    // Для владельцев, у которых физическое value отличается от границ диапазона родительского размера
+    // (например, короб «НЕО» — см. change link-frame-neo-height-to-leaf-height), в отличие от кромки,
+    // где value исторически совпадает с верхней границей диапазона (см. перегрузку выше).
+    public static LinerDimensionOption linerDimensionOptionRange(
+            long id, LinerDimensionType dimensionType, BigDecimal value, BigDecimal minValue, BigDecimal maxValue,
+            boolean standard, CatalogType owner) {
+        LinerDimensionOption option = linerDimensionOption(id, dimensionType, value, standard, owner);
+        ReflectionTestUtils.setField(option, "minValue", minValue);
+        ReflectionTestUtils.setField(option, "maxValue", maxValue);
         return option;
     }
 

@@ -57,6 +57,9 @@ const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
 const LENGTH_TYPE_CODE = 'DT-001'
 const HEIGHT_TYPE_CODE = 'DT-002'
 const THICKNESS_TYPE_CODE = 'DT-003'
+// Короб «НЕО» — единственный тип короба, у которого высота ограничена диапазоном высоты полотна
+// (см. change link-frame-neo-height-to-leaf-height).
+const NEO_FRAME_TYPE_CODE = 'FT-003'
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {
@@ -88,6 +91,31 @@ function edgeHeightOptions(component: ComponentCatalogDto, leafHeightValue: numb
       option.dimensionType.code === HEIGHT_TYPE_CODE &&
       (option.minValue === null || option.minValue <= leafHeightValue) &&
       leafHeightValue <= option.value,
+  )
+}
+
+// Диапазон высоты опции короба «НЕО» [minValue, maxValue] покрывает высоту уже выбранного полотна.
+// В отличие от кромки, физическая высота короба (value) не совпадает с границами этого диапазона,
+// поэтому верхней границей служит maxValue, а не value (см. change link-frame-neo-height-to-leaf-height).
+function neoFrameHeightOptionCoversLeafHeight(option: LinerDimensionOptionDto, leafHeightValue: number): boolean {
+  const max = option.maxValue ?? option.value
+  return (option.minValue === null || option.minValue <= leafHeightValue) && leafHeightValue <= max
+}
+
+function frameNeoHeightOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
+  if (leafHeightValue === undefined) {
+    return []
+  }
+  return component.dimensionOptions.filter(
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && neoFrameHeightOptionCoversLeafHeight(option, leafHeightValue),
+  )
+}
+
+// Есть ли у компонента короба «НЕО» хотя бы одна опция высоты, покрывающая leafHeightValue — используется
+// для исключения «НЕО» из каскадного выбора короба при несовместимой высоте полотна (см. buildCascadeSteps).
+function neoFrameCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
+  return component.dimensionOptions.some(
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && neoFrameHeightOptionCoversLeafHeight(option, leafHeightValue),
   )
 }
 
@@ -191,11 +219,20 @@ function applyCascadeStep(
 function buildCascadeSteps(
   configurations: DoorConfigurationDto[],
   manualSelection: Partial<Record<ComponentKey, number>>,
+  leafHeightValue?: number,
 ): { steps: CascadeStep[]; selectedConfiguration?: DoorConfigurationDto } {
   const steps: CascadeStep[] = []
   let candidates = configurations
 
   for (const key of CASCADE_ORDER) {
+    // Короб «НЕО» исключается из выбора, если высота полотна уже известна и не покрывается ни одним
+    // его диапазоном — доп. UX-слой поверх обязательной проверки на бэкенде (см. design.md, Decision 7).
+    if (key === 'frame' && leafHeightValue !== undefined) {
+      candidates = candidates.filter(
+        (configuration) =>
+          configuration.frame?.type.code !== NEO_FRAME_TYPE_CODE || neoFrameCoversHeight(configuration.frame, leafHeightValue),
+      )
+    }
     const { step, nextCandidates } = applyCascadeStep(key, candidates, manualSelection)
     if (step) {
       steps.push(step)
@@ -365,12 +402,20 @@ function App() {
       ? []
       : mirrorFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
 
-  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection)
-
-  const leafComponent = cascadeSteps.find((step) => step.key === 'leaf')?.resolvedComponent
+  // Первый проход — только чтобы узнать leafHeightValue (шаг leaf не зависит от неё, поэтому второй
+  // проход её не меняет). Второй проход использует эту высоту, чтобы исключить короб «НЕО» из шага
+  // «frame», если он ей не покрывается (см. design.md, Decision 7).
+  const firstPassSteps = buildCascadeSteps(collectionFilteredConfigurations, cascadeSelection)
+  const leafComponent = firstPassSteps.steps.find((step) => step.key === 'leaf')?.resolvedComponent
   const leafHeightValue =
     selection.leaf.customHeightValueMm ??
     leafComponent?.dimensionOptions.find((option) => option.id === selection.leaf.heightOptionId)?.value
+
+  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(
+    collectionFilteredConfigurations,
+    cascadeSelection,
+    leafHeightValue,
+  )
 
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
@@ -450,6 +495,10 @@ function App() {
       const next = { ...prev, [key]: { ...prev[key], ...patch } }
       if (isLeafHeightChange) {
         next.edge = { ...next.edge, heightOptionId: undefined }
+        const frameType = cascadeSteps.find((step) => step.key === 'frame')?.resolvedComponent?.type
+        if (frameType?.code === NEO_FRAME_TYPE_CODE) {
+          next.frame = { ...next.frame, heightOptionId: undefined }
+        }
       }
       return next
     })
@@ -613,7 +662,9 @@ function App() {
                         label="Высота"
                         options={(step.key === 'edge'
                           ? edgeHeightOptions(component, leafHeightValue)
-                          : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
+                          : step.key === 'frame' && component.type.code === NEO_FRAME_TYPE_CODE
+                            ? frameNeoHeightOptions(component, leafHeightValue)
+                            : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
                         ).map((option) => ({ id: option.id, label: String(option.value) }))}
                         selectedId={selection[step.key].heightOptionId}
                         onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}

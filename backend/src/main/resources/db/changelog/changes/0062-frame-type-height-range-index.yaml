@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0062-1-drop-liner-dimension-option-frame-type-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_liner_dimension_option_frame_type
+
+  - changeSet:
+      id: 0062-2-recreate-liner-dimension-option-frame-type-index-with-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_frame_type ON liner_dimension_option (
+                frame_type_id, liner_dimension_type_id, value, COALESCE(min_value, -1), COALESCE(max_value, -1)
+              ) WHERE frame_type_id IS NOT NULL

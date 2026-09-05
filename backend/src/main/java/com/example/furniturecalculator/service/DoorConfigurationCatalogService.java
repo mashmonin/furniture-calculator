@@ -126,6 +126,7 @@ public class DoorConfigurationCatalogService {
                 ReferenceDto.from(option.getLinerDimensionType()),
                 option.getValue(),
                 option.getMinValue(),
+                option.getMaxValue(),
                 option.isStandard());
     }
 
