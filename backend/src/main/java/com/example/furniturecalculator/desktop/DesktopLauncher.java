@@ -22,7 +22,7 @@ import com.example.furniturecalculator.FurnitureCalculatorApplication;
  */
 public class DesktopLauncher extends Application {
 
-	private static final String WINDOW_TITLE = "Furniture Calculator";
+	private static final String WINDOW_TITLE = "Я-Конфигуратор";
 	private static final String APP_ICON_RESOURCE = "/desktop/app-icon.png";
 
 	private ConfigurableApplicationContext backendContext;

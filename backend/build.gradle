@@ -173,7 +173,7 @@ tasks.register('desktopAppImage', Exec) {
 	inputs.property('appVersion', appVersion)
 	commandLine "${jdkHome}/bin/jpackage",
 			'--type', 'dmg',
-			'--name', 'Furniture Calculator',
+			'--name', 'Я-Конфигуратор',
 			'--app-version', appVersion,
 			'--vendor', 'Furniture Calculator',
 			// Стабильный между сборками — повторная установка .dmg поверх старой
