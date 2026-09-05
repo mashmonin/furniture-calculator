@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -49,9 +50,11 @@ public class DoorConfigurationPricingService {
     private static final String LENGTH_TYPE_CODE = "DT-001";
     private static final String HEIGHT_TYPE_CODE = "DT-002";
 
-    // Короб «НЕО» (frame_type, см. db.changelog 0004) — единственный тип короба, для которого высота
-    // ограничена диапазоном высоты полотна (см. change link-frame-neo-height-to-leaf-height).
-    private static final String NEO_FRAME_TYPE_CODE = "FT-003";
+    // Коды frame_type (см. db.changelog 0004), для которых высота короба ограничена диапазоном высоты
+    // полотна: «НЕО» (см. change link-frame-neo-height-to-leaf-height) и «Компланар»
+    // (см. change link-komplanar-height-to-leaf-height). Остальные типы короба (например, «Фантом»
+    // FT-001) этому правилу не подчиняются.
+    private static final Set<String> HEIGHT_RANGE_FRAME_TYPE_CODES = Set.of("FT-002", "FT-003");
 
     // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
@@ -135,15 +138,16 @@ public class DoorConfigurationPricingService {
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
             // Высота короба сама по себе не влияет на цену (framePostPrice её не использует) — здесь она
-            // только валидируется на принадлежность и, для короба «НЕО», на совместимость с высотой полотна.
-            // Для короба «НЕО» высота обязательна: без этого требования отсутствие heightOptionId тихо
-            // пропускало бы проверку диапазона (см. change link-frame-neo-height-to-leaf-height).
-            if (NEO_FRAME_TYPE_CODE.equals(frameType.getCode()) && selection.heightOptionId() == null) {
+            // только валидируется на принадлежность и, для коробов из HEIGHT_RANGE_FRAME_TYPE_CODES,
+            // на совместимость с высотой полотна. Для таких коробов высота обязательна: без этого
+            // требования отсутствие heightOptionId тихо пропускало бы проверку диапазона
+            // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
+            if (HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode()) && selection.heightOptionId() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "для короба «НЕО» необходимо выбрать высоту");
+                        "для этого короба необходимо выбрать высоту");
             }
             LinerDimensionOption heightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
-            if (heightOption != null && NEO_FRAME_TYPE_CODE.equals(frameType.getCode())) {
+            if (heightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
                 validateHeightWithinLeafRange(componentName, heightOption, leafHeightValue);
             }
             components.add(framePostPrice(componentName, frameType, colourOption));

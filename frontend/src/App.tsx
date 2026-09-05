@@ -57,9 +57,9 @@ const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
 const LENGTH_TYPE_CODE = 'DT-001'
 const HEIGHT_TYPE_CODE = 'DT-002'
 const THICKNESS_TYPE_CODE = 'DT-003'
-// Короб «НЕО» — единственный тип короба, у которого высота ограничена диапазоном высоты полотна
-// (см. change link-frame-neo-height-to-leaf-height).
-const NEO_FRAME_TYPE_CODE = 'FT-003'
+// Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар» и «НЕО»
+// (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
+const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {
@@ -94,28 +94,29 @@ function edgeHeightOptions(component: ComponentCatalogDto, leafHeightValue: numb
   )
 }
 
-// Диапазон высоты опции короба «НЕО» [minValue, maxValue] покрывает высоту уже выбранного полотна.
+// Диапазон высоты опции короба [minValue, maxValue] покрывает высоту уже выбранного полотна.
 // В отличие от кромки, физическая высота короба (value) не совпадает с границами этого диапазона,
 // поэтому верхней границей служит maxValue, а не value (см. change link-frame-neo-height-to-leaf-height).
-function neoFrameHeightOptionCoversLeafHeight(option: LinerDimensionOptionDto, leafHeightValue: number): boolean {
+function frameHeightRangeOptionCoversLeafHeight(option: LinerDimensionOptionDto, leafHeightValue: number): boolean {
   const max = option.maxValue ?? option.value
   return (option.minValue === null || option.minValue <= leafHeightValue) && leafHeightValue <= max
 }
 
-function frameNeoHeightOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
+function frameHeightRangeOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
   if (leafHeightValue === undefined) {
     return []
   }
   return component.dimensionOptions.filter(
-    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && neoFrameHeightOptionCoversLeafHeight(option, leafHeightValue),
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && frameHeightRangeOptionCoversLeafHeight(option, leafHeightValue),
   )
 }
 
-// Есть ли у компонента короба «НЕО» хотя бы одна опция высоты, покрывающая leafHeightValue — используется
-// для исключения «НЕО» из каскадного выбора короба при несовместимой высоте полотна (см. buildCascadeSteps).
-function neoFrameCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
+// Есть ли у компонента короба (из HEIGHT_RANGE_FRAME_TYPE_CODES) хотя бы одна опция высоты, покрывающая
+// leafHeightValue — используется для исключения этого типа короба из каскадного выбора при несовместимой
+// высоте полотна (см. buildCascadeSteps).
+function frameCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
   return component.dimensionOptions.some(
-    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && neoFrameHeightOptionCoversLeafHeight(option, leafHeightValue),
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && frameHeightRangeOptionCoversLeafHeight(option, leafHeightValue),
   )
 }
 
@@ -225,12 +226,15 @@ function buildCascadeSteps(
   let candidates = configurations
 
   for (const key of CASCADE_ORDER) {
-    // Короб «НЕО» исключается из выбора, если высота полотна уже известна и не покрывается ни одним
-    // его диапазоном — доп. UX-слой поверх обязательной проверки на бэкенде (см. design.md, Decision 7).
+    // Короб из HEIGHT_RANGE_FRAME_TYPE_CODES исключается из выбора, если высота полотна уже известна
+    // и не покрывается ни одним его диапазоном — доп. UX-слой поверх обязательной проверки на бэкенде
+    // (см. design.md, Decision 7 в link-frame-neo-height-to-leaf-height).
     if (key === 'frame' && leafHeightValue !== undefined) {
       candidates = candidates.filter(
         (configuration) =>
-          configuration.frame?.type.code !== NEO_FRAME_TYPE_CODE || neoFrameCoversHeight(configuration.frame, leafHeightValue),
+          !configuration.frame ||
+          !HEIGHT_RANGE_FRAME_TYPE_CODES.includes(configuration.frame.type.code) ||
+          frameCoversHeight(configuration.frame, leafHeightValue),
       )
     }
     const { step, nextCandidates } = applyCascadeStep(key, candidates, manualSelection)
@@ -496,7 +500,7 @@ function App() {
       if (isLeafHeightChange) {
         next.edge = { ...next.edge, heightOptionId: undefined }
         const frameType = cascadeSteps.find((step) => step.key === 'frame')?.resolvedComponent?.type
-        if (frameType?.code === NEO_FRAME_TYPE_CODE) {
+        if (frameType && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameType.code)) {
           next.frame = { ...next.frame, heightOptionId: undefined }
         }
       }
@@ -662,8 +666,8 @@ function App() {
                         label="Высота"
                         options={(step.key === 'edge'
                           ? edgeHeightOptions(component, leafHeightValue)
-                          : step.key === 'frame' && component.type.code === NEO_FRAME_TYPE_CODE
-                            ? frameNeoHeightOptions(component, leafHeightValue)
+                          : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
+                            ? frameHeightRangeOptions(component, leafHeightValue)
                             : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
                         ).map((option) => ({ id: option.id, label: String(option.value) }))}
                         selectedId={selection[step.key].heightOptionId}

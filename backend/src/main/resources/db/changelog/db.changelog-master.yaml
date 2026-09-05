@@ -203,3 +203,6 @@ databaseChangeLog:
   - include:
       file: changes/0063-neo-frame-height-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0064-komplanar-frame-height-configurations.yaml
+      relativeToChangelogFile: true
