@@ -1,6 +1,21 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { Alert, Button, Card, Divider, Empty, InputNumber, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
 import {
+  Alert,
+  Button,
+  Card,
+  Collapse,
+  Empty,
+  InputNumber,
+  List,
+  Menu,
+  Space,
+  Spin,
+  Statistic,
+  Switch,
+  Typography,
+} from 'antd'
+import {
+  calculateLeafPrice,
   calculatePrice,
   fetchDoorConfigurations,
   fetchHardwareCatalog,
@@ -33,6 +48,16 @@ const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 
 // каждый сужает candidates до того, как начинается перебор CASCADE_ORDER, точно так же, как раньше только
 // коллекция вычислялась отдельно от каскада типов компонентов.
 const CASCADE_ORDER: ComponentKey[] = ['leaf', 'edge', 'frame', 'doorCasing', 'frameExtensions']
+
+// Раздел «Полотно» (см. change redesign-configurator-layout) — кромка относится сюда, а не к «Короб и
+// обрамление»: она характеризует край самого полотна, тогда как короб/наличник/добор образуют дверной
+// портал, существующий независимо от факта установки полотна.
+const LEAF_PANEL_STEP_KEYS: ComponentKey[] = ['leaf', 'edge']
+const FRAME_GROUP_PANEL_STEP_KEYS: ComponentKey[] = ['frame', 'doorCasing', 'frameExtensions']
+
+// Задержка перед отправкой запроса расчёта после последнего изменения конфигурации (debounce) — единая
+// для всех типов изменений (см. design.md изменения redesign-configurator-layout).
+const PRICING_DEBOUNCE_MS = 500
 
 // Короб без записей frame_post, у которого цена задаётся выбором цвета
 // (см. change activate-fantom-frame-type), физически всё равно состоит
@@ -405,6 +430,8 @@ function computeSurchargeBreakdown(
   return items
 }
 
+const SERVICE_MENU_ITEMS = [{ key: 'door-configurator', label: 'Межкомнатные двери' }]
+
 function App() {
   const [configurations, setConfigurations] = useState<DoorConfigurationDto[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
@@ -429,12 +456,10 @@ function App() {
   const [pricingResult, setPricingResult] = useState<PricingResponseDto | null>(null)
   const [pricingLoading, setPricingLoading] = useState(false)
   const [pricingError, setPricingError] = useState<string | null>(null)
-  // Растёт на каждую попытку расчёта (успешную или нет) — используется как триггер
-  // автопрокрутки вместо самих pricingResult/pricingError: два подряд одинаковых
-  // сообщения об ошибке не изменили бы примитивное значение state и не вызвали бы
-  // повторный эффект (см. change scroll-to-pricing-result).
-  const [pricingAttempt, setPricingAttempt] = useState(0)
-  const pricingResultSectionRef = useRef<HTMLDivElement>(null)
+  // Возрастающий номер последнего фактически отправленного запроса расчёта — ответ применяется к
+  // состоянию, только если совпадает с этим номером на момент получения (см. design.md изменения
+  // redesign-configurator-layout, «Замена кнопки на debounce-триггер с защитой от гонки устаревших ответов»).
+  const requestSeqRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -523,13 +548,6 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    // pricingAttempt стартует с 0 — на первом рендере ничего прокручивать не нужно.
-    if (pricingAttempt > 0) {
-      pricingResultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [pricingAttempt])
-
   const { reverseStep, resolvedReverse } = resolveReverseStep(configurations, reverseSelection)
   const reverseFilteredConfigurations = configurations.filter((configuration) => configuration.reverse === resolvedReverse)
 
@@ -561,13 +579,102 @@ function App() {
     leafHeightValue,
   )
 
+  // Пока конкретная door_configuration ещё не определена, но тип полотна уже определён, расчёт
+  // выполняется по отдельному полотну (см. change add-standalone-leaf-pricing) — само по себе
+  // отсутствие короба/наличника/добора больше не блокирует появление цены.
+  const leafTypeId = leafComponent?.type.id
+
+  // Если даже полотно ещё не определено, cascadeSteps заканчивается ровно тем шагом, который его
+  // блокирует (buildCascadeSteps возвращается сразу же, как только очередной шаг требует явного
+  // выбора) — используем это, чтобы подсказать пользователю, какой шаг заполнить дальше.
+  const pendingStepKey =
+    leafTypeId === undefined && cascadeSteps.length > 0 ? cascadeSteps[cascadeSteps.length - 1].key : undefined
+
+  // Автоматический расчёт стоимости по текущему выбору вместо кнопки «Рассчитать стоимость»
+  // (см. specs/door-configurator-ui, «Автоматический расчёт стоимости по текущему выбору»): срабатывает
+  // при каждом изменении входов запроса, с паузой debounce, и игнорирует ответы, устаревшие к моменту
+  // получения (см. requestSeqRef выше). Пока не определена конкретная конфигурация, но определено
+  // полотно, используется расчёт отдельного полотна (см. «Использование расчёта отдельного полотна
+  // до определения конфигурации»); как только конфигурация определена — расчёт переключается на неё.
+  useEffect(() => {
+    if (!selectedConfiguration && leafTypeId === undefined) {
+      setPricingResult(null)
+      setPricingError(null)
+      setPricingLoading(false)
+      return
+    }
+
+    setPricingLoading(true)
+    const requestId = ++requestSeqRef.current
+    let cancelled = false
+
+    const timer = window.setTimeout(() => {
+      const leafSelection =
+        mirrorFinishTypeId !== undefined ? { ...selection.leaf, mirrorFinishTypeId } : selection.leaf
+      // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
+      // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
+      const hardwareSelections: HardwareSelectionDto[] = hardwareLines
+        .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
+        .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
+
+      let pricingPromise: Promise<PricingResponseDto>
+      if (selectedConfiguration) {
+        const request: PricingRequestDto = {}
+        for (const key of COMPONENT_ORDER) {
+          if (selectedConfiguration[key]) {
+            request[key] = key === 'leaf' ? leafSelection : selection[key]
+          }
+        }
+        if (hardwareSelections.length > 0) {
+          request.hardware = hardwareSelections
+        }
+        pricingPromise = calculatePrice(selectedConfiguration.id, request)
+      } else if (leafTypeId !== undefined) {
+        // У отдельного полотна нет door_configuration.is_reverse — передаём текущее значение
+        // переключателя «Реверс» явно (см. change add-standalone-leaf-pricing).
+        const request: PricingRequestDto = { leaf: leafSelection, isReverse: resolvedReverse }
+        if (hardwareSelections.length > 0) {
+          request.hardware = hardwareSelections
+        }
+        pricingPromise = calculateLeafPrice(leafTypeId, request)
+      } else {
+        return
+      }
+
+      pricingPromise
+        .then((result) => {
+          if (!cancelled && requestId === requestSeqRef.current) {
+            setPricingResult(result)
+            setPricingError(null)
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled && requestId === requestSeqRef.current) {
+            // Ошибка замещает собой ранее показанный результат, а не отображается рядом с ним
+            // (см. design.md изменения redesign-configurator-layout).
+            setPricingResult(null)
+            setPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
+          }
+        })
+        .finally(() => {
+          if (!cancelled && requestId === requestSeqRef.current) {
+            setPricingLoading(false)
+          }
+        })
+    }, PRICING_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConfiguration, leafTypeId, resolvedReverse, selection, mirrorFinishTypeId, hardwareLines])
+
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function handleMirrorFinishEnabledChange(checked: boolean) {
@@ -576,8 +683,6 @@ function App() {
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function handleMirrorFinishTypeChange(id: number | undefined) {
@@ -585,16 +690,12 @@ function App() {
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function handleCollectionChange(id: number | undefined) {
     setSelectedCollectionId(id)
     setCascadeSelection({})
     setSelection(emptySelection())
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function handleCascadeStepChange(key: ComponentKey, id: number | undefined) {
@@ -629,8 +730,6 @@ function App() {
       }
       return next
     })
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function updateSelection(key: ComponentKey, patch: Partial<ComponentSelectionDto>) {
@@ -657,10 +756,6 @@ function App() {
       }
       return next
     })
-    // Любое изменение в блоке «Введите данные двери» делает показанный результат неактуальным —
-    // скрываем его до тех пор, пока пользователь заново не вызовет расчёт стоимости.
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function addHardwareLine() {
@@ -670,46 +765,10 @@ function App() {
 
   function removeHardwareLine(key: number) {
     setHardwareLines((prev) => prev.filter((line) => line.key !== key))
-    setPricingResult(null)
-    setPricingError(null)
   }
 
   function updateHardwareLine(key: number, patch: Partial<HardwareLine>) {
     setHardwareLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
-    setPricingResult(null)
-    setPricingError(null)
-  }
-
-  async function handleCalculate() {
-    if (!selectedConfiguration) {
-      return
-    }
-    setPricingLoading(true)
-    setPricingError(null)
-    try {
-      const request: PricingRequestDto = {}
-      for (const key of COMPONENT_ORDER) {
-        if (selectedConfiguration[key]) {
-          request[key] =
-            key === 'leaf' && mirrorFinishTypeId !== undefined ? { ...selection.leaf, mirrorFinishTypeId } : selection[key]
-        }
-      }
-      // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
-      // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
-      const hardwareSelections: HardwareSelectionDto[] = hardwareLines
-        .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
-        .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
-      if (hardwareSelections.length > 0) {
-        request.hardware = hardwareSelections
-      }
-      const result = await calculatePrice(selectedConfiguration.id, request)
-      setPricingResult(result)
-    } catch (error) {
-      setPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
-    } finally {
-      setPricingLoading(false)
-      setPricingAttempt((attempt) => attempt + 1)
-    }
   }
 
   const surchargeBreakdown = computeSurchargeBreakdown(
@@ -719,209 +778,190 @@ function App() {
     selectedConfiguration?.reverse ?? false,
   )
 
-  return (
-    <div className="page">
-      <Typography.Title level={2}>Конфигуратор межкомнатных дверей</Typography.Title>
-
-      {updateCheck?.updateAvailable && (
-        <Alert
-          style={{ marginBottom: 16 }}
-          type="info"
-          showIcon
-          closable
-          message={`Доступна новая версия приложения: ${updateCheck.latestVersion}`}
-          description={
-            updateCheck.downloadUrl && (
-              <a href={updateCheck.downloadUrl} target="_blank" rel="noreferrer">
-                Скачать обновление
-              </a>
-            )
-          }
+  function renderCascadeStep(step: CascadeStep) {
+    const component = step.resolvedComponent
+    return (
+      <Fragment key={step.key}>
+        <OptionGroup
+          label={COMPONENT_LABELS[step.key]}
+          options={[
+            ...step.availableTypes.map((type) => ({ id: type.id, label: type.name })),
+            ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[step.key] }] : []),
+          ]}
+          selectedId={step.selectedId}
+          onChange={(id) => handleCascadeStepChange(step.key, id)}
         />
-      )}
-
-      <Typography.Title level={4}>Введите данные двери</Typography.Title>
-      {catalogLoading && <Spin />}
-      {catalogError && <Alert type="error" message={catalogError} showIcon />}
-      {!catalogLoading && !catalogError && configurations.length === 0 && (
-        <Empty description="Нет доступных конфигураций" />
-      )}
-      {!catalogLoading && !catalogError && configurations.length > 0 && (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {(reverseStep?.visible || mirrorFinishStep.visible) && (
-            <Space align="center" size="large">
-              {reverseStep?.visible && (
+        {component && (
+          <Card size="small" title={`${COMPONENT_LABELS[step.key]}: ${component.type.name}`}>
+            <Space direction="vertical" size="middle">
+              {step.key === 'frame' && component.posts.length > 0 && (
+                <List
+                  size="small"
+                  header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+                  bordered
+                  dataSource={component.posts}
+                  renderItem={(post) => (
+                    <List.Item>
+                      {post.postType.name} × {post.quantity}
+                      {post.length !== null ? `, длина ${post.length}` : ''} — {post.retailPrice} ₽ / {post.dealerPrice} ₽
+                      (дилер)
+                    </List.Item>
+                  )}
+                />
+              )}
+              {step.key === 'frame' && component.posts.length === 0 && component.colourOptions.length > 0 && (
+                <List
+                  size="small"
+                  header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+                  bordered
+                  dataSource={[FRAME_KIT_WITHOUT_POSTS_DESCRIPTION]}
+                  renderItem={(item) => <List.Item>{item}</List.Item>}
+                />
+              )}
+              <OptionGroup
+                label="Длина"
+                options={(step.key === 'frameExtensions' && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
+                  ? lengthRangeOptions(component, leafHeightValue)
+                  : step.key === 'doorCasing' && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(component.type.code)
+                    ? lengthRangeOptions(component, leafHeightValue)
+                    : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
+                ).map((option) => ({ id: option.id, label: String(option.value) }))}
+                selectedId={selection[step.key].lengthOptionId}
+                onChange={(id) => updateSelection(step.key, { lengthOptionId: id, customLengthValueMm: undefined })}
+              />
+              {step.key === 'leaf' && (
                 <Space align="center">
-                  <Typography.Text>Реверс</Typography.Text>
-                  <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+                  <Typography.Text type="secondary">Другое значение длины (мм)</Typography.Text>
+                  <InputNumber
+                    min={1}
+                    step={50}
+                    value={selection.leaf.customLengthValueMm}
+                    onChange={(value) =>
+                      updateSelection('leaf', { customLengthValueMm: value ?? undefined, lengthOptionId: undefined })
+                    }
+                  />
                 </Space>
               )}
-              {mirrorFinishStep.visible && (
+              {step.key === 'frame' && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(component.type.code) ? (
+                <OptionGroup
+                  label="Высота"
+                  options={
+                    leafHeightValue === undefined
+                      ? []
+                      : [{ id: MIRROR_HEIGHT_OPTION_ID, label: String(leafHeightValue) }]
+                  }
+                  selectedId={selection.frame.customHeightValueMm !== undefined ? MIRROR_HEIGHT_OPTION_ID : undefined}
+                  onChange={(id) =>
+                    updateSelection('frame', {
+                      customHeightValueMm: id === MIRROR_HEIGHT_OPTION_ID ? leafHeightValue : undefined,
+                    })
+                  }
+                />
+              ) : (
+                <OptionGroup
+                  label="Высота"
+                  options={(step.key === 'edge'
+                    ? edgeHeightOptions(component, leafHeightValue)
+                    : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
+                      ? frameHeightRangeOptions(component, leafHeightValue)
+                      : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
+                  ).map((option) => ({ id: option.id, label: String(option.value) }))}
+                  selectedId={selection[step.key].heightOptionId}
+                  onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}
+                />
+              )}
+              {step.key === 'leaf' && (
                 <Space align="center">
-                  <Typography.Text>{MIRROR_FINISH_NEEDED_LABEL}</Typography.Text>
-                  <Switch checked={mirrorFinishEnabled} onChange={handleMirrorFinishEnabledChange} />
+                  <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>
+                  <InputNumber
+                    min={1}
+                    step={50}
+                    value={selection.leaf.customHeightValueMm}
+                    onChange={(value) =>
+                      updateSelection('leaf', { customHeightValueMm: value ?? undefined, heightOptionId: undefined })
+                    }
+                  />
+                </Space>
+              )}
+              <OptionGroup
+                label="Толщина"
+                options={component.dimensionOptions
+                  .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
+                  .map((option) => ({ id: option.id, label: String(option.value) }))}
+                selectedId={selection[step.key].thicknessOptionId}
+                onChange={(id) => updateSelection(step.key, { thicknessOptionId: id })}
+              />
+              <OptionGroup
+                label="Цвет"
+                options={component.colourOptions.map((option) => ({
+                  id: option.id,
+                  label: option.colourType.name,
+                }))}
+                selectedId={selection[step.key].colourOptionId}
+                onChange={(id) => updateSelection(step.key, { colourOptionId: id })}
+                variant={step.key === 'leaf' ? 'select' : 'buttons'}
+              />
+              {(step.key === 'doorCasing' || step.key === 'frameExtensions') && (
+                <Space align="center">
+                  <Typography.Text type="secondary">Количество</Typography.Text>
+                  <InputNumber
+                    min={1}
+                    value={selection[step.key].quantity ?? 1}
+                    onChange={(value) => updateSelection(step.key, { quantity: value ?? undefined })}
+                  />
                 </Space>
               )}
             </Space>
+          </Card>
+        )}
+      </Fragment>
+    )
+  }
+
+  const leafPanelContent = (
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      {(reverseStep?.visible || mirrorFinishStep.visible) && (
+        <Space align="center" size="large">
+          {reverseStep?.visible && (
+            <Space align="center">
+              <Typography.Text>Реверс</Typography.Text>
+              <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+            </Space>
           )}
-          {mirrorFinishStep.visible && mirrorFinishEnabled && (
-            <OptionGroup
-              label={MIRROR_FINISH_LABEL}
-              options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: type.name }))}
-              selectedId={mirrorFinishTypeId}
-              onChange={handleMirrorFinishTypeChange}
-            />
+          {mirrorFinishStep.visible && (
+            <Space align="center">
+              <Typography.Text>{MIRROR_FINISH_NEEDED_LABEL}</Typography.Text>
+              <Switch checked={mirrorFinishEnabled} onChange={handleMirrorFinishEnabledChange} />
+            </Space>
           )}
-          <OptionGroup
-            label={COLLECTION_LABEL}
-            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
-            selectedId={selectedCollectionId}
-            onChange={handleCollectionChange}
-          />
-          {cascadeSteps.map((step) => {
-            const component = step.resolvedComponent
-            return (
-              <Fragment key={step.key}>
-                <OptionGroup
-                  label={COMPONENT_LABELS[step.key]}
-                  options={[
-                    ...step.availableTypes.map((type) => ({ id: type.id, label: type.name })),
-                    ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[step.key] }] : []),
-                  ]}
-                  selectedId={step.selectedId}
-                  onChange={(id) => handleCascadeStepChange(step.key, id)}
-                />
-                {component && (
-                  <Card size="small" title={`${COMPONENT_LABELS[step.key]}: ${component.type.name}`}>
-                    <Space direction="vertical" size="middle">
-                      {step.key === 'frame' && component.posts.length > 0 && (
-                        <List
-                          size="small"
-                          header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
-                          bordered
-                          dataSource={component.posts}
-                          renderItem={(post) => (
-                            <List.Item>
-                              {post.postType.name} × {post.quantity}
-                              {post.length !== null ? `, длина ${post.length}` : ''} — {post.retailPrice} ₽ / {post.dealerPrice} ₽
-                              (дилер)
-                            </List.Item>
-                          )}
-                        />
-                      )}
-                      {step.key === 'frame' && component.posts.length === 0 && component.colourOptions.length > 0 && (
-                        <List
-                          size="small"
-                          header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
-                          bordered
-                          dataSource={[FRAME_KIT_WITHOUT_POSTS_DESCRIPTION]}
-                          renderItem={(item) => <List.Item>{item}</List.Item>}
-                        />
-                      )}
-                      <OptionGroup
-                        label="Длина"
-                        options={(step.key === 'frameExtensions' && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
-                          ? lengthRangeOptions(component, leafHeightValue)
-                          : step.key === 'doorCasing' && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(component.type.code)
-                            ? lengthRangeOptions(component, leafHeightValue)
-                            : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
-                        ).map((option) => ({ id: option.id, label: String(option.value) }))}
-                        selectedId={selection[step.key].lengthOptionId}
-                        onChange={(id) => updateSelection(step.key, { lengthOptionId: id, customLengthValueMm: undefined })}
-                      />
-                      {step.key === 'leaf' && (
-                        <Space align="center">
-                          <Typography.Text type="secondary">Другое значение длины (мм)</Typography.Text>
-                          <InputNumber
-                            min={1}
-                            step={50}
-                            value={selection.leaf.customLengthValueMm}
-                            onChange={(value) =>
-                              updateSelection('leaf', { customLengthValueMm: value ?? undefined, lengthOptionId: undefined })
-                            }
-                          />
-                        </Space>
-                      )}
-                      {step.key === 'frame' && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(component.type.code) ? (
-                        <OptionGroup
-                          label="Высота"
-                          options={
-                            leafHeightValue === undefined
-                              ? []
-                              : [{ id: MIRROR_HEIGHT_OPTION_ID, label: String(leafHeightValue) }]
-                          }
-                          selectedId={selection.frame.customHeightValueMm !== undefined ? MIRROR_HEIGHT_OPTION_ID : undefined}
-                          onChange={(id) =>
-                            updateSelection('frame', {
-                              customHeightValueMm: id === MIRROR_HEIGHT_OPTION_ID ? leafHeightValue : undefined,
-                            })
-                          }
-                        />
-                      ) : (
-                        <OptionGroup
-                          label="Высота"
-                          options={(step.key === 'edge'
-                            ? edgeHeightOptions(component, leafHeightValue)
-                            : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
-                              ? frameHeightRangeOptions(component, leafHeightValue)
-                              : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
-                          ).map((option) => ({ id: option.id, label: String(option.value) }))}
-                          selectedId={selection[step.key].heightOptionId}
-                          onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}
-                        />
-                      )}
-                      {step.key === 'leaf' && (
-                        <Space align="center">
-                          <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>
-                          <InputNumber
-                            min={1}
-                            step={50}
-                            value={selection.leaf.customHeightValueMm}
-                            onChange={(value) =>
-                              updateSelection('leaf', { customHeightValueMm: value ?? undefined, heightOptionId: undefined })
-                            }
-                          />
-                        </Space>
-                      )}
-                      <OptionGroup
-                        label="Толщина"
-                        options={component.dimensionOptions
-                          .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
-                          .map((option) => ({ id: option.id, label: String(option.value) }))}
-                        selectedId={selection[step.key].thicknessOptionId}
-                        onChange={(id) => updateSelection(step.key, { thicknessOptionId: id })}
-                      />
-                      <OptionGroup
-                        label="Цвет"
-                        options={component.colourOptions.map((option) => ({
-                          id: option.id,
-                          label: option.colourType.name,
-                        }))}
-                        selectedId={selection[step.key].colourOptionId}
-                        onChange={(id) => updateSelection(step.key, { colourOptionId: id })}
-                        variant={step.key === 'leaf' ? 'select' : 'buttons'}
-                      />
-                      {(step.key === 'doorCasing' || step.key === 'frameExtensions') && (
-                        <Space align="center">
-                          <Typography.Text type="secondary">Количество</Typography.Text>
-                          <InputNumber
-                            min={1}
-                            value={selection[step.key].quantity ?? 1}
-                            onChange={(value) => updateSelection(step.key, { quantity: value ?? undefined })}
-                          />
-                        </Space>
-                      )}
-                    </Space>
-                  </Card>
-                )}
-              </Fragment>
-            )
-          })}
         </Space>
       )}
+      {mirrorFinishStep.visible && mirrorFinishEnabled && (
+        <OptionGroup
+          label={MIRROR_FINISH_LABEL}
+          options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: type.name }))}
+          selectedId={mirrorFinishTypeId}
+          onChange={handleMirrorFinishTypeChange}
+        />
+      )}
+      <OptionGroup
+        label={COLLECTION_LABEL}
+        options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
+        selectedId={selectedCollectionId}
+        onChange={handleCollectionChange}
+      />
+      {cascadeSteps.filter((step) => LEAF_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
+    </Space>
+  )
 
-      <Divider />
-      <Typography.Title level={4}>Фурнитура</Typography.Title>
+  const frameGroupPanelContent = (
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      {cascadeSteps.filter((step) => FRAME_GROUP_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
+    </Space>
+  )
+
+  const hardwarePanelContent = (
+    <>
       {hardwareCatalogLoading && <Spin />}
       {hardwareCatalogError && <Alert type="error" message={hardwareCatalogError} showIcon />}
       {!hardwareCatalogLoading && !hardwareCatalogError && (
@@ -973,89 +1013,154 @@ function App() {
           <Button onClick={addHardwareLine}>Добавить позицию фурнитуры</Button>
         </Space>
       )}
+    </>
+  )
 
-      {selectedConfiguration && (
-        <>
-          <Divider />
-          <Typography.Title level={4}>Расчёт стоимости</Typography.Title>
-          <Button type="primary" loading={pricingLoading} onClick={handleCalculate}>
-            Рассчитать стоимость
-          </Button>
+  // Пока новый расчёт ожидает ответа (включая паузу debounce), ранее показанный результат остаётся
+  // видимым приглушённым, а не скрывается — иначе быстрый ввод вызывал бы постоянное «моргание» пустой
+  // sticky-панели (см. specs/door-configurator-ui, «Приглушённое отображение предыдущего результата
+  // во время пересчёта»).
+  const pricingResultDimmed = pricingLoading && pricingResult !== null
 
-          <div ref={pricingResultSectionRef}>
-            {pricingError && (
-              <Alert style={{ marginTop: 16 }} type="error" message={pricingError} showIcon />
-            )}
+  return (
+    <div className="page">
+      {updateCheck?.updateAvailable && (
+        <Alert
+          style={{ marginBottom: 16 }}
+          type="info"
+          showIcon
+          closable
+          message={`Доступна новая версия приложения: ${updateCheck.latestVersion}`}
+          description={
+            updateCheck.downloadUrl && (
+              <a href={updateCheck.downloadUrl} target="_blank" rel="noreferrer">
+                Скачать обновление
+              </a>
+            )
+          }
+        />
+      )}
 
-            {pricingResult && (
-              <div style={{ marginTop: 16 }}>
-                <Space size="large">
-                  <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
-                  <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
-                </Space>
-                {surchargeBreakdown.length > 0 && (
+      <div className="app-columns">
+        <div className="app-sidebar">
+          <Typography.Title level={5} style={{ marginTop: 0 }}>
+            Сервисы
+          </Typography.Title>
+          <Menu mode="inline" selectable={false} selectedKeys={['door-configurator']} items={SERVICE_MENU_ITEMS} />
+        </div>
+
+        <div className="app-main">
+          {catalogLoading && <Spin />}
+          {catalogError && <Alert type="error" message={catalogError} showIcon />}
+          {!catalogLoading && !catalogError && configurations.length === 0 && (
+            <Empty description="Нет доступных конфигураций" />
+          )}
+          {!catalogLoading && !catalogError && configurations.length > 0 && (
+            <Collapse
+              defaultActiveKey={['leaf', 'frameGroup', 'hardware']}
+              items={[
+                { key: 'leaf', label: 'Полотно', children: leafPanelContent },
+                { key: 'frameGroup', label: 'Короб и обрамление', children: frameGroupPanelContent },
+                { key: 'hardware', label: 'Фурнитура', children: hardwarePanelContent },
+              ]}
+            />
+          )}
+        </div>
+
+        <div className="app-pricing">
+          <Typography.Title level={4} style={{ marginTop: 0 }}>
+            Расчёт стоимости
+          </Typography.Title>
+          {leafTypeId === undefined && (
+            <Empty
+              description={
+                pendingStepKey
+                  ? `Выберите «${COMPONENT_LABELS[pendingStepKey]}», чтобы продолжить расчёт`
+                  : 'Выберите конфигурацию, чтобы увидеть расчёт'
+              }
+            />
+          )}
+          {leafTypeId !== undefined && (
+            <div style={{ opacity: pricingResultDimmed ? 0.55 : 1, transition: 'opacity 0.15s ease' }}>
+              {pricingError && <Alert type="error" message={pricingError} showIcon />}
+              {!pricingError && pricingResult && (
+                <>
+                  <Space direction="vertical" size="small">
+                    <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
+                    <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
+                  </Space>
+                  {surchargeBreakdown.length > 0 && (
+                    <List
+                      style={{ marginTop: 16 }}
+                      size="small"
+                      header={<Typography.Text type="secondary">Надбавки к цене полотна</Typography.Text>}
+                      bordered
+                      dataSource={surchargeBreakdown}
+                      renderItem={(item) => (
+                        <List.Item>
+                          {item.label}: +{item.percent}%
+                        </List.Item>
+                      )}
+                    />
+                  )}
                   <List
                     style={{ marginTop: 16 }}
                     size="small"
-                    header={<Typography.Text type="secondary">Надбавки к цене полотна</Typography.Text>}
                     bordered
-                    dataSource={surchargeBreakdown}
-                    renderItem={(item) => (
-                      <List.Item>
-                        {item.label}: +{item.percent}%
-                      </List.Item>
-                    )}
+                    dataSource={pricingResult.components}
+                    renderItem={(item) => {
+                      const hasSurcharge =
+                        item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
+                      const key = item.component as ComponentKey
+                      const hasQuantity = key === 'doorCasing' || key === 'frameExtensions'
+                      const quantity = hasQuantity ? (selection[key].quantity ?? 1) : undefined
+                      return (
+                        <List.Item>
+                          <Space direction="vertical" size={0}>
+                            <span>
+                              {COMPONENT_LABELS[key] ?? item.component}:{' '}
+                              {item.priced
+                                ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)`
+                                : 'цена не найдена'}
+                              {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
+                            </span>
+                            {hasSurcharge && (
+                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                Без надбавок: {item.baseRetailPrice} ₽ / {item.baseDealerPrice} ₽ (дилер)
+                              </Typography.Text>
+                            )}
+                          </Space>
+                        </List.Item>
+                      )
+                    }}
                   />
-                )}
-                <List
-                  style={{ marginTop: 16 }}
-                  bordered
-                  dataSource={pricingResult.components}
-                  renderItem={(item) => {
-                    const hasSurcharge =
-                      item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
-                    const key = item.component as ComponentKey
-                    const hasQuantity = key === 'doorCasing' || key === 'frameExtensions'
-                    const quantity = hasQuantity ? (selection[key].quantity ?? 1) : undefined
-                    return (
-                      <List.Item>
-                        <Space direction="vertical" size={0}>
-                          <span>
-                            {COMPONENT_LABELS[key] ?? item.component}:{' '}
-                            {item.priced
-                              ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)`
-                              : 'цена не найдена'}
-                            {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
-                          </span>
-                          {hasSurcharge && (
-                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                              Без надбавок: {item.baseRetailPrice} ₽ / {item.baseDealerPrice} ₽ (дилер)
-                            </Typography.Text>
-                          )}
-                        </Space>
-                      </List.Item>
-                    )
-                  }}
-                />
-                {pricingResult.hardware.length > 0 && (
-                  <List
-                    style={{ marginTop: 16 }}
-                    bordered
-                    header={<Typography.Text type="secondary">Фурнитура</Typography.Text>}
-                    dataSource={pricingResult.hardware}
-                    renderItem={(item) => (
-                      <List.Item>
-                        {item.category.name} — {item.type.name} ({item.colourName}) × {item.quantity} шт.:{' '}
-                        {item.retailPrice} ₽ / {item.dealerPrice} ₽ (дилер)
-                      </List.Item>
-                    )}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                  {pricingResult.hardware.length > 0 && (
+                    <List
+                      style={{ marginTop: 16 }}
+                      size="small"
+                      bordered
+                      header={<Typography.Text type="secondary">Фурнитура</Typography.Text>}
+                      dataSource={pricingResult.hardware}
+                      renderItem={(item) => (
+                        <List.Item>
+                          {item.category.name} — {item.type.name} ({item.colourName}) × {item.quantity} шт.:{' '}
+                          {item.retailPrice} ₽ / {item.dealerPrice} ₽ (дилер)
+                        </List.Item>
+                      )}
+                    />
+                  )}
+                </>
+              )}
+              {!pricingError && !pricingResult && pricingLoading && (
+                <Space align="center">
+                  <Spin size="small" />
+                  <Typography.Text type="secondary">Считаем стоимость…</Typography.Text>
+                </Space>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

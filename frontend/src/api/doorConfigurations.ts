@@ -44,3 +44,21 @@ export async function calculatePrice(
   }
   return (await response.json()) as PricingResponseDto
 }
+
+// Расчёт стоимости одного полотна (leaf_type) в отрыве от door_configuration — используется, пока
+// каскад ещё не определил конкретную согласованную конфигурацию (см. change add-standalone-leaf-pricing).
+// Тот же формат запроса/ответа, что и у calculatePrice — рендеринг результата общий.
+export async function calculateLeafPrice(
+  leafTypeId: number,
+  selection: PricingRequestDto,
+): Promise<PricingResponseDto> {
+  const response = await fetch(`/api/leaf-types/${leafTypeId}/price`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(selection),
+  })
+  if (!response.ok) {
+    throw new Error(`Не удалось рассчитать стоимость (HTTP ${response.status})`)
+  }
+  return (await response.json()) as PricingResponseDto
+}
