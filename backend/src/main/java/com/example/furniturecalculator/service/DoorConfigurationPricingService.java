@@ -63,12 +63,15 @@ public class DoorConfigurationPricingService {
     // в точности.
     private static final Set<String> HEIGHT_MIRROR_FRAME_TYPE_CODES = Set.of("FT-001");
 
-    // Коды frame_extensions_type добора «ТС» (см. db.changelog 0005), для которых длина ограничена
-    // диапазоном высоты полотна (см. change link-dobor-ts-length-to-leaf-height) — по тому же принципу,
-    // что и высота короба из HEIGHT_RANGE_FRAME_TYPE_CODES, но на оси «Длина». Добор «КОМПЛАНАР»
-    // (FET-008–FET-013) и другие компоненты этому правилу не подчиняются.
-    private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES =
-            Set.of("FET-004", "FET-005", "FET-006", "FET-007");
+    // Коды frame_extensions_type добора, для которых длина ограничена диапазоном высоты полотна —
+    // добор «ТС» (см. change link-dobor-ts-length-to-leaf-height) и добор «КОМПЛАНАР» (все 6 ширин,
+    // см. change link-komplanar-dobor-length-to-leaf-height) — по тому же принципу, что и высота короба
+    // из HEIGHT_RANGE_FRAME_TYPE_CODES, но на оси «Длина». Это все 10 реально достижимых через каталог
+    // кодов frame_extensions_type — коды FET-001–FET-003 (категорийные заголовки) ни разу не связаны
+    // ни с одной door_configuration и недостижимы через UI.
+    private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES = Set.of(
+            "FET-004", "FET-005", "FET-006", "FET-007",
+            "FET-008", "FET-009", "FET-010", "FET-011", "FET-012", "FET-013");
 
     // Коды door_casing_type наличников, для которых длина ограничена диапазоном высоты полотна —
     // «Модо»/«Онда» (см. change link-modo-onda-casing-length-to-leaf-height) и наличники короба
@@ -217,7 +220,7 @@ public class DoorConfigurationPricingService {
         // по аналогии с обязательностью высоты для короба «НЕО»/«Компланар»).
         if (type instanceof FrameExtensionsType frameExtensionsType) {
             requireLengthWithinLeafRange(componentName, frameExtensionsType.getCode(), LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES,
-                    "для добора «ТС» необходимо выбрать длину", selection, lengthOption, leafHeightValue);
+                    "для этого добора необходимо выбрать длину", selection, lengthOption, leafHeightValue);
         }
         if (type instanceof DoorCasingType doorCasingType) {
             requireLengthWithinLeafRange(componentName, doorCasingType.getCode(), LENGTH_RANGE_DOOR_CASING_TYPE_CODES,

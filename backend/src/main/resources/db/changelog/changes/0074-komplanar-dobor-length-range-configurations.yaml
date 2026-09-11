@@ -1,0 +1,63 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0074-1-repurpose-komplanar-dobor-existing-length-option-as-first-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE liner_dimension_option
+              SET min_value = 1900, max_value = 2100
+              WHERE value = 2170
+                AND liner_dimension_type_id = (SELECT id FROM liner_dimension_type WHERE code = 'DT-001')
+                AND frame_extensions_type_id IN (
+                  SELECT id FROM frame_extensions_type
+                  WHERE code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')
+                )
+
+  - changeSet:
+      id: 0074-2-insert-komplanar-dobor-shared-length-range-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, max_value, is_standard, frame_extensions_type_id)
+              SELECT ldt.id, v.value, v.min_value, v.max_value, true, fet.id
+              FROM (VALUES
+                (2400::numeric, 2150::numeric, 2250::numeric),
+                (2400::numeric, 2300::numeric, 2300::numeric),
+                (2700::numeric, 2350::numeric, 2550::numeric)
+              ) AS v(value, min_value, max_value)
+              CROSS JOIN (
+                SELECT id FROM frame_extensions_type
+                WHERE code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')
+              ) AS fet(id)
+              CROSS JOIN liner_dimension_type ldt
+              WHERE ldt.code = 'DT-001'
+
+  - changeSet:
+      id: 0074-3-insert-komplanar-dobor-100-140-190-length-range-option
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, max_value, is_standard, frame_extensions_type_id)
+              SELECT ldt.id, 3000, 2600, 2850, true, fet.id
+              FROM liner_dimension_type ldt
+              CROSS JOIN (
+                SELECT id FROM frame_extensions_type WHERE code IN ('FET-008', 'FET-009', 'FET-010')
+              ) AS fet(id)
+              WHERE ldt.code = 'DT-001'
+
+  - changeSet:
+      id: 0074-4-insert-komplanar-dobor-400-600-800-length-range-option
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, max_value, is_standard, frame_extensions_type_id)
+              SELECT ldt.id, 2950, 2600, 2850, true, fet.id
+              FROM liner_dimension_type ldt
+              CROSS JOIN (
+                SELECT id FROM frame_extensions_type WHERE code IN ('FET-011', 'FET-012', 'FET-013')
+              ) AS fet(id)
+              WHERE ldt.code = 'DT-001'
