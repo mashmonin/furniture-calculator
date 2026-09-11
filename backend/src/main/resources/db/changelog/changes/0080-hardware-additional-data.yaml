@@ -1,0 +1,56 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0080-1-insert-hardware-category-additional
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Дополнительная фурнитура" }
+              - column: { name: code, value: "HWG-004" }
+
+  - changeSet:
+      id: 0080-2-insert-hardware-types-additional
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT v.name, v.code, v.unit, hc.id
+              FROM (VALUES
+                ('Ригель дверной скругленный', 'HWT-013', 'шт'),
+                ('Автопорог 400 мм', 'HWT-014', 'шт'),
+                ('Автопорог 500-600 мм', 'HWT-015', 'шт'),
+                ('Автопорог 700-900 мм', 'HWT-016', 'шт'),
+                ('Автопорог 1000 мм', 'HWT-017', 'шт')
+              ) AS v(name, code, unit)
+              CROSS JOIN hardware_category hc
+              WHERE hc.code = 'HWG-004'
+
+  - changeSet:
+      id: 0080-3-insert-hardware-options-rigel
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('латунь', 599, 399),
+                ('черный', 599, 399),
+                ('хром матовый', 599, 399),
+                ('бронза', 599, 399)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-013'
+
+  - changeSet:
+      id: 0080-4-insert-hardware-options-avtoporog
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'хром матовый', 4064, 2709, ht.id
+              FROM hardware_type ht
+              WHERE ht.code IN ('HWT-014', 'HWT-015', 'HWT-016', 'HWT-017')

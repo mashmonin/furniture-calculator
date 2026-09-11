@@ -1,0 +1,83 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0078-1-insert-hardware-category-hinges-italy
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Петли Италия" }
+              - column: { name: code, value: "HWG-002" }
+
+  - changeSet:
+      id: 0078-2-insert-hardware-types-hinges-italy
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT v.name, v.code, v.unit, hc.id
+              FROM (VALUES
+                ('Петля компланар скрытая А (KRONA KOBLENZ, пр-во Италия) (Kubica 6360 45)', 'HWT-007', 'шт'),
+                ('Петля компланар скрытая Н - для обратного открывания 44 мм (KRONA KOBLENZ, пр-во Италия) (Kubica 2460)', 'HWT-008', 'шт'),
+                ('Петля компланар скрытая Z - для полотен с зеркалом на всю плоскость (KRONA KOBLENZ, пр-во Италия) (Kubica 2760)', 'HWT-009', 'шт')
+              ) AS v(name, code, unit)
+              CROSS JOIN hardware_category hc
+              WHERE hc.code = 'HWG-002'
+
+  - changeSet:
+      id: 0078-3-insert-hardware-options-hinge-a
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('бронза', 4250, 2833),
+                ('белый', 4373, 2915),
+                ('золото глянец', 5940, 3960),
+                ('матовое золото', 5012, 3341),
+                ('матовый хром', 3795, 2530),
+                ('черный', 4373, 2915)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-007'
+
+  - changeSet:
+      id: 0078-4-insert-hardware-options-hinge-h
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('бронза', 5549, 3699),
+                ('белый', 5837, 3891),
+                ('золото глянец', 6642, 4428),
+                ('матовое золото', 5198, 3465),
+                ('матовый хром', 4620, 3080),
+                ('черный', 5837, 3891)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-008'
+
+  - changeSet:
+      id: 0078-5-insert-hardware-options-hinge-z
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('бронза', 5301, 3534),
+                ('белый', 5301, 3534),
+                ('золото глянец', 6600, 4400),
+                ('матовое золото', 6002, 4001),
+                ('матовый хром', 4724, 3149),
+                ('черный', 5301, 3534)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-009'

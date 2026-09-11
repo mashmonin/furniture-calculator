@@ -1,12 +1,21 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Divider, Empty, InputNumber, List, Space, Spin, Statistic, Switch, Typography } from 'antd'
-import { calculatePrice, fetchDoorConfigurations, fetchPricingSurcharges } from './api/doorConfigurations'
+import {
+  calculatePrice,
+  fetchDoorConfigurations,
+  fetchHardwareCatalog,
+  fetchPricingSurcharges,
+} from './api/doorConfigurations'
 import { fetchUpdateCheck } from './api/updateCheck'
 import type {
   ComponentCatalogDto,
   ComponentKey,
   ComponentSelectionDto,
   DoorConfigurationDto,
+  HardwareCategoryDto,
+  HardwareOptionDto,
+  HardwareSelectionDto,
+  HardwareTypeDto,
   LinerDimensionOptionDto,
   PricingRequestDto,
   PricingResponseDto,
@@ -86,6 +95,34 @@ const LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES = [
 const LENGTH_RANGE_DOOR_CASING_TYPE_CODES = [
   'DCT-001', 'DCT-002', 'DCT-003', 'DCT-004', 'DCT-005', 'DCT-006', 'DCT-007', 'DCT-008', 'DCT-009',
 ]
+
+// Одна позиция блока «Фурнитура» (см. change add-hardware-catalog) — независима от выбора конфигурации
+// двери и от остальных позиций; каскад категория → тип → цвет зеркалирует CascadeStep компонентов.
+interface HardwareLine {
+  key: number
+  categoryId?: number
+  typeId?: number
+  hardwareOptionId?: number
+  quantity?: number
+}
+
+function hardwareTypesFor(catalog: HardwareCategoryDto[], categoryId: number | undefined): HardwareTypeDto[] {
+  if (categoryId === undefined) {
+    return []
+  }
+  return catalog.find((category) => category.category.id === categoryId)?.types ?? []
+}
+
+function hardwareOptionsFor(
+  catalog: HardwareCategoryDto[],
+  categoryId: number | undefined,
+  typeId: number | undefined,
+): HardwareOptionDto[] {
+  if (typeId === undefined) {
+    return []
+  }
+  return hardwareTypesFor(catalog, categoryId).find((type) => type.type.id === typeId)?.options ?? []
+}
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {
@@ -376,6 +413,12 @@ function App() {
   const [pricingSurcharges, setPricingSurcharges] = useState<PricingSurchargesDto | null>(null)
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckDto | null>(null)
 
+  const [hardwareCatalog, setHardwareCatalog] = useState<HardwareCategoryDto[]>([])
+  const [hardwareCatalogLoading, setHardwareCatalogLoading] = useState(true)
+  const [hardwareCatalogError, setHardwareCatalogError] = useState<string | null>(null)
+  const [hardwareLines, setHardwareLines] = useState<HardwareLine[]>([])
+  const [nextHardwareLineKey, setNextHardwareLineKey] = useState(1)
+
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [mirrorFinishEnabled, setMirrorFinishEnabled] = useState(false)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
@@ -429,6 +472,33 @@ function App() {
       })
       .catch(() => {
         // Намеренно молча: разбивка надбавок просто не будет показана после расчёта.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setHardwareCatalogLoading(true)
+    setHardwareCatalogError(null)
+    // В отличие от процентов надбавок, ошибка загрузки каталога фурнитуры показывается видимо —
+    // блок выбора фурнитуры не может работать без него (см. change add-hardware-catalog).
+    fetchHardwareCatalog()
+      .then((data) => {
+        if (!cancelled) {
+          setHardwareCatalog(data)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setHardwareCatalogError(error instanceof Error ? error.message : 'Не удалось загрузить каталог фурнитуры')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setHardwareCatalogLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -593,6 +663,23 @@ function App() {
     setPricingError(null)
   }
 
+  function addHardwareLine() {
+    setHardwareLines((prev) => [...prev, { key: nextHardwareLineKey }])
+    setNextHardwareLineKey((key) => key + 1)
+  }
+
+  function removeHardwareLine(key: number) {
+    setHardwareLines((prev) => prev.filter((line) => line.key !== key))
+    setPricingResult(null)
+    setPricingError(null)
+  }
+
+  function updateHardwareLine(key: number, patch: Partial<HardwareLine>) {
+    setHardwareLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
+    setPricingResult(null)
+    setPricingError(null)
+  }
+
   async function handleCalculate() {
     if (!selectedConfiguration) {
       return
@@ -606,6 +693,14 @@ function App() {
           request[key] =
             key === 'leaf' && mirrorFinishTypeId !== undefined ? { ...selection.leaf, mirrorFinishTypeId } : selection[key]
         }
+      }
+      // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
+      // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
+      const hardwareSelections: HardwareSelectionDto[] = hardwareLines
+        .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
+        .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
+      if (hardwareSelections.length > 0) {
+        request.hardware = hardwareSelections
       }
       const result = await calculatePrice(selectedConfiguration.id, request)
       setPricingResult(result)
@@ -825,6 +920,60 @@ function App() {
         </Space>
       )}
 
+      <Divider />
+      <Typography.Title level={4}>Фурнитура</Typography.Title>
+      {hardwareCatalogLoading && <Spin />}
+      {hardwareCatalogError && <Alert type="error" message={hardwareCatalogError} showIcon />}
+      {!hardwareCatalogLoading && !hardwareCatalogError && (
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {hardwareLines.map((line) => (
+            <Card size="small" key={line.key}>
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <OptionGroup
+                  label="Категория"
+                  options={hardwareCatalog.map((category) => ({ id: category.category.id, label: category.category.name }))}
+                  selectedId={line.categoryId}
+                  onChange={(id) => updateHardwareLine(line.key, { categoryId: id, typeId: undefined, hardwareOptionId: undefined })}
+                  variant="select"
+                />
+                <OptionGroup
+                  label="Тип"
+                  options={hardwareTypesFor(hardwareCatalog, line.categoryId).map((type) => ({
+                    id: type.type.id,
+                    label: type.type.name,
+                  }))}
+                  selectedId={line.typeId}
+                  onChange={(id) => updateHardwareLine(line.key, { typeId: id, hardwareOptionId: undefined })}
+                  variant="select"
+                />
+                <OptionGroup
+                  label="Цвет"
+                  options={hardwareOptionsFor(hardwareCatalog, line.categoryId, line.typeId).map((option) => ({
+                    id: option.id,
+                    label: option.colourName,
+                  }))}
+                  selectedId={line.hardwareOptionId}
+                  onChange={(id) => updateHardwareLine(line.key, { hardwareOptionId: id })}
+                  variant="select"
+                />
+                <Space align="center">
+                  <Typography.Text type="secondary">Количество</Typography.Text>
+                  <InputNumber
+                    min={1}
+                    value={line.quantity ?? 1}
+                    onChange={(value) => updateHardwareLine(line.key, { quantity: value ?? undefined })}
+                  />
+                  <Button danger onClick={() => removeHardwareLine(line.key)}>
+                    Удалить
+                  </Button>
+                </Space>
+              </Space>
+            </Card>
+          ))}
+          <Button onClick={addHardwareLine}>Добавить позицию фурнитуры</Button>
+        </Space>
+      )}
+
       {selectedConfiguration && (
         <>
           <Divider />
@@ -888,6 +1037,20 @@ function App() {
                     )
                   }}
                 />
+                {pricingResult.hardware.length > 0 && (
+                  <List
+                    style={{ marginTop: 16 }}
+                    bordered
+                    header={<Typography.Text type="secondary">Фурнитура</Typography.Text>}
+                    dataSource={pricingResult.hardware}
+                    renderItem={(item) => (
+                      <List.Item>
+                        {item.category.name} — {item.type.name} ({item.colourName}) × {item.quantity} шт.:{' '}
+                        {item.retailPrice} ₽ / {item.dealerPrice} ₽ (дилер)
+                      </List.Item>
+                    )}
+                  />
+                )}
               </div>
             )}
           </div>

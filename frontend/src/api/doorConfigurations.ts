@@ -1,4 +1,10 @@
-import type { DoorConfigurationDto, PricingRequestDto, PricingResponseDto, PricingSurchargesDto } from './types'
+import type {
+  DoorConfigurationDto,
+  HardwareCategoryDto,
+  PricingRequestDto,
+  PricingResponseDto,
+  PricingSurchargesDto,
+} from './types'
 
 export async function fetchDoorConfigurations(): Promise<DoorConfigurationDto[]> {
   const response = await fetch('/api/door-configurations')
@@ -6,6 +12,14 @@ export async function fetchDoorConfigurations(): Promise<DoorConfigurationDto[]>
     throw new Error(`Не удалось загрузить каталог конфигураций (HTTP ${response.status})`)
   }
   return (await response.json()) as DoorConfigurationDto[]
+}
+
+export async function fetchHardwareCatalog(): Promise<HardwareCategoryDto[]> {
+  const response = await fetch('/api/hardware-catalog')
+  if (!response.ok) {
+    throw new Error(`Не удалось загрузить каталог фурнитуры (HTTP ${response.status})`)
+  }
+  return (await response.json()) as HardwareCategoryDto[]
 }
 
 export async function fetchPricingSurcharges(): Promise<PricingSurchargesDto> {

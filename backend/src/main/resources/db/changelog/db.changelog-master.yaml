@@ -254,3 +254,27 @@ databaseChangeLog:
   - include:
       file: changes/0075-komplanar-dobor-configuration-price-length-decouple.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0076-hardware-catalog-schema.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0077-hardware-locks-cylinders-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0078-hardware-hinges-italy-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0079-hardware-hinges-armadillo-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0080-hardware-additional-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0081-hardware-plinth-fastening-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0082-hardware-sliding-door-handles-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0083-hardware-price-corrections.yaml
+      relativeToChangelogFile: true
