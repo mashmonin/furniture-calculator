@@ -1,0 +1,71 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0079-1-insert-hardware-category-hinges-armadillo
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Петли Armadillo" }
+              - column: { name: code, value: "HWG-003" }
+
+  - changeSet:
+      id: 0079-2-insert-hardware-types-hinges-armadillo
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT v.name, v.code, v.unit, hc.id
+              FROM (VALUES
+                ('ARMADILLO Петля скрытой установки U3D5000.VPG (аналог Kubica 6360 45) Тип врезки А', 'HWT-010', 'шт'),
+                ('ARMADILLO Петля скрытой установки U3D2400.VPG (аналог Kubica 2460) Тип врезки H для полотен обратного открывания 44 мм', 'HWT-011', 'шт'),
+                ('ARMADILLO Петля скрытой установки U3D7800.VPG (аналог Kubica 2760) Тип врезки Z', 'HWT-012', 'шт')
+              ) AS v(name, code, unit)
+              CROSS JOIN hardware_category hc
+              WHERE hc.code = 'HWG-003'
+
+  - changeSet:
+      id: 0079-3-insert-hardware-options-u3d5000
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('черный', 2996, 1997),
+                ('хром матовый', 2996, 1997)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-010'
+
+  - changeSet:
+      id: 0079-4-insert-hardware-options-u3d2400
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('черный', 3389, 2259),
+                ('хром матовый', 3389, 2259)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-011'
+
+  - changeSet:
+      id: 0079-5-insert-hardware-options-u3d7800
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('черный', 2546, 1697),
+                ('хром матовый', 2546, 1697)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-012'

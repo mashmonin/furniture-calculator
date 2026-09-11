@@ -1,0 +1,160 @@
+databaseChangeLog:
+  # Обновлённый прайс-лист фурнитуры от поставщика: корректировка цен категории «Замки, цилиндры»
+  # (HWG-001, все 6 типов), части «Петли Armadillo» (HWG-003) и «Ручки для раздвижных дверей» (HWG-006).
+  # Затронутые changeset'ы (0077, 0079, 0082) уже применены — правим данные новым changeset'ом, а не
+  # редактируем их задним числом (см. CLAUDE.md).
+  - changeSet:
+      id: 0083-1-update-hardware-prices-agb-wc-96
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2048, dealer_price = 1365
+              WHERE colour_name = 'матовый хром' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2154, dealer_price = 1436
+              WHERE colour_name = 'черный' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 3261, dealer_price = 2174
+              WHERE colour_name = 'латунь матовая' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2262, dealer_price = 1508
+              WHERE colour_name = 'латунь полированная' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2244, dealer_price = 1496
+              WHERE colour_name = 'никель (хром глянец)' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2625, dealer_price = 1750
+              WHERE colour_name = 'античная бронза' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-001')
+
+  - changeSet:
+      id: 0083-2-update-hardware-prices-agb-cylinder-85
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2172, dealer_price = 1448
+              WHERE colour_name = 'матовый хром' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2298, dealer_price = 1532
+              WHERE colour_name = 'черный' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 3237, dealer_price = 2158
+              WHERE colour_name = 'латунь матовая' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2363, dealer_price = 1575
+              WHERE colour_name = 'латунь полированная' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2385, dealer_price = 1590
+              WHERE colour_name = 'никель (хром глянец)' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 3198, dealer_price = 2132
+              WHERE colour_name = 'античная бронза' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-002')
+
+  - changeSet:
+      id: 0083-3-update-hardware-prices-fuaro-key-turn
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 723, dealer_price = 482
+              WHERE colour_name = 'латунь' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-003')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 723, dealer_price = 482
+              WHERE colour_name = 'хром' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-003')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 555, dealer_price = 370
+              WHERE colour_name = 'черный' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-003')
+
+  - changeSet:
+      id: 0083-4-update-hardware-prices-fuaro-key-key
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 593, dealer_price = 395
+              WHERE colour_name = 'латунь' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-004')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 593, dealer_price = 395
+              WHERE colour_name = 'хром' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-004')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 494, dealer_price = 329
+              WHERE colour_name = 'черный' AND hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-004')
+
+  - changeSet:
+      id: 0083-5-update-hardware-prices-punto-key-turn
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 512, dealer_price = 341
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-005')
+
+  - changeSet:
+      id: 0083-6-update-hardware-prices-punto-key-key
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 468, dealer_price = 312
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-006')
+
+  - changeSet:
+      id: 0083-7-rename-hardware-type-u3d5045
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_type
+              SET name = 'ARMADILLO Петля скрытой установки U3D5045.VPG (аналог Kubica 6360 45) Тип врезки А'
+              WHERE code = 'HWT-010'
+
+  - changeSet:
+      id: 0083-8-update-hardware-prices-u3d2400
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 3770, dealer_price = 2513
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-011')
+
+  - changeSet:
+      id: 0083-9-rename-and-update-hardware-prices-u3d7803
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_type
+              SET name = 'ARMADILLO Петля скрытой установки U3D7803.VPG (аналог Kubica 2760) Тип врезки Z'
+              WHERE code = 'HWT-012'
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 2831, dealer_price = 1887
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-012')
+
+  - changeSet:
+      id: 0083-10-update-hardware-prices-sliding-door-handles
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 1757, dealer_price = 1171
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-019')
+        - sql:
+            sql: >-
+              UPDATE hardware_option SET retail_price = 1761, dealer_price = 1174
+              WHERE hardware_type_id = (SELECT id FROM hardware_type WHERE code = 'HWT-020')

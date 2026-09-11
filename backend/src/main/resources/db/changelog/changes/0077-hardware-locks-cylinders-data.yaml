@@ -1,0 +1,121 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0077-1-insert-hardware-category-locks-cylinders
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Замки, цилиндры" }
+              - column: { name: code, value: "HWG-001" }
+
+  - changeSet:
+      id: 0077-2-insert-hardware-types-locks-cylinders
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT v.name, v.code, v.unit, hc.id
+              FROM (VALUES
+                ('AGB защелка магнитная под завертку WC 96 мм Mediana Polaris 2XT (с отв.планкой Minimal XT)', 'HWT-001', 'шт'),
+                ('AGB защелка магнитная под цилиндр 85 мм Mediana Polaris 2XT (с отв.планкой Minimal XT)', 'HWT-002', 'шт'),
+                ('FUARO Цилиндровый механизм ключ-завертка (25+10+25)', 'HWT-003', 'шт'),
+                ('FUARO Цилиндровый механизм ключ-ключ (25+10+25)', 'HWT-004', 'шт'),
+                ('PUNTO Цилиндровый механизм ключ-завертка (25+10+25)', 'HWT-005', 'шт'),
+                ('PUNTO Цилиндровый механизм ключ-ключ (25+10+25)', 'HWT-006', 'шт')
+              ) AS v(name, code, unit)
+              CROSS JOIN hardware_category hc
+              WHERE hc.code = 'HWG-001'
+
+  - changeSet:
+      id: 0077-3-insert-hardware-options-agb-wc-96
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('матовый хром', 1815, 1210),
+                ('черный', 1858, 1238),
+                ('латунь матовая', 2812, 1875),
+                ('латунь полированная', 2062, 1375),
+                ('никель (хром глянец)', 2044, 1362),
+                ('античная бронза', 2391, 1594)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-001'
+
+  - changeSet:
+      id: 0077-4-insert-hardware-options-agb-cylinder-85
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('матовый хром', 1924, 1282),
+                ('черный', 2073, 1382),
+                ('латунь матовая', 2839, 1892),
+                ('латунь полированная', 2152, 1435),
+                ('никель (хром глянец)', 2174, 1449),
+                ('античная бронза', 2913, 1942)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-002'
+
+  - changeSet:
+      id: 0077-5-insert-hardware-options-fuaro-key-turn
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('латунь', 651, 434),
+                ('хром', 651, 434),
+                ('черный', 500, 333)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-003'
+
+  - changeSet:
+      id: 0077-6-insert-hardware-options-fuaro-key-key
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('латунь', 522, 348),
+                ('хром', 522, 348),
+                ('черный', 444, 296)
+              ) AS v(colour_name, retail_price, dealer_price)
+              CROSS JOIN hardware_type ht
+              WHERE ht.code = 'HWT-004'
+
+  - changeSet:
+      id: 0077-7-insert-hardware-options-punto-key-turn
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'никель (хром матовый)', 461, 307, ht.id
+              FROM hardware_type ht
+              WHERE ht.code = 'HWT-005'
+
+  - changeSet:
+      id: 0077-8-insert-hardware-options-punto-key-key
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'никель (хром матовый)', 422, 281, ht.id
+              FROM hardware_type ht
+              WHERE ht.code = 'HWT-006'

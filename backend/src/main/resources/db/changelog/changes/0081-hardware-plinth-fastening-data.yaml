@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0081-1-insert-hardware-category-plinth-fastening
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Крепление плинтуса" }
+              - column: { name: code, value: "HWG-005" }
+
+  - changeSet:
+      id: 0081-2-insert-hardware-type-plinth-clips
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT 'Клипсы для крепления плинтуса (50 шт)', 'HWT-018', 'компл', hc.id
+              FROM hardware_category hc
+              WHERE hc.code = 'HWG-005'
+
+  - changeSet:
+      id: 0081-3-insert-hardware-options-plinth-clips
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'хром матовый', 7322, 4881, ht.id
+              FROM hardware_type ht
+              WHERE ht.code = 'HWT-018'

@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0082-1-insert-hardware-category-sliding-door-handles
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: hardware_category
+            columns:
+              - column: { name: name, value: "Ручки для раздвижных дверей" }
+              - column: { name: code, value: "HWG-006" }
+
+  - changeSet:
+      id: 0082-2-insert-hardware-types-sliding-door-handles
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (name, code, unit, hardware_category_id)
+              SELECT v.name, v.code, v.unit, hc.id
+              FROM (VALUES
+                ('Ручка для раздвижных дверей итальянский тисненый ARMADILLO. В комплекте: ручка-купе 2шт., торцевой захват - 1шт. Размер: 153*50 мм', 'HWT-019', 'шт'),
+                ('Ручка для раздвижных дверей черный ARMADILLO. В комплекте: ручка-купе 2шт., торцевой захват - 1шт. Размер: 153*50 мм', 'HWT-020', 'шт')
+              ) AS v(name, code, unit)
+              CROSS JOIN hardware_category hc
+              WHERE hc.code = 'HWG-006'
+
+  - changeSet:
+      id: 0082-3-insert-hardware-options-sliding-door-handles
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'итальянский тисненый (матовый хром)', 1578, 1052, ht.id
+              FROM hardware_type ht
+              WHERE ht.code = 'HWT-019'
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, retail_price, dealer_price, hardware_type_id)
+              SELECT 'черный', 1584, 1056, ht.id
+              FROM hardware_type ht
+              WHERE ht.code = 'HWT-020'

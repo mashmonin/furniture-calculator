@@ -25,6 +25,9 @@ import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.HardwareCategory;
+import com.example.furniturecalculator.domain.HardwareOption;
+import com.example.furniturecalculator.domain.HardwareType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
@@ -32,6 +35,8 @@ import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.domain.MirrorFinishType;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.HardwarePriceDto;
+import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
@@ -39,6 +44,7 @@ import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
+import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
@@ -63,6 +69,8 @@ class DoorConfigurationPricingServiceTest {
     private FramePostRepository framePostRepository;
     @Mock
     private MirrorFinishOptionRepository mirrorFinishOptionRepository;
+    @Mock
+    private HardwareOptionRepository hardwareOptionRepository;
 
     @InjectMocks
     private DoorConfigurationPricingService service;
@@ -2754,5 +2762,143 @@ class DoorConfigurationPricingServiceTest {
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void одна_позиция_фурнитуры_добавляется_к_итогу() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType type = TestEntities.hardwareType(301L, category);
+        HardwareOption option =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), type);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(option));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, List.of(new HardwareSelectionDto(302L, 2)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("2000");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("1400");
+        assertThat(response.hardware()).hasSize(1);
+        HardwarePriceDto hardwarePrice = response.hardware().get(0);
+        assertThat(hardwarePrice.quantity()).isEqualTo(2);
+        assertThat(hardwarePrice.colourName()).isEqualTo("хром");
+        assertThat(hardwarePrice.retailPrice()).isEqualByComparingTo("2000");
+        assertThat(hardwarePrice.dealerPrice()).isEqualByComparingTo("1400");
+    }
+
+    @Test
+    void количество_фурнитуры_по_умолчанию_равно_1() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType type = TestEntities.hardwareType(301L, category);
+        HardwareOption option =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), type);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(option));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, List.of(new HardwareSelectionDto(302L, null)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.hardware()).hasSize(1);
+        assertThat(response.hardware().get(0).quantity()).isEqualTo(1);
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("1000");
+    }
+
+    @Test
+    void несколько_позиций_фурнитуры_с_одинаковым_вариантом_суммируются_независимо() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType type = TestEntities.hardwareType(301L, category);
+        HardwareOption option =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), type);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(option));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null,
+                List.of(new HardwareSelectionDto(302L, 1), new HardwareSelectionDto(302L, 3)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.hardware()).hasSize(2);
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("4000");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("2800");
+    }
+
+    @Test
+    void несуществующий_вариант_фурнитуры_возвращает_400() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(hardwareOptionRepository.findById(999L)).thenReturn(Optional.empty());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, List.of(new HardwareSelectionDto(999L, 1)));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void нулевое_или_отрицательное_количество_фурнитуры_недопустимо() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType type = TestEntities.hardwareType(301L, category);
+        HardwareOption option =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), type);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(option));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, List.of(new HardwareSelectionDto(302L, 0)));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void фурнитура_не_получает_надбавку_за_реверс_в_отличие_от_полотна() {
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType type = TestEntities.hardwareType(301L, category);
+        HardwareOption option =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), type);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(option));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null,
+                List.of(new HardwareSelectionDto(302L, 1)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        // Полотно получает надбавку за реверс (1000 -> 1100), фурнитура — нет (остаётся 1000).
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1100");
+        assertThat(response.hardware().get(0).retailPrice()).isEqualByComparingTo("1000");
     }
 }

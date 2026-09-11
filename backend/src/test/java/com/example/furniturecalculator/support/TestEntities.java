@@ -16,6 +16,9 @@ import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.HardwareCategory;
+import com.example.furniturecalculator.domain.HardwareOption;
+import com.example.furniturecalculator.domain.HardwareType;
 import com.example.furniturecalculator.domain.LeafCollection;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
@@ -209,6 +212,28 @@ public final class TestEntities {
         ReflectionTestUtils.setField(price, "colourOption", colourOption);
         setOwner(price, owner);
         return price;
+    }
+
+    public static HardwareCategory hardwareCategory(long id) {
+        return referenceType(HardwareCategory.class, id);
+    }
+
+    public static HardwareType hardwareType(long id, HardwareCategory category) {
+        HardwareType type = referenceType(HardwareType.class, id);
+        ReflectionTestUtils.setField(type, "unit", "шт");
+        ReflectionTestUtils.setField(type, "hardwareCategory", category);
+        return type;
+    }
+
+    public static HardwareOption hardwareOption(
+            long id, String colourName, BigDecimal retailPrice, BigDecimal dealerPrice, HardwareType type) {
+        HardwareOption option = instantiate(HardwareOption.class);
+        ReflectionTestUtils.setField(option, "id", id);
+        ReflectionTestUtils.setField(option, "colourName", colourName);
+        ReflectionTestUtils.setField(option, "retailPrice", retailPrice);
+        ReflectionTestUtils.setField(option, "dealerPrice", dealerPrice);
+        ReflectionTestUtils.setField(option, "hardwareType", type);
+        return option;
     }
 
     private static void setOwner(Object target, CatalogType owner) {

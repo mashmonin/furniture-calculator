@@ -59,7 +59,14 @@ export interface ComponentSelectionDto {
   mirrorFinishTypeId?: number
 }
 
-export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>>
+export interface HardwareSelectionDto {
+  hardwareOptionId: number
+  quantity?: number
+}
+
+export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>> & {
+  hardware?: HardwareSelectionDto[]
+}
 
 export interface ComponentPriceDto {
   component: string
@@ -70,10 +77,38 @@ export interface ComponentPriceDto {
   baseDealerPrice: number | null
 }
 
+export interface HardwarePriceDto {
+  category: ReferenceDto
+  type: ReferenceDto
+  colourName: string
+  quantity: number
+  retailPrice: number
+  dealerPrice: number
+}
+
 export interface PricingResponseDto {
   totalRetailPrice: number
   totalDealerPrice: number
   components: ComponentPriceDto[]
+  hardware: HardwarePriceDto[]
+}
+
+export interface HardwareOptionDto {
+  id: number
+  colourName: string
+  retailPrice: number
+  dealerPrice: number
+}
+
+export interface HardwareTypeDto {
+  type: ReferenceDto
+  unit: string
+  options: HardwareOptionDto[]
+}
+
+export interface HardwareCategoryDto {
+  category: ReferenceDto
+  types: HardwareTypeDto[]
 }
 
 export interface DimensionSurchargeRuleDto {

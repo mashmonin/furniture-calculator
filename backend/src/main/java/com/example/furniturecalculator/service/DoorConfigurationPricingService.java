@@ -23,19 +23,24 @@ import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.HardwareOption;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.HardwarePriceDto;
+import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
+import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
+import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
@@ -96,6 +101,7 @@ public class DoorConfigurationPricingService {
     private final ConfigurationPriceRepository configurationPriceRepository;
     private final FramePostRepository framePostRepository;
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
+    private final HardwareOptionRepository hardwareOptionRepository;
 
     // Читается PricingSurchargesController для отображения процента надбавки фронтенду
     // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
@@ -133,7 +139,45 @@ public class DoorConfigurationPricingService {
                 .map(ComponentPriceDto::dealerPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return new PricingResponseDto(totalRetail, totalDealer, components);
+        // Фурнитура не привязана к door_configuration и не участвует в надбавках компонентов —
+        // прибавляется к итогу последним слагаемым (см. change add-hardware-catalog, design.md).
+        List<HardwarePriceDto> hardware = priceHardwareSelections(
+                request != null && request.hardware() != null ? request.hardware() : List.of());
+        BigDecimal hardwareRetailTotal = hardware.stream()
+                .map(HardwarePriceDto::retailPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal hardwareDealerTotal = hardware.stream()
+                .map(HardwarePriceDto::dealerPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new PricingResponseDto(
+                totalRetail.add(hardwareRetailTotal), totalDealer.add(hardwareDealerTotal), components, hardware);
+    }
+
+    // Позиции не объединяются: один и тот же hardware_option может повторяться несколькими независимыми
+    // строками (см. change add-hardware-catalog, design.md — «Список позиций фурнитуры и формула суммы»).
+    private List<HardwarePriceDto> priceHardwareSelections(List<HardwareSelectionDto> selections) {
+        return selections.stream().map(this::priceHardwareSelection).toList();
+    }
+
+    private HardwarePriceDto priceHardwareSelection(HardwareSelectionDto selection) {
+        HardwareOption option = hardwareOptionRepository.findById(selection.hardwareOptionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "hardware_option с id=" + selection.hardwareOptionId() + " не найден"));
+        Integer quantity = selection.quantity();
+        if (quantity != null && quantity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "количество для позиции фурнитуры должно быть положительным числом");
+        }
+        int resolvedQuantity = quantity != null ? quantity : 1;
+        BigDecimal quantityMultiplier = BigDecimal.valueOf(resolvedQuantity);
+        return new HardwarePriceDto(
+                ReferenceDto.from(option.getHardwareType().getHardwareCategory()),
+                ReferenceDto.from(option.getHardwareType()),
+                option.getColourName(),
+                resolvedQuantity,
+                option.getRetailPrice().multiply(quantityMultiplier),
+                option.getDealerPrice().multiply(quantityMultiplier));
     }
 
     private ComponentSelectionDto selectionOf(
