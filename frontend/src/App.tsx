@@ -45,6 +45,12 @@ const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
 const NONE_OPTION_ID = 0
 
+// Синтетический id единственного варианта высоты короба «Фантом» (см. HEIGHT_MIRROR_FRAME_TYPE_CODES) —
+// у этого короба нет каталожных liner_dimension_option, поэтому кнопка выбора высоты не ссылается на
+// реальный id, а лишь подтверждает применение значения, скопированного из высоты полотна
+// (customHeightValueMm), как и требует явный клик даже при единственной альтернативе.
+const MIRROR_HEIGHT_OPTION_ID = -1
+
 const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
   leaf: 'Без полотна',
   frame: 'Без короба',
@@ -60,6 +66,10 @@ const THICKNESS_TYPE_CODE = 'DT-003'
 // Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар» и «НЕО»
 // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
 const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
+// Коды коробов, у которых высота не выбирается из каталога, а всегда в точности равна высоте полотна:
+// «Фантом» (см. change mirror-fantom-frame-height-to-leaf-height) — у него вообще нет каталожных опций
+// высоты, в отличие от HEIGHT_RANGE_FRAME_TYPE_CODES.
+const HEIGHT_MIRROR_FRAME_TYPE_CODES = ['FT-001']
 // Коды добора «ТС», у которого длина ограничена диапазоном высоты полотна (см. change
 // link-dobor-ts-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
 // но на оси «Длина». Добор «КОМПЛАНАР» этому правилу не подчиняется.
@@ -558,6 +568,9 @@ function App() {
         if (frameType && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameType.code)) {
           next.frame = { ...next.frame, heightOptionId: undefined }
         }
+        if (frameType && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(frameType.code)) {
+          next.frame = { ...next.frame, customHeightValueMm: undefined }
+        }
         const frameExtensionsType = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent?.type
         if (frameExtensionsType && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
           next.frameExtensions = { ...next.frameExtensions, lengthOptionId: undefined }
@@ -729,17 +742,34 @@ function App() {
                           />
                         </Space>
                       )}
-                      <OptionGroup
-                        label="Высота"
-                        options={(step.key === 'edge'
-                          ? edgeHeightOptions(component, leafHeightValue)
-                          : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
-                            ? frameHeightRangeOptions(component, leafHeightValue)
-                            : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
-                        ).map((option) => ({ id: option.id, label: String(option.value) }))}
-                        selectedId={selection[step.key].heightOptionId}
-                        onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}
-                      />
+                      {step.key === 'frame' && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(component.type.code) ? (
+                        <OptionGroup
+                          label="Высота"
+                          options={
+                            leafHeightValue === undefined
+                              ? []
+                              : [{ id: MIRROR_HEIGHT_OPTION_ID, label: String(leafHeightValue) }]
+                          }
+                          selectedId={selection.frame.customHeightValueMm !== undefined ? MIRROR_HEIGHT_OPTION_ID : undefined}
+                          onChange={(id) =>
+                            updateSelection('frame', {
+                              customHeightValueMm: id === MIRROR_HEIGHT_OPTION_ID ? leafHeightValue : undefined,
+                            })
+                          }
+                        />
+                      ) : (
+                        <OptionGroup
+                          label="Высота"
+                          options={(step.key === 'edge'
+                            ? edgeHeightOptions(component, leafHeightValue)
+                            : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
+                              ? frameHeightRangeOptions(component, leafHeightValue)
+                              : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
+                          ).map((option) => ({ id: option.id, label: String(option.value) }))}
+                          selectedId={selection[step.key].heightOptionId}
+                          onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}
+                        />
+                      )}
                       {step.key === 'leaf' && (
                         <Space align="center">
                           <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>

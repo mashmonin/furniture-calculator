@@ -56,6 +56,13 @@ public class DoorConfigurationPricingService {
     // FT-001) этому правилу не подчиняются.
     private static final Set<String> HEIGHT_RANGE_FRAME_TYPE_CODES = Set.of("FT-002", "FT-003");
 
+    // Коды frame_type, для которых высота короба не выбирается из каталога, а всегда в точности равна
+    // высоте полотна той же конфигурации (см. change mirror-fantom-frame-height-to-leaf-height) — короб
+    // «Фантом» (FT-001) физически не имеет каталожных liner_dimension_option ни на одной оси. В отличие
+    // от HEIGHT_RANGE_FRAME_TYPE_CODES, здесь нет диапазона: значение должно совпадать с высотой полотна
+    // в точности.
+    private static final Set<String> HEIGHT_MIRROR_FRAME_TYPE_CODES = Set.of("FT-001");
+
     // Коды frame_extensions_type добора «ТС» (см. db.changelog 0005), для которых длина ограничена
     // диапазоном высоты полотна (см. change link-dobor-ts-length-to-leaf-height) — по тому же принципу,
     // что и высота короба из HEIGHT_RANGE_FRAME_TYPE_CODES, но на оси «Длина». Добор «КОМПЛАНАР»
@@ -143,7 +150,15 @@ public class DoorConfigurationPricingService {
             return;
         }
 
-        if ((selection.customLengthValueMm() != null || selection.customHeightValueMm() != null) && !(type instanceof LeafType)) {
+        if (selection.customLengthValueMm() != null && !(type instanceof LeafType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "произвольное значение размера допустимо только для компонента leaf, а не для " + componentName);
+        }
+        // Произвольное значение высоты допустимо также для короба «Фантом» (см.
+        // HEIGHT_MIRROR_FRAME_TYPE_CODES) — только для высоты, не для длины (проверка выше).
+        boolean customHeightAllowedForFrame =
+                type instanceof FrameType frameType && HEIGHT_MIRROR_FRAME_TYPE_CODES.contains(frameType.getCode());
+        if (selection.customHeightValueMm() != null && !(type instanceof LeafType) && !customHeightAllowedForFrame) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "произвольное значение размера допустимо только для компонента leaf, а не для " + componentName);
         }
@@ -154,17 +169,24 @@ public class DoorConfigurationPricingService {
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
             // Высота короба сама по себе не влияет на цену (framePostPrice её не использует) — здесь она
-            // только валидируется на принадлежность и, для коробов из HEIGHT_RANGE_FRAME_TYPE_CODES,
-            // на совместимость с высотой полотна. Для таких коробов высота обязательна: без этого
-            // требования отсутствие heightOptionId тихо пропускало бы проверку диапазона
-            // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
-            if (HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode()) && selection.heightOptionId() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "для этого короба необходимо выбрать высоту");
-            }
-            LinerDimensionOption heightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
-            if (heightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
-                validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
+            // только валидируется. Для коробов из HEIGHT_MIRROR_FRAME_TYPE_CODES (см. change
+            // mirror-fantom-frame-height-to-leaf-height) высота не выбирается из каталога — её вообще нет
+            // (validatedDimensionOption ниже отклонит любой переданный heightOptionId как непринадлежащий),
+            // а обязана в точности совпадать с высотой полотна. Для коробов из HEIGHT_RANGE_FRAME_TYPE_CODES —
+            // прежняя диапазонная проверка обязательности и совместимости.
+            if (HEIGHT_MIRROR_FRAME_TYPE_CODES.contains(frameType.getCode())) {
+                validatedDimensionOption(componentName, frameType, selection.heightOptionId());
+                requireHeightMirrorsLeaf(componentName, selection.customHeightValueMm(), leafHeightValue);
+            } else {
+                // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
+                if (HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode()) && selection.heightOptionId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "для этого короба необходимо выбрать высоту");
+                }
+                LinerDimensionOption heightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
+                if (heightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
+                    validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
+                }
             }
             components.add(framePostPrice(componentName, frameType, colourOption));
             return;
@@ -380,6 +402,18 @@ public class DoorConfigurationPricingService {
         }
         if (lengthOption != null) {
             validateHeightWithinLeafRange(componentName, LENGTH_TYPE_CODE, lengthOption, leafHeightValue);
+        }
+    }
+
+    // Высота короба «Фантом» (HEIGHT_MIRROR_FRAME_TYPE_CODES) не выбирается из диапазона каталожных
+    // опций, как у «НЕО»/«Компланар», а обязана в точности совпадать с высотой полотна (см. change
+    // mirror-fantom-frame-height-to-leaf-height) — числовое равенство, а не проверка диапазона.
+    private void requireHeightMirrorsLeaf(String componentName, BigDecimal customHeightValueMm, BigDecimal leafHeightValue) {
+        if (customHeightValueMm == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "для этого короба необходимо выбрать высоту");
+        }
+        if (leafHeightValue == null || customHeightValueMm.compareTo(leafHeightValue) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "высота короба должна совпадать с высотой полотна");
         }
     }
 
