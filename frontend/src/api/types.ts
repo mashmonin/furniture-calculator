@@ -66,6 +66,10 @@ export interface HardwareSelectionDto {
 
 export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>> & {
   hardware?: HardwareSelectionDto[]
+  // Явный признак реверса — используется только расчётом отдельного полотна (см. change
+  // add-standalone-leaf-pricing); расчётом по door_configuration игнорируется, там реверс определяется
+  // самой конфигурацией.
+  isReverse?: boolean
 }
 
 export interface ComponentPriceDto {

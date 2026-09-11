@@ -5,3 +5,39 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* Трёхколоночная раскладка конфигуратора (см. change redesign-configurator-layout):
+   узкая левая колонка выбора сервиса, гибкая центральная рабочая панель, sticky-панель
+   результата справа. */
+.app-columns {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.app-sidebar {
+  flex: 0 0 200px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.app-pricing {
+  flex: 0 0 300px;
+  background: #e6f7ff;
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+  position: sticky;
+  top: 16px;
+}

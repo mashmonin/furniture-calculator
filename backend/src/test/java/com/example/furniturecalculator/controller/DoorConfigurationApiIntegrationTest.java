@@ -205,6 +205,45 @@ class DoorConfigurationApiIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void расчёт_стоимости_отдельного_полотна_не_требует_door_configuration() throws Exception {
+        // Строка door_configuration намеренно не создаётся — только leaf_type и его цена
+        // (см. change add-standalone-leaf-pricing).
+        Long leafTypeId = insertLeafType("IT-LEAF-PRICE-1");
+        insertConfigurationPrice(
+                BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafTypeId, null, null, null, null, null, null);
+
+        PricingRequestDto request = new PricingRequestDto(ComponentSelectionDto.EMPTY, null, null, null, null);
+
+        PricingResponseDto response = performLeafPost(leafTypeId, request, PricingResponseDto.class);
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("1000");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("900");
+        assertThat(response.components()).hasSize(1);
+        assertThat(response.components().get(0).component()).isEqualTo("leaf");
+    }
+
+    @Test
+    void расчёт_стоимости_отдельного_полотна_для_несуществующего_типа_возвращает_404() throws Exception {
+        PricingRequestDto request = new PricingRequestDto(ComponentSelectionDto.EMPTY, null, null, null, null);
+
+        mockMvc.perform(post("/api/leaf-types/{id}/price", 999_999_999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
+    private <T> T performLeafPost(Long leafTypeId, PricingRequestDto request, Class<T> responseType) throws Exception {
+        String json = mockMvc.perform(post("/api/leaf-types/{id}/price", leafTypeId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readValue(json, responseType);
+    }
+
     private List<DoorConfigurationDto> performGetCatalog() throws Exception {
         String json = mockMvc.perform(get("/api/door-configurations"))
                 .andExpect(status().isOk())

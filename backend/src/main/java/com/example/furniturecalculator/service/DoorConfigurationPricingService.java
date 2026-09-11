@@ -41,6 +41,7 @@ import com.example.furniturecalculator.repository.DimensionSurchargeRuleReposito
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
+import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
@@ -102,6 +103,7 @@ public class DoorConfigurationPricingService {
     private final FramePostRepository framePostRepository;
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
+    private final LeafTypeRepository leafTypeRepository;
 
     // Читается PricingSurchargesController для отображения процента надбавки фронтенду
     // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
@@ -130,6 +132,35 @@ public class DoorConfigurationPricingService {
         addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightValue, false);
         addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightValue, false);
 
+        return finalizeResponse(components, request);
+    }
+
+    // Расчёт стоимости одного полотна (leaf_type) в отрыве от door_configuration — например, пока
+    // каскад выбора на фронтенде ещё не определил конкретную согласованную конфигурацию с коробом
+    // и др. (см. change add-standalone-leaf-pricing). Переиспользует тот же подбор цены и те же
+    // надбавки за размер/исполнение зеркала, что и для leaf-компонента внутри calculate(); надбавка
+    // за реверс не применяется — она свойство короба/портала конкретной door_configuration, а не
+    // самого полотна.
+    @Transactional(readOnly = true)
+    public PricingResponseDto calculateForLeaf(Long leafTypeId, PricingRequestDto request) {
+        LeafType leafType = leafTypeRepository.findById(leafTypeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "leaf_type с id=" + leafTypeId + " не найден"));
+
+        ComponentSelectionDto leafSelection = selectionOf(request, PricingRequestDto::leaf);
+        // У отдельного полотна нет door_configuration.is_reverse — клиент передаёт признак реверса
+        // явно (см. change add-standalone-leaf-pricing); отсутствие поля равносильно false.
+        boolean applyReverseSurcharge = request != null && Boolean.TRUE.equals(request.isReverse());
+        List<ComponentPriceDto> components = new ArrayList<>();
+        addComponentIfPresent(components, "leaf", leafType, leafSelection, null, applyReverseSurcharge);
+
+        return finalizeResponse(components, request);
+    }
+
+    // Итоговые суммы и фурнитура не зависят от того, найдены ли компоненты через door_configuration
+    // или напрямую по leaf_type — общий хвост для calculate() и calculateForLeaf() (см. change
+    // add-standalone-leaf-pricing, design.md).
+    private PricingResponseDto finalizeResponse(List<ComponentPriceDto> components, PricingRequestDto request) {
         BigDecimal totalRetail = components.stream()
                 .filter(ComponentPriceDto::priced)
                 .map(ComponentPriceDto::retailPrice)
