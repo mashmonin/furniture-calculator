@@ -70,10 +70,14 @@ const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
 // «Фантом» (см. change mirror-fantom-frame-height-to-leaf-height) — у него вообще нет каталожных опций
 // высоты, в отличие от HEIGHT_RANGE_FRAME_TYPE_CODES.
 const HEIGHT_MIRROR_FRAME_TYPE_CODES = ['FT-001']
-// Коды добора «ТС», у которого длина ограничена диапазоном высоты полотна (см. change
-// link-dobor-ts-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
-// но на оси «Длина». Добор «КОМПЛАНАР» этому правилу не подчиняется.
-const DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES = ['FET-004', 'FET-005', 'FET-006', 'FET-007']
+// Коды добора, у которого длина ограничена диапазоном высоты полотна — добор «ТС» (см. change
+// link-dobor-ts-length-to-leaf-height) и добор «КОМПЛАНАР», все 6 ширин (см. change
+// link-komplanar-dobor-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
+// но на оси «Длина». Это все 10 реально достижимых через каталог кодов frame_extensions_type.
+const LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES = [
+  'FET-004', 'FET-005', 'FET-006', 'FET-007',
+  'FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013',
+]
 // Коды наличников, у которых длина ограничена диапазоном высоты полотна — «Модо»/«Онда» (см. change
 // link-modo-onda-casing-length-to-leaf-height) и наличники короба «Компланар»: «Эво», «Авеню»/
 // «Авеню-реверс», «Аура»/«Аура-реверс», «Ария»/«Ария-реверс» (см. change
@@ -282,13 +286,14 @@ function buildCascadeSteps(
           frameCoversHeight(configuration.frame, leafHeightValue),
       )
     }
-    // Добор «ТС» из DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES исключается из выбора по тому же принципу, что и
-    // короб выше, но по диапазону длины (см. change link-dobor-ts-length-to-leaf-height).
+    // Добор из LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES исключается из выбора по тому же принципу, что и
+    // короб выше, но по диапазону длины (см. change link-dobor-ts-length-to-leaf-height,
+    // link-komplanar-dobor-length-to-leaf-height).
     if (key === 'frameExtensions' && leafHeightValue !== undefined) {
       candidates = candidates.filter(
         (configuration) =>
           !configuration.frameExtensions ||
-          !DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(configuration.frameExtensions.type.code) ||
+          !LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(configuration.frameExtensions.type.code) ||
           lengthRangeCoversHeight(configuration.frameExtensions, leafHeightValue),
       )
     }
@@ -572,7 +577,7 @@ function App() {
           next.frame = { ...next.frame, customHeightValueMm: undefined }
         }
         const frameExtensionsType = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent?.type
-        if (frameExtensionsType && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
+        if (frameExtensionsType && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
           next.frameExtensions = { ...next.frameExtensions, lengthOptionId: undefined }
         }
         const doorCasingType = cascadeSteps.find((step) => step.key === 'doorCasing')?.resolvedComponent?.type
@@ -720,7 +725,7 @@ function App() {
                       )}
                       <OptionGroup
                         label="Длина"
-                        options={(step.key === 'frameExtensions' && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
+                        options={(step.key === 'frameExtensions' && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
                           ? lengthRangeOptions(component, leafHeightValue)
                           : step.key === 'doorCasing' && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(component.type.code)
                             ? lengthRangeOptions(component, leafHeightValue)

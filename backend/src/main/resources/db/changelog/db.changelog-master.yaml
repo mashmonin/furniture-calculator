@@ -248,3 +248,9 @@ databaseChangeLog:
   - include:
       file: changes/0073-komplanar-casing-configuration-price-length-decouple.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0074-komplanar-dobor-length-range-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0075-komplanar-dobor-configuration-price-length-decouple.yaml
+      relativeToChangelogFile: true

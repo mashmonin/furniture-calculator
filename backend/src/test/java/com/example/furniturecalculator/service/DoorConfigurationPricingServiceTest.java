@@ -1156,6 +1156,310 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void высота_полотна_внутри_диапазона_длины_добора_комплан_расчёт_выполняется() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2170), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2150_2250_добора_комплан_длина_2400_расчёт_выполняется() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-009");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2200), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_ровно_2300_проходит_диапазон_точку_длины_добора_комплан() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-010");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2300), true, leafType);
+        // Диапазон-точка: value=2400, min_value=max_value=2300 — тот же value, что и у соседнего
+        // диапазона [2150, 2250], но с непересекающимися границами.
+        LinerDimensionOption doborKomplanarLengthPoint = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2300), BigDecimal.valueOf(2300), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(doborKomplanarLengthPoint));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2350_2550_добора_комплан_длина_2700_расчёт_выполняется() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-011");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2450), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2350), BigDecimal.valueOf(2550), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2600_2850_ширина_100_140_190_длина_3000_расчёт_выполняется() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2600_2850_ширина_400_600_800_длина_2950_расчёт_выполняется() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(41L, "FET-011");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2950), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(41L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2900_2950_добора_комплан_недоступна_возвращает_400() {
+        // В диапазоне [2900, 2950] недоступна ни одна ширина добора «КОМПЛАНАР» — единственная
+        // допустимая для этой ширины опция длины в этой зоне (из соседнего диапазона [2600, 2850])
+        // эту высоту не покрывает.
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2925), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_в_разрыве_между_диапазонами_длины_добора_комплан_возвращает_400() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-009");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        // 2260 не попадает ни в [2150, 2250], ни в [2300, 2300] — разрыв между диапазонами добора «КОМПЛАНАР».
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2260), true, leafType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void длина_добора_комплан_выбрана_без_высоты_полотна_возвращает_400() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-012");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        LinerDimensionOption doborKomplanarLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2170), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void добор_комплан_без_выбранной_длины_возвращает_400() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-013");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, ComponentSelectionDto.EMPTY);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void цена_добора_комплан_не_зависит_от_выбранной_длины() {
+        FrameExtensionsType doborKomplanarType = TestEntities.frameExtensionsType(40L, "FET-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborKomplanarType);
+        // length_option_id = null на строке цены — так же, как после миграции
+        // 0075-komplanar-dobor-configuration-price-length-decouple.
+        ConfigurationPrice price = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(2390), BigDecimal.valueOf(1366), doborKomplanarType, null, null, null, null);
+        LinerDimensionOption leafHeightA =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption doborKomplanarLengthA = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2170), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, doborKomplanarType);
+        LinerDimensionOption leafHeightB =
+                TestEntities.linerDimensionOption(1001L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption doborKomplanarLengthB = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, doborKomplanarType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeightA));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthA));
+        when(linerDimensionOptionRepository.findById(1001L)).thenReturn(Optional.of(leafHeightB));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(doborKomplanarLengthB));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of(price));
+
+        PricingRequestDto requestA = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null));
+        PricingRequestDto requestB = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null),
+                null, null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null));
+
+        ComponentPriceDto frameExtensionsA = service.calculate(10L, requestA).components().stream()
+                .filter(c -> c.component().equals("frameExtensions"))
+                .findFirst()
+                .orElseThrow();
+        ComponentPriceDto frameExtensionsB = service.calculate(10L, requestB).components().stream()
+                .filter(c -> c.component().equals("frameExtensions"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(frameExtensionsA.retailPrice()).isEqualByComparingTo("2390");
+        assertThat(frameExtensionsA.dealerPrice()).isEqualByComparingTo("1366");
+        assertThat(frameExtensionsB.retailPrice()).isEqualByComparingTo(frameExtensionsA.retailPrice());
+        assertThat(frameExtensionsB.dealerPrice()).isEqualByComparingTo(frameExtensionsA.dealerPrice());
+    }
+
+    @Test
     void высота_полотна_внутри_диапазона_длины_наличника_модо_онда_расчёт_выполняется() {
         DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
         LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
@@ -1833,8 +2137,13 @@ class DoorConfigurationPricingServiceTest {
 
     @Test
     void добор_комплан_без_длины_не_является_ошибкой() {
-        FrameExtensionsType komplanarDoborType = TestEntities.frameExtensionsType(7L, "FET-008");
-        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, komplanarDoborType);
+        // После link-komplanar-dobor-length-to-leaf-height все 10 реально достижимых через каталог кодов
+        // frame_extensions_type (добор «ТС» FET-004–007 и добор «КОМПЛАНАР» FET-008–013) входят в
+        // LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES, поэтому для проверки поведения вне набора используется
+        // код категорийного заголовка (FET-001), который существует в справочнике, но ни разу не связан
+        // ни с одной door_configuration и недостижим через UI.
+        FrameExtensionsType otherType = TestEntities.frameExtensionsType(7L, "FET-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, otherType);
 
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
