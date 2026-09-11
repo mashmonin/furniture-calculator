@@ -63,6 +63,12 @@ public final class TestEntities {
         return referenceType(FrameExtensionsType.class, id);
     }
 
+    public static FrameExtensionsType frameExtensionsType(long id, String code) {
+        FrameExtensionsType type = frameExtensionsType(id);
+        ReflectionTestUtils.setField(type, "code", code);
+        return type;
+    }
+
     public static LinerDimensionType linerDimensionType(long id) {
         return referenceType(LinerDimensionType.class, id);
     }

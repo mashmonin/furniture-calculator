@@ -1,0 +1,25 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0065-frame-extensions-type-length-range-index.yaml (см. change
+  # link-dobor-ts-length-to-leaf-height). Оригинальный файл не редактируется — он уже применён к
+  # PostgreSQL. Эта версия используется только для профиля desktop (см. context "desktop" на include
+  # в db.changelog-master.yaml). Итоговая уникальность идентична оригиналу; отличается только техника —
+  # H2 не поддерживает функциональные и partial unique-индексы. Колонки frame_extensions_type_key,
+  # min_value_norm и max_value_norm уже существуют (добавлены changes-desktop-overrides/0006-door-configuration-catalog.yaml
+  # и changes-desktop-overrides/0062-frame-type-height-range-index.yaml соответственно), поэтому здесь
+  # достаточно DROP + CREATE UNIQUE INDEX без ALTER TABLE.
+  - changeSet:
+      id: 0065-1-drop-liner-dimension-option-frame-extensions-type-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_liner_dimension_option_frame_extensions_type
+
+  - changeSet:
+      id: 0065-2-recreate-liner-dimension-option-frame-extensions-type-index-with-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_frame_extensions_type ON liner_dimension_option (
+                frame_extensions_type_key, liner_dimension_type_id, value, min_value_norm, max_value_norm
+              )
