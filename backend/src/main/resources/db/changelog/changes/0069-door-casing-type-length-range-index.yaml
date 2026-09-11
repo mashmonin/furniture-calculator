@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0069-1-drop-liner-dimension-option-door-casing-type-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_liner_dimension_option_door_casing_type
+
+  - changeSet:
+      id: 0069-2-recreate-liner-dimension-option-door-casing-type-index-with-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_liner_dimension_option_door_casing_type ON liner_dimension_option (
+                door_casing_type_id, liner_dimension_type_id, value, COALESCE(min_value, -1), COALESCE(max_value, -1)
+              ) WHERE door_casing_type_id IS NOT NULL

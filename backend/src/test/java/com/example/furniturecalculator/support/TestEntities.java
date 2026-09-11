@@ -59,6 +59,12 @@ public final class TestEntities {
         return referenceType(DoorCasingType.class, id);
     }
 
+    public static DoorCasingType doorCasingType(long id, String code) {
+        DoorCasingType type = doorCasingType(id);
+        ReflectionTestUtils.setField(type, "code", code);
+        return type;
+    }
+
     public static FrameExtensionsType frameExtensionsType(long id) {
         return referenceType(FrameExtensionsType.class, id);
     }

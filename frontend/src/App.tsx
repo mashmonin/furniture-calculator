@@ -64,6 +64,10 @@ const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
 // link-dobor-ts-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
 // но на оси «Длина». Добор «КОМПЛАНАР» этому правилу не подчиняется.
 const DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES = ['FET-004', 'FET-005', 'FET-006', 'FET-007']
+// Коды наличников «Модо»/«Онда», у которых длина ограничена диапазоном высоты полотна (см. change
+// link-modo-onda-casing-length-to-leaf-height) — тот же принцип, что и у добора «ТС», на той же оси
+// «Длина». Остальные наличники этому правилу не подчиняются.
+const LENGTH_RANGE_DOOR_CASING_TYPE_CODES = ['DCT-003', 'DCT-004']
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {
@@ -127,8 +131,10 @@ function frameCoversHeight(component: ComponentCatalogDto, leafHeightValue: numb
 }
 
 // Диапазон длины [minValue, maxValue] покрывает высоту уже выбранного полотна — тот же принцип, что и
-// frameHeightRangeOptions, но на оси «Длина» (см. change link-dobor-ts-length-to-leaf-height).
-function doborTsLengthOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
+// frameHeightRangeOptions, но на оси «Длина» (см. change link-dobor-ts-length-to-leaf-height). Ось-нейтрально
+// по владельцу — переиспользуется и для добора «ТС», и для наличников «Модо»/«Онда» (см. change
+// link-modo-onda-casing-length-to-leaf-height); вызывающая сторона сама решает, к какому владельцу применять.
+function lengthRangeOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
   if (leafHeightValue === undefined) {
     return []
   }
@@ -137,10 +143,9 @@ function doborTsLengthOptions(component: ComponentCatalogDto, leafHeightValue: n
   )
 }
 
-// Есть ли у добора «ТС» (из DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES) хотя бы одна опция длины, покрывающая
-// leafHeightValue — используется для исключения добора «ТС» из каскадного выбора при несовместимой высоте
-// полотна (см. buildCascadeSteps).
-function doborTsCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
+// Есть ли у компонента хотя бы одна опция длины, покрывающая leafHeightValue — используется для исключения
+// добора «ТС»/наличников «Модо»/«Онда» из каскадного выбора при несовместимой высоте полотна (см. buildCascadeSteps).
+function lengthRangeCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
   return component.dimensionOptions.some(
     (option) => option.dimensionType.code === LENGTH_TYPE_CODE && dimensionRangeCoversLeafHeight(option, leafHeightValue),
   )
@@ -270,7 +275,17 @@ function buildCascadeSteps(
         (configuration) =>
           !configuration.frameExtensions ||
           !DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(configuration.frameExtensions.type.code) ||
-          doborTsCoversHeight(configuration.frameExtensions, leafHeightValue),
+          lengthRangeCoversHeight(configuration.frameExtensions, leafHeightValue),
+      )
+    }
+    // Наличники «Модо»/«Онда» из LENGTH_RANGE_DOOR_CASING_TYPE_CODES исключаются из выбора по тому же
+    // принципу, что и добор «ТС» выше (см. change link-modo-onda-casing-length-to-leaf-height).
+    if (key === 'doorCasing' && leafHeightValue !== undefined) {
+      candidates = candidates.filter(
+        (configuration) =>
+          !configuration.doorCasing ||
+          !LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(configuration.doorCasing.type.code) ||
+          lengthRangeCoversHeight(configuration.doorCasing, leafHeightValue),
       )
     }
     const { step, nextCandidates } = applyCascadeStep(key, candidates, manualSelection)
@@ -543,6 +558,10 @@ function App() {
         if (frameExtensionsType && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
           next.frameExtensions = { ...next.frameExtensions, lengthOptionId: undefined }
         }
+        const doorCasingType = cascadeSteps.find((step) => step.key === 'doorCasing')?.resolvedComponent?.type
+        if (doorCasingType && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(doorCasingType.code)) {
+          next.doorCasing = { ...next.doorCasing, lengthOptionId: undefined }
+        }
       }
       return next
     })
@@ -685,8 +704,10 @@ function App() {
                       <OptionGroup
                         label="Длина"
                         options={(step.key === 'frameExtensions' && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
-                          ? doborTsLengthOptions(component, leafHeightValue)
-                          : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
+                          ? lengthRangeOptions(component, leafHeightValue)
+                          : step.key === 'doorCasing' && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(component.type.code)
+                            ? lengthRangeOptions(component, leafHeightValue)
+                            : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
                         ).map((option) => ({ id: option.id, label: String(option.value) }))}
                         selectedId={selection[step.key].lengthOptionId}
                         onChange={(id) => updateSelection(step.key, { lengthOptionId: id, customLengthValueMm: undefined })}

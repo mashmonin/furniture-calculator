@@ -228,3 +228,17 @@ databaseChangeLog:
   - include:
       file: changes/0068-door-casing-length-axis.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0069-door-casing-type-length-range-index.yaml
+      relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0069-door-casing-type-length-range-index.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
+  - include:
+      file: changes/0070-modo-onda-length-range-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0071-modo-onda-configuration-price-length-decouple.yaml
+      relativeToChangelogFile: true
