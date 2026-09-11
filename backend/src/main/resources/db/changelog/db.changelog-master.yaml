@@ -225,3 +225,6 @@ databaseChangeLog:
   - include:
       file: changes/0067-dobor-ts-configuration-price-length-decouple.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0068-door-casing-length-axis.yaml
+      relativeToChangelogFile: true

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0068-1-door-casing-liner-dimension-option-to-length-axis
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE liner_dimension_option
+              SET liner_dimension_type_id = (SELECT id FROM liner_dimension_type WHERE code = 'DT-001')
+              WHERE door_casing_type_id IS NOT NULL
+                AND liner_dimension_type_id = (SELECT id FROM liner_dimension_type WHERE code = 'DT-002')
+
+  - changeSet:
+      id: 0068-2-door-casing-configuration-price-to-length-option
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE configuration_price
+              SET length_option_id = height_option_id, height_option_id = NULL
+              WHERE door_casing_type_id IS NOT NULL AND height_option_id IS NOT NULL

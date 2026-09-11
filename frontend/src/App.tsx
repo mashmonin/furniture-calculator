@@ -696,6 +696,7 @@ function App() {
                           <Typography.Text type="secondary">Другое значение длины (мм)</Typography.Text>
                           <InputNumber
                             min={1}
+                            step={50}
                             value={selection.leaf.customLengthValueMm}
                             onChange={(value) =>
                               updateSelection('leaf', { customLengthValueMm: value ?? undefined, lengthOptionId: undefined })
@@ -719,6 +720,7 @@ function App() {
                           <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>
                           <InputNumber
                             min={1}
+                            step={50}
                             value={selection.leaf.customHeightValueMm}
                             onChange={(value) =>
                               updateSelection('leaf', { customHeightValueMm: value ?? undefined, heightOptionId: undefined })
@@ -742,6 +744,7 @@ function App() {
                         }))}
                         selectedId={selection[step.key].colourOptionId}
                         onChange={(id) => updateSelection(step.key, { colourOptionId: id })}
+                        variant={step.key === 'leaf' ? 'select' : 'buttons'}
                       />
                       {(step.key === 'doorCasing' || step.key === 'frameExtensions') && (
                         <Space align="center">
