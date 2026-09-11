@@ -242,3 +242,9 @@ databaseChangeLog:
   - include:
       file: changes/0071-modo-onda-configuration-price-length-decouple.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0072-komplanar-casing-length-range-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0073-komplanar-casing-configuration-price-length-decouple.yaml
+      relativeToChangelogFile: true

@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0073-1-komplanar-casing-configuration-price-length-decouple
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE configuration_price
+              SET length_option_id = NULL
+              WHERE door_casing_type_id IN (
+                SELECT id FROM door_casing_type
+                WHERE code IN ('DCT-001', 'DCT-002', 'DCT-005', 'DCT-006', 'DCT-007', 'DCT-008', 'DCT-009')
+              )
