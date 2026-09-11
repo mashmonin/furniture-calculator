@@ -60,6 +60,10 @@ const THICKNESS_TYPE_CODE = 'DT-003'
 // Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар» и «НЕО»
 // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
 const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
+// Коды добора «ТС», у которого длина ограничена диапазоном высоты полотна (см. change
+// link-dobor-ts-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
+// но на оси «Длина». Добор «КОМПЛАНАР» этому правилу не подчиняется.
+const DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES = ['FET-004', 'FET-005', 'FET-006', 'FET-007']
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {
@@ -94,10 +98,12 @@ function edgeHeightOptions(component: ComponentCatalogDto, leafHeightValue: numb
   )
 }
 
-// Диапазон высоты опции короба [minValue, maxValue] покрывает высоту уже выбранного полотна.
-// В отличие от кромки, физическая высота короба (value) не совпадает с границами этого диапазона,
-// поэтому верхней границей служит maxValue, а не value (см. change link-frame-neo-height-to-leaf-height).
-function frameHeightRangeOptionCoversLeafHeight(option: LinerDimensionOptionDto, leafHeightValue: number): boolean {
+// Диапазон опции [minValue, maxValue] покрывает высоту уже выбранного полотна. Ось-нейтрально: сравнивает
+// только числа, не привязана к тому, что именно описывает опция (высоту короба или длину добора «ТС») —
+// вызывающая сторона сама фильтрует по нужной оси (см. change link-frame-neo-height-to-leaf-height,
+// link-dobor-ts-length-to-leaf-height). В отличие от кромки, физическое значение опции (value) не совпадает
+// с границами этого диапазона, поэтому верхней границей служит maxValue, а не value.
+function dimensionRangeCoversLeafHeight(option: LinerDimensionOptionDto, leafHeightValue: number): boolean {
   const max = option.maxValue ?? option.value
   return (option.minValue === null || option.minValue <= leafHeightValue) && leafHeightValue <= max
 }
@@ -107,7 +113,7 @@ function frameHeightRangeOptions(component: ComponentCatalogDto, leafHeightValue
     return []
   }
   return component.dimensionOptions.filter(
-    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && frameHeightRangeOptionCoversLeafHeight(option, leafHeightValue),
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && dimensionRangeCoversLeafHeight(option, leafHeightValue),
   )
 }
 
@@ -116,7 +122,27 @@ function frameHeightRangeOptions(component: ComponentCatalogDto, leafHeightValue
 // высоте полотна (см. buildCascadeSteps).
 function frameCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
   return component.dimensionOptions.some(
-    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && frameHeightRangeOptionCoversLeafHeight(option, leafHeightValue),
+    (option) => option.dimensionType.code === HEIGHT_TYPE_CODE && dimensionRangeCoversLeafHeight(option, leafHeightValue),
+  )
+}
+
+// Диапазон длины [minValue, maxValue] покрывает высоту уже выбранного полотна — тот же принцип, что и
+// frameHeightRangeOptions, но на оси «Длина» (см. change link-dobor-ts-length-to-leaf-height).
+function doborTsLengthOptions(component: ComponentCatalogDto, leafHeightValue: number | undefined): LinerDimensionOptionDto[] {
+  if (leafHeightValue === undefined) {
+    return []
+  }
+  return component.dimensionOptions.filter(
+    (option) => option.dimensionType.code === LENGTH_TYPE_CODE && dimensionRangeCoversLeafHeight(option, leafHeightValue),
+  )
+}
+
+// Есть ли у добора «ТС» (из DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES) хотя бы одна опция длины, покрывающая
+// leafHeightValue — используется для исключения добора «ТС» из каскадного выбора при несовместимой высоте
+// полотна (см. buildCascadeSteps).
+function doborTsCoversHeight(component: ComponentCatalogDto, leafHeightValue: number): boolean {
+  return component.dimensionOptions.some(
+    (option) => option.dimensionType.code === LENGTH_TYPE_CODE && dimensionRangeCoversLeafHeight(option, leafHeightValue),
   )
 }
 
@@ -235,6 +261,16 @@ function buildCascadeSteps(
           !configuration.frame ||
           !HEIGHT_RANGE_FRAME_TYPE_CODES.includes(configuration.frame.type.code) ||
           frameCoversHeight(configuration.frame, leafHeightValue),
+      )
+    }
+    // Добор «ТС» из DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES исключается из выбора по тому же принципу, что и
+    // короб выше, но по диапазону длины (см. change link-dobor-ts-length-to-leaf-height).
+    if (key === 'frameExtensions' && leafHeightValue !== undefined) {
+      candidates = candidates.filter(
+        (configuration) =>
+          !configuration.frameExtensions ||
+          !DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(configuration.frameExtensions.type.code) ||
+          doborTsCoversHeight(configuration.frameExtensions, leafHeightValue),
       )
     }
     const { step, nextCandidates } = applyCascadeStep(key, candidates, manualSelection)
@@ -503,6 +539,10 @@ function App() {
         if (frameType && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameType.code)) {
           next.frame = { ...next.frame, heightOptionId: undefined }
         }
+        const frameExtensionsType = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent?.type
+        if (frameExtensionsType && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
+          next.frameExtensions = { ...next.frameExtensions, lengthOptionId: undefined }
+        }
       }
       return next
     })
@@ -644,9 +684,10 @@ function App() {
                       )}
                       <OptionGroup
                         label="Длина"
-                        options={component.dimensionOptions
-                          .filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
-                          .map((option) => ({ id: option.id, label: String(option.value) }))}
+                        options={(step.key === 'frameExtensions' && DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
+                          ? doborTsLengthOptions(component, leafHeightValue)
+                          : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
+                        ).map((option) => ({ id: option.id, label: String(option.value) }))}
                         selectedId={selection[step.key].lengthOptionId}
                         onChange={(id) => updateSelection(step.key, { lengthOptionId: id, customLengthValueMm: undefined })}
                       />

@@ -56,6 +56,13 @@ public class DoorConfigurationPricingService {
     // FT-001) этому правилу не подчиняются.
     private static final Set<String> HEIGHT_RANGE_FRAME_TYPE_CODES = Set.of("FT-002", "FT-003");
 
+    // Коды frame_extensions_type добора «ТС» (см. db.changelog 0005), для которых длина ограничена
+    // диапазоном высоты полотна (см. change link-dobor-ts-length-to-leaf-height) — по тому же принципу,
+    // что и высота короба из HEIGHT_RANGE_FRAME_TYPE_CODES, но на оси «Длина». Добор «КОМПЛАНАР»
+    // (FET-008–FET-013) и другие компоненты этому правилу не подчиняются.
+    private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES =
+            Set.of("FET-004", "FET-005", "FET-006", "FET-007");
+
     // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
     // в движок бизнес-правил (Drools); тогда applyReverseSurcharge заменится вызовом правил
@@ -148,7 +155,7 @@ public class DoorConfigurationPricingService {
             }
             LinerDimensionOption heightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
             if (heightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
-                validateHeightWithinLeafRange(componentName, heightOption, leafHeightValue);
+                validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
             }
             components.add(framePostPrice(componentName, frameType, colourOption));
             return;
@@ -168,7 +175,22 @@ public class DoorConfigurationPricingService {
         ColourOption colourOption = validatedColourOption(componentName, type, selection.colourOptionId());
 
         if (type instanceof EdgeType && heightOption != null) {
-            validateHeightWithinLeafRange(componentName, heightOption, leafHeightValue);
+            validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
+        }
+
+        // Длина добора «ТС» сама по себе не влияет на цену (см. миграцию 0067, length_option_id обнулён
+        // в configuration_price для этих кодов) — здесь она только валидируется на принадлежность и, для
+        // кодов из набора, на совместимость с высотой полотна. Для таких добора длина обязательна: без
+        // этого требования отсутствие lengthOptionId тихо пропускало бы проверку диапазона (см. change
+        // link-dobor-ts-length-to-leaf-height, по аналогии с обязательностью высоты для короба «НЕО»/«Компланар»).
+        if (type instanceof FrameExtensionsType frameExtensionsType
+                && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.contains(frameExtensionsType.getCode())) {
+            if (selection.lengthOptionId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "для добора «ТС» необходимо выбрать длину");
+            }
+            if (lengthOption != null) {
+                validateHeightWithinLeafRange(componentName, LENGTH_TYPE_CODE, lengthOption, leafHeightValue);
+            }
         }
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
@@ -308,24 +330,28 @@ public class DoorConfigurationPricingService {
         return BigDecimal.ONE.add(rule.getSurchargePercent().divide(BigDecimal.valueOf(100)));
     }
 
+    // expectedDimensionTypeCode — ось размера, для которой вызывающая сторона ожидает эту проверку
+    // (HEIGHT_TYPE_CODE для кромки/короба, LENGTH_TYPE_CODE для добора «ТС», см. change
+    // link-dobor-ts-length-to-leaf-height) — если у переданной опции другая ось, проверка не выполняется.
     private void validateHeightWithinLeafRange(
-            String componentName, LinerDimensionOption heightOption, BigDecimal leafHeightValue) {
-        if (!HEIGHT_TYPE_CODE.equals(heightOption.getLinerDimensionType().getCode())) {
+            String componentName, String expectedDimensionTypeCode, LinerDimensionOption dimensionOption,
+            BigDecimal leafHeightValue) {
+        if (!expectedDimensionTypeCode.equals(dimensionOption.getLinerDimensionType().getCode())) {
             return;
         }
         if (leafHeightValue == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "для компонента " + componentName + " выбрана высота, но высота полотна не выбрана");
+                    "для компонента " + componentName + " выбран размер, ограниченный высотой полотна, но высота полотна не выбрана");
         }
-        BigDecimal min = heightOption.getMinValue();
-        // Верхняя граница диапазона — max_value, если задан явно (короб «НЕО», см. change
-        // link-frame-neo-height-to-leaf-height), иначе value (кромка, где физическая высота опции
-        // исторически совпадает с верхней границей диапазона).
-        BigDecimal max = heightOption.getMaxValue() != null ? heightOption.getMaxValue() : heightOption.getValue();
+        BigDecimal min = dimensionOption.getMinValue();
+        // Верхняя граница диапазона — max_value, если задан явно (короб «НЕО», добор «ТС», см. change
+        // link-frame-neo-height-to-leaf-height, link-dobor-ts-length-to-leaf-height), иначе value (кромка,
+        // где физическая высота опции исторически совпадает с верхней границей диапазона).
+        BigDecimal max = dimensionOption.getMaxValue() != null ? dimensionOption.getMaxValue() : dimensionOption.getValue();
         boolean withinRange = (min == null || leafHeightValue.compareTo(min) >= 0) && leafHeightValue.compareTo(max) <= 0;
         if (!withinRange) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "liner_dimension_option с id=" + heightOption.getId() + " не совместима с высотой полотна");
+                    "liner_dimension_option с id=" + dimensionOption.getId() + " не совместима с высотой полотна");
         }
     }
 

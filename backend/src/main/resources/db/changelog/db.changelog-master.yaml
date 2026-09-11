@@ -211,3 +211,17 @@ databaseChangeLog:
   - include:
       file: changes/0064-komplanar-frame-height-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0065-frame-extensions-type-length-range-index.yaml
+      relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0065-frame-extensions-type-length-range-index.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
+  - include:
+      file: changes/0066-dobor-ts-length-range-configurations.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0067-dobor-ts-configuration-price-length-decouple.yaml
+      relativeToChangelogFile: true
