@@ -63,6 +63,12 @@ public class DoorConfigurationPricingService {
     private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES =
             Set.of("FET-004", "FET-005", "FET-006", "FET-007");
 
+    // Коды door_casing_type наличников «Модо» и «Онда» (см. db.changelog 0005), для которых длина
+    // ограничена диапазоном высоты полотна (см. change link-modo-onda-casing-length-to-leaf-height) —
+    // по тому же принципу, что и LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES. Остальные наличники этому
+    // правилу не подчиняются.
+    private static final Set<String> LENGTH_RANGE_DOOR_CASING_TYPE_CODES = Set.of("DCT-003", "DCT-004");
+
     // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
     // в движок бизнес-правил (Drools); тогда applyReverseSurcharge заменится вызовом правил
@@ -178,19 +184,19 @@ public class DoorConfigurationPricingService {
             validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
         }
 
-        // Длина добора «ТС» сама по себе не влияет на цену (см. миграцию 0067, length_option_id обнулён
-        // в configuration_price для этих кодов) — здесь она только валидируется на принадлежность и, для
-        // кодов из набора, на совместимость с высотой полотна. Для таких добора длина обязательна: без
-        // этого требования отсутствие lengthOptionId тихо пропускало бы проверку диапазона (см. change
-        // link-dobor-ts-length-to-leaf-height, по аналогии с обязательностью высоты для короба «НЕО»/«Компланар»).
-        if (type instanceof FrameExtensionsType frameExtensionsType
-                && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.contains(frameExtensionsType.getCode())) {
-            if (selection.lengthOptionId() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "для добора «ТС» необходимо выбрать длину");
-            }
-            if (lengthOption != null) {
-                validateHeightWithinLeafRange(componentName, LENGTH_TYPE_CODE, lengthOption, leafHeightValue);
-            }
+        // Длина добора «ТС»/наличников «Модо»/«Онда» сама по себе не влияет на цену (см. миграции 0067/0071,
+        // length_option_id обнулён в configuration_price для этих кодов) — здесь она только валидируется на
+        // принадлежность и, для кодов из соответствующего набора, на совместимость с высотой полотна. Для
+        // таких компонентов длина обязательна: без этого требования отсутствие lengthOptionId тихо пропускало
+        // бы проверку диапазона (см. change link-dobor-ts-length-to-leaf-height, link-modo-onda-casing-length-to-leaf-height,
+        // по аналогии с обязательностью высоты для короба «НЕО»/«Компланар»).
+        if (type instanceof FrameExtensionsType frameExtensionsType) {
+            requireLengthWithinLeafRange(componentName, frameExtensionsType.getCode(), LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES,
+                    "для добора «ТС» необходимо выбрать длину", selection, lengthOption, leafHeightValue);
+        }
+        if (type instanceof DoorCasingType doorCasingType) {
+            requireLengthWithinLeafRange(componentName, doorCasingType.getCode(), LENGTH_RANGE_DOOR_CASING_TYPE_CODES,
+                    "для этого наличника необходимо выбрать длину", selection, lengthOption, leafHeightValue);
         }
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
@@ -352,6 +358,25 @@ public class DoorConfigurationPricingService {
         if (!withinRange) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "liner_dimension_option с id=" + dimensionOption.getId() + " не совместима с высотой полотна");
+        }
+    }
+
+    // Общий паттерн «длина обязательна + совместима с диапазоном высоты полотна» для владельцев из общей
+    // (не-FrameType) ветки addComponentIfPresent — сейчас добор «ТС» и наличники «Модо»/«Онда» (см. change
+    // link-modo-onda-casing-length-to-leaf-height, вынесено из блока, изначально писавшегося только для
+    // добора «ТС» в link-dobor-ts-length-to-leaf-height). lengthRangeCodes/missingLengthMessage параметризуют
+    // то немногое, что отличается между владельцами; сама проверка (обязательность + диапазон) идентична.
+    private void requireLengthWithinLeafRange(
+            String componentName, String ownerCode, Set<String> lengthRangeCodes, String missingLengthMessage,
+            ComponentSelectionDto selection, LinerDimensionOption lengthOption, BigDecimal leafHeightValue) {
+        if (!lengthRangeCodes.contains(ownerCode)) {
+            return;
+        }
+        if (selection.lengthOptionId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, missingLengthMessage);
+        }
+        if (lengthOption != null) {
+            validateHeightWithinLeafRange(componentName, LENGTH_TYPE_CODE, lengthOption, leafHeightValue);
         }
     }
 

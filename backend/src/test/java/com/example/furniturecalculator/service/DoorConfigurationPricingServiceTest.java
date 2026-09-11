@@ -949,6 +949,244 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void высота_полотна_внутри_диапазона_длины_наличника_модо_онда_расчёт_выполняется() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption modoLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_вне_диапазона_длины_наличника_модо_онда_возвращает_400() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2450), true, leafType);
+        LinerDimensionOption modoLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void длина_наличника_модо_онда_выбрана_без_высоты_полотна_возвращает_400() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        LinerDimensionOption modoLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_в_разрыве_между_диапазонами_длины_наличника_модо_онда_возвращает_400() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        // 2260 не попадает ни в [2150, 2250], ни в [2300, 2300] — разрыв между диапазонами наличника.
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2260), true, leafType);
+        LinerDimensionOption modoLengthRange = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_ровно_2300_проходит_диапазон_точку_длины_наличника_модо_онда() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2300), true, leafType);
+        // Диапазон-точка: value=2700, min_value=max_value=2300 — для наличников «Модо»/«Онда» точка делит
+        // то же значение (2700), что и соседний диапазон [2350, 2550], а не диапазон ниже, как у добора «ТС».
+        LinerDimensionOption modoLengthPoint = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2300), BigDecimal.valueOf(2300), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(modoLengthPoint));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void наличник_модо_онда_без_выбранной_длины_возвращает_400() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, ComponentSelectionDto.EMPTY, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void наличник_модо_онда_без_выбранной_длины_возвращает_400_даже_если_высота_полотна_выбрана() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                ComponentSelectionDto.EMPTY,
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void другой_наличник_без_длины_не_является_ошибкой() {
+        DoorCasingType evoType = TestEntities.doorCasingType(9L, "DCT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(9L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, ComponentSelectionDto.EMPTY, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void цена_наличника_модо_онда_не_зависит_от_выбранной_длины() {
+        DoorCasingType modoType = TestEntities.doorCasingType(8L, "DCT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, modoType, null);
+        // length_option_id = null на строке цены — так же, как после миграции 0071-modo-onda-configuration-price-length-decouple.
+        ConfigurationPrice price = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1898), BigDecimal.valueOf(1084), modoType, null, null, null, null);
+        LinerDimensionOption leafHeightA =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption modoLengthA = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, modoType);
+        LinerDimensionOption leafHeightB =
+                TestEntities.linerDimensionOption(1001L, heightType, BigDecimal.valueOf(2400), true, leafType);
+        LinerDimensionOption modoLengthB = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2350), BigDecimal.valueOf(2550), true, modoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeightA));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthA));
+        when(linerDimensionOptionRepository.findById(1001L)).thenReturn(Optional.of(leafHeightB));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(modoLengthB));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of(price));
+
+        PricingRequestDto requestA = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+        PricingRequestDto requestB = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null),
+                null);
+
+        ComponentPriceDto doorCasingA = service.calculate(10L, requestA).components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+        ComponentPriceDto doorCasingB = service.calculate(10L, requestB).components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(doorCasingA.retailPrice()).isEqualByComparingTo("1898");
+        assertThat(doorCasingA.dealerPrice()).isEqualByComparingTo("1084");
+        assertThat(doorCasingB.retailPrice()).isEqualByComparingTo(doorCasingA.retailPrice());
+        assertThat(doorCasingB.dealerPrice()).isEqualByComparingTo(doorCasingA.dealerPrice());
+    }
+
+    @Test
     void добор_тс_без_выбранной_длины_возвращает_400() {
         FrameExtensionsType doborTsType = TestEntities.frameExtensionsType(6L, "FET-004");
         DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, doborTsType);

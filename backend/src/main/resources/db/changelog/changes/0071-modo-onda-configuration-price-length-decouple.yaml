@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0071-1-modo-onda-configuration-price-length-decouple
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE configuration_price
+              SET length_option_id = NULL
+              WHERE door_casing_type_id IN (
+                SELECT id FROM door_casing_type WHERE code IN ('DCT-003', 'DCT-004')
+              )
