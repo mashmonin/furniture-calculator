@@ -64,10 +64,14 @@ const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
 // link-dobor-ts-length-to-leaf-height) — по тому же принципу, что и HEIGHT_RANGE_FRAME_TYPE_CODES,
 // но на оси «Длина». Добор «КОМПЛАНАР» этому правилу не подчиняется.
 const DOBOR_TS_FRAME_EXTENSIONS_TYPE_CODES = ['FET-004', 'FET-005', 'FET-006', 'FET-007']
-// Коды наличников «Модо»/«Онда», у которых длина ограничена диапазоном высоты полотна (см. change
-// link-modo-onda-casing-length-to-leaf-height) — тот же принцип, что и у добора «ТС», на той же оси
-// «Длина». Остальные наличники этому правилу не подчиняются.
-const LENGTH_RANGE_DOOR_CASING_TYPE_CODES = ['DCT-003', 'DCT-004']
+// Коды наличников, у которых длина ограничена диапазоном высоты полотна — «Модо»/«Онда» (см. change
+// link-modo-onda-casing-length-to-leaf-height) и наличники короба «Компланар»: «Эво», «Авеню»/
+// «Авеню-реверс», «Аура»/«Аура-реверс», «Ария»/«Ария-реверс» (см. change
+// link-komplanar-casing-length-to-leaf-height) — тот же принцип, что и у добора «ТС», на той же оси
+// «Длина». Это все 9 существующих кодов door_casing_type.
+const LENGTH_RANGE_DOOR_CASING_TYPE_CODES = [
+  'DCT-001', 'DCT-002', 'DCT-003', 'DCT-004', 'DCT-005', 'DCT-006', 'DCT-007', 'DCT-008', 'DCT-009',
+]
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
   return {

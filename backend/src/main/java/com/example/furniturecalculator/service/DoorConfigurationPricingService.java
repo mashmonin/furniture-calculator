@@ -63,11 +63,14 @@ public class DoorConfigurationPricingService {
     private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES =
             Set.of("FET-004", "FET-005", "FET-006", "FET-007");
 
-    // Коды door_casing_type наличников «Модо» и «Онда» (см. db.changelog 0005), для которых длина
-    // ограничена диапазоном высоты полотна (см. change link-modo-onda-casing-length-to-leaf-height) —
-    // по тому же принципу, что и LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES. Остальные наличники этому
-    // правилу не подчиняются.
-    private static final Set<String> LENGTH_RANGE_DOOR_CASING_TYPE_CODES = Set.of("DCT-003", "DCT-004");
+    // Коды door_casing_type наличников, для которых длина ограничена диапазоном высоты полотна —
+    // «Модо»/«Онда» (см. change link-modo-onda-casing-length-to-leaf-height) и наличники короба
+    // «Компланар»: «Эво», «Авеню»/«Авеню-реверс», «Аура»/«Аура-реверс», «Ария»/«Ария-реверс»
+    // (см. change link-komplanar-casing-length-to-leaf-height) — по тому же принципу, что и
+    // LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES. Это все 9 существующих кодов door_casing_type —
+    // любой новый наличник, добавленный в будущем, потребует явного решения, входить ли в этот набор.
+    private static final Set<String> LENGTH_RANGE_DOOR_CASING_TYPE_CODES = Set.of(
+            "DCT-001", "DCT-002", "DCT-003", "DCT-004", "DCT-005", "DCT-006", "DCT-007", "DCT-008", "DCT-009");
 
     // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена

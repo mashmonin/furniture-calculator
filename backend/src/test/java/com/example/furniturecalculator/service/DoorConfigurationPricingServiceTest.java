@@ -1119,8 +1119,11 @@ class DoorConfigurationPricingServiceTest {
 
     @Test
     void другой_наличник_без_длины_не_является_ошибкой() {
-        DoorCasingType evoType = TestEntities.doorCasingType(9L, "DCT-001");
-        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+        // После link-komplanar-casing-length-to-leaf-height все 9 существующих кодов door_casing_type
+        // (DCT-001–DCT-009) входят в LENGTH_RANGE_DOOR_CASING_TYPE_CODES, поэтому для проверки поведения
+        // вне набора используется гипотетический код, отсутствующий в каталоге.
+        DoorCasingType otherType = TestEntities.doorCasingType(9L, "DCT-999");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, otherType, null);
 
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
@@ -1182,6 +1185,405 @@ class DoorConfigurationPricingServiceTest {
 
         assertThat(doorCasingA.retailPrice()).isEqualByComparingTo("1898");
         assertThat(doorCasingA.dealerPrice()).isEqualByComparingTo("1084");
+        assertThat(doorCasingB.retailPrice()).isEqualByComparingTo(doorCasingA.retailPrice());
+        assertThat(doorCasingB.dealerPrice()).isEqualByComparingTo(doorCasingA.dealerPrice());
+    }
+
+    @Test
+    void высота_полотна_1900_2100_наличника_эво_короба_компланар_длина_2250_расчёт_выполняется() {
+        DoorCasingType evoType = TestEntities.doorCasingType(20L, "DCT-001");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption evoLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, evoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(evoLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2150_2250_наличника_эво_короба_компланар_длина_2400_расчёт_выполняется() {
+        DoorCasingType evoType = TestEntities.doorCasingType(20L, "DCT-001");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2200), true, leafType);
+        LinerDimensionOption evoLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, evoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(evoLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2150_2250_наличника_авеню_короба_компланар_длина_2700_расчёт_выполняется() {
+        // Та же высота полотна, что и у «Эво» в предыдущем тесте, но у «Авеню» в этом диапазоне
+        // допустима другая длина (2700, а не 2400) — разные наличники короба «Компланар» имеют
+        // разные допустимые длины в одном и том же диапазоне высоты.
+        DoorCasingType avenueType = TestEntities.doorCasingType(21L, "DCT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, avenueType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2200), true, leafType);
+        LinerDimensionOption avenueLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, avenueType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(21L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_ровно_2300_наличника_ария_короба_компланар_длина_2700_расчёт_выполняется() {
+        DoorCasingType ariyaType = TestEntities.doorCasingType(25L, "DCT-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, ariyaType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2300), true, leafType);
+        LinerDimensionOption ariyaLengthPoint = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2300), BigDecimal.valueOf(2300), true, ariyaType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(ariyaLengthPoint));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(25L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2350_2550_наличника_аура_короба_компланар_длина_2700_расчёт_выполняется() {
+        DoorCasingType auraType = TestEntities.doorCasingType(23L, "DCT-006");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, auraType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2450), true, leafType);
+        LinerDimensionOption auraLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2350), BigDecimal.valueOf(2550), true, auraType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(auraLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(23L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2600_2850_наличника_эво_короба_компланар_длина_3000_расчёт_выполняется() {
+        DoorCasingType evoType = TestEntities.doorCasingType(20L, "DCT-001");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption evoLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, evoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(evoLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void высота_полотна_2600_2850_наличника_авеню_короба_компланар_недоступна_возвращает_400() {
+        // В диапазоне [2600, 2850] у «Авеню» (в отличие от «Эво») нет опции длины — любая допустимая
+        // для «Авеню» опция длины (здесь — из соседнего диапазона [2350, 2550]) не покрывает эту высоту.
+        DoorCasingType avenueType = TestEntities.doorCasingType(21L, "DCT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, avenueType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption avenueLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2350), BigDecimal.valueOf(2550), true, avenueType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueLength));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_2900_2950_наличника_эво_короба_компланар_недоступна_возвращает_400() {
+        // В диапазоне [2900, 2950] недоступен даже «Эво» — единственная допустимая для него опция
+        // длины в этой зоне (из соседнего диапазона [2600, 2850]) эту высоту не покрывает.
+        DoorCasingType evoType = TestEntities.doorCasingType(20L, "DCT-001");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, evoType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2925), true, leafType);
+        LinerDimensionOption evoLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(3000), BigDecimal.valueOf(2600), BigDecimal.valueOf(2850), true, evoType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(evoLength));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void высота_полотна_в_разрыве_между_диапазонами_наличника_компланар_возвращает_400() {
+        DoorCasingType avenueType = TestEntities.doorCasingType(21L, "DCT-002");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, avenueType, null);
+        // 2260 не попадает ни в [2150, 2250], ни в [2300, 2300] — разрыв между диапазонами наличника.
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2260), true, leafType);
+        LinerDimensionOption avenueLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, avenueType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueLength));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void длина_наличника_компланар_выбрана_без_высоты_полотна_возвращает_400() {
+        DoorCasingType auraType = TestEntities.doorCasingType(23L, "DCT-006");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, auraType, null);
+        LinerDimensionOption auraLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, auraType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(auraLength));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void наличник_ария_без_выбранной_длины_возвращает_400() {
+        DoorCasingType ariyaType = TestEntities.doorCasingType(25L, "DCT-008");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, ariyaType, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, ComponentSelectionDto.EMPTY, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void реверс_вариант_наличника_авеню_проверяется_по_тому_же_диапазону_что_и_обычный() {
+        DoorCasingType avenueReverseType = TestEntities.doorCasingType(22L, "DCT-005");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration =
+                TestEntities.doorConfigurationReverse(10L, leafType, null, null, avenueReverseType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2200), true, leafType);
+        LinerDimensionOption avenueReverseLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, avenueReverseType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueReverseLength));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(22L)).thenReturn(List.of());
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void реверс_вариант_наличника_авеню_вне_диапазона_возвращает_400() {
+        DoorCasingType avenueReverseType = TestEntities.doorCasingType(22L, "DCT-005");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration =
+                TestEntities.doorConfigurationReverse(10L, leafType, null, null, avenueReverseType, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2700), true, leafType);
+        LinerDimensionOption avenueReverseLength = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, avenueReverseType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueReverseLength));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void цена_наличника_ария_короба_компланар_не_зависит_от_выбранной_длины() {
+        DoorCasingType ariyaType = TestEntities.doorCasingType(25L, "DCT-008");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(400L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, ariyaType, null);
+        // length_option_id = null на строке цены — так же, как после миграции
+        // 0073-komplanar-casing-configuration-price-length-decouple.
+        ConfigurationPrice price = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(4165), BigDecimal.valueOf(2379), ariyaType, null, null, null, null);
+        LinerDimensionOption leafHeightA =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption ariyaLengthA = TestEntities.linerDimensionOptionRange(
+                2000L, lengthType, BigDecimal.valueOf(2250), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, ariyaType);
+        LinerDimensionOption leafHeightB =
+                TestEntities.linerDimensionOption(1001L, heightType, BigDecimal.valueOf(2450), true, leafType);
+        LinerDimensionOption ariyaLengthB = TestEntities.linerDimensionOptionRange(
+                2001L, lengthType, BigDecimal.valueOf(2700), BigDecimal.valueOf(2350), BigDecimal.valueOf(2550), true, ariyaType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeightA));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(ariyaLengthA));
+        when(linerDimensionOptionRepository.findById(1001L)).thenReturn(Optional.of(leafHeightB));
+        when(linerDimensionOptionRepository.findById(2001L)).thenReturn(Optional.of(ariyaLengthB));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(25L)).thenReturn(List.of(price));
+
+        PricingRequestDto requestA = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null),
+                null);
+        PricingRequestDto requestB = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null),
+                null, null,
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null),
+                null);
+
+        ComponentPriceDto doorCasingA = service.calculate(10L, requestA).components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+        ComponentPriceDto doorCasingB = service.calculate(10L, requestB).components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(doorCasingA.retailPrice()).isEqualByComparingTo("4165");
+        assertThat(doorCasingA.dealerPrice()).isEqualByComparingTo("2379");
         assertThat(doorCasingB.retailPrice()).isEqualByComparingTo(doorCasingA.retailPrice());
         assertThat(doorCasingB.dealerPrice()).isEqualByComparingTo(doorCasingA.dealerPrice());
     }
