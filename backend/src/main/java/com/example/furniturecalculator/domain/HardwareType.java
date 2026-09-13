@@ -32,6 +32,9 @@ public class HardwareType implements CatalogType {
     @Column(nullable = false)
     private String unit;
 
+    @Column(name = "short_name")
+    private String shortName;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hardware_category_id", nullable = false)
     private HardwareCategory hardwareCategory;

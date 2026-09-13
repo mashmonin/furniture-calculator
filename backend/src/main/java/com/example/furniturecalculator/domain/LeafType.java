@@ -29,6 +29,9 @@ public class LeafType implements CatalogType {
     @Column(nullable = false)
     private String code;
 
+    @Column(name = "short_name")
+    private String shortName;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "collection_id", nullable = false)
     private LeafCollection collection;

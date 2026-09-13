@@ -27,4 +27,7 @@ public class MirrorFinishType {
 
     @Column(name = "surcharge_percent", nullable = false)
     private BigDecimal surchargePercent;
+
+    @Column(name = "short_name")
+    private String shortName;
 }

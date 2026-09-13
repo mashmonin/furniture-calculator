@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0086-1-update-edge-type-short-name-data
+      author: furniture-calculator
+      changes:
+        - update:
+            tableName: edge_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "Прямая"
+            where: code = 'ET-001'
+        - update:
+            tableName: edge_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "С четвертью"
+            where: code = 'ET-002'

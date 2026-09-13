@@ -29,7 +29,8 @@ public class PricingSurchargesService {
                                 ReferenceDto.from(rule.getLinerDimensionType()), rule.getValue(), rule.getSurchargePercent()))
                         .toList(),
                 mirrorFinishTypeRepository.findAll().stream()
-                        .map(type -> new MirrorFinishSurchargeDto(type.getId(), type.getName(), type.getSurchargePercent()))
+                        .map(type -> new MirrorFinishSurchargeDto(
+                                type.getId(), type.getName(), type.getShortName(), type.getSurchargePercent()))
                         .toList());
     }
 }

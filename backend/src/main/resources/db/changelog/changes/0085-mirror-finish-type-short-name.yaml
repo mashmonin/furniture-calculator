@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0085-1-add-mirror-finish-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: mirror_finish_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
