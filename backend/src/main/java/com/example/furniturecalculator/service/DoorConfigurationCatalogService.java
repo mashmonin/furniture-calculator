@@ -138,7 +138,11 @@ public class DoorConfigurationCatalogService {
     // и по нему же ищет процент в ответе GET /api/pricing-surcharges — единое пространство id для каталога,
     // запроса и разбивки надбавок (см. change add-mirror-finish-leaf-option).
     private ReferenceDto toDto(MirrorFinishOption option) {
-        return new ReferenceDto(option.getMirrorFinishType().getId(), null, option.getMirrorFinishType().getName());
+        return new ReferenceDto(
+                option.getMirrorFinishType().getId(),
+                null,
+                option.getMirrorFinishType().getName(),
+                option.getMirrorFinishType().getShortName());
     }
 
     private FramePostDto toDto(FramePost post) {

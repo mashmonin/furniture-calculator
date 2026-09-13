@@ -2,6 +2,7 @@ export interface ReferenceDto {
   id: number
   code: string
   name: string
+  shortName: string | null
 }
 
 export interface LinerDimensionOptionDto {
@@ -124,6 +125,7 @@ export interface DimensionSurchargeRuleDto {
 export interface MirrorFinishSurchargeDto {
   id: number
   name: string
+  shortName: string | null
   surchargePercent: number
 }
 

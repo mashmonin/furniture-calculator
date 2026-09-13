@@ -25,4 +25,7 @@ public class PostType implements CatalogType {
 
     @Column(nullable = false)
     private String code;
+
+    @Column(name = "short_name")
+    private String shortName;
 }

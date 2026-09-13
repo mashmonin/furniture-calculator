@@ -1,0 +1,121 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0084-1-add-edge-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: edge_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-2-add-door-casing-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: door_casing_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-3-add-frame-extensions-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-4-add-post-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: post_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-5-add-frame-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-6-add-hardware-category-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: hardware_category
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-7-add-hardware-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: hardware_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-8-add-liner-dimension-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: liner_dimension_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-9-add-colour-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: colour_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-10-add-leaf-type-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: leaf_type
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0084-11-add-collection-short-name
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: collection
+            columns:
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)

@@ -231,6 +231,10 @@ function lengthRangeCoversHeight(component: ComponentCatalogDto, leafHeightValue
   )
 }
 
+function displayName(ref: { name: string; shortName: string | null }): string {
+  return ref.shortName ?? ref.name
+}
+
 function uniqueById(types: ReferenceDto[]): ReferenceDto[] {
   const seen = new Set<number>()
   const result: ReferenceDto[] = []
@@ -788,14 +792,20 @@ function App() {
         <OptionGroup
           label={COMPONENT_LABELS[step.key]}
           options={[
-            ...step.availableTypes.map((type) => ({ id: type.id, label: type.name })),
+            ...step.availableTypes.map((type) => ({
+              id: type.id,
+              label: step.key === 'edge' ? displayName(type) : type.name,
+            })),
             ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[step.key] }] : []),
           ]}
           selectedId={step.selectedId}
           onChange={(id) => handleCascadeStepChange(step.key, id)}
         />
         {component && (
-          <Card size="small" title={`${COMPONENT_LABELS[step.key]}: ${component.type.name}`}>
+          <Card
+            size="small"
+            title={`${COMPONENT_LABELS[step.key]}: ${step.key === 'edge' ? displayName(component.type) : component.type.name}`}
+          >
             <Space direction="vertical" size="middle">
               {step.key === 'frame' && component.posts.length > 0 && (
                 <List
@@ -942,7 +952,7 @@ function App() {
       {mirrorFinishStep.visible && mirrorFinishEnabled && (
         <OptionGroup
           label={MIRROR_FINISH_LABEL}
-          options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: type.name }))}
+          options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: displayName(type) }))}
           selectedId={mirrorFinishTypeId}
           onChange={handleMirrorFinishTypeChange}
         />

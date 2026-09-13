@@ -7,4 +7,6 @@ public interface CatalogType {
     String getCode();
 
     String getName();
+
+    String getShortName();
 }

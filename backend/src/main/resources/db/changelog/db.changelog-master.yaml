@@ -278,3 +278,15 @@ databaseChangeLog:
   - include:
       file: changes/0083-hardware-price-corrections.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0084-catalog-type-short-name.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0085-mirror-finish-type-short-name.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0086-edge-type-short-name-data.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0087-mirror-finish-type-short-name-data.yaml
+      relativeToChangelogFile: true

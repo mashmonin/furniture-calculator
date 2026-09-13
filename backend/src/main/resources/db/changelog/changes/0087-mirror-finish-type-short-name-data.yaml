@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0087-1-update-mirror-finish-type-short-name-data
+      author: furniture-calculator
+      changes:
+        - update:
+            tableName: mirror_finish_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "Базовое"
+            where: name = 'Глухое плоское полотно с зеркалом с одной стороны'
+        - update:
+            tableName: mirror_finish_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "С фацетом"
+            where: name = 'Глухое плоское полотно с зеркалом с фацетом с одной стороны'
+        - update:
+            tableName: mirror_finish_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "Серое/бронза"
+            where: name = 'Глухое плоское полотно с зеркалом серое/бронза с одной стороны'
