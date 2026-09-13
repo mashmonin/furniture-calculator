@@ -771,11 +771,14 @@ function App() {
     setHardwareLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
   }
 
+  // resolvedReverse (не selectedConfiguration?.reverse) — оно совпадает с ней, когда конфигурация
+  // определена, но остаётся верным и до этого, пока действует расчёт отдельного полотна
+  // (см. change add-standalone-leaf-pricing), которому тоже передаётся именно resolvedReverse.
   const surchargeBreakdown = computeSurchargeBreakdown(
     pricingSurcharges,
     selection.leaf,
     mirrorFinishTypeId,
-    selectedConfiguration?.reverse ?? false,
+    resolvedReverse,
   )
 
   function renderCascadeStep(step: CascadeStep) {
@@ -1057,7 +1060,7 @@ function App() {
           )}
           {!catalogLoading && !catalogError && configurations.length > 0 && (
             <Collapse
-              defaultActiveKey={['leaf', 'frameGroup', 'hardware']}
+              defaultActiveKey={[]}
               items={[
                 { key: 'leaf', label: 'Полотно', children: leafPanelContent },
                 { key: 'frameGroup', label: 'Короб и обрамление', children: frameGroupPanelContent },
