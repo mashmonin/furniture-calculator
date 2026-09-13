@@ -6,6 +6,30 @@
   gap: 8px;
 }
 
+/* Шапка приложения (см. change restyle-configurator-per-figma) — закреплённая сверху полоса над
+   трёхколоночной раскладкой, лого + название приложения слева, подпись прайс-листа справа. */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin: -32px -24px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.app-header__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 16px;
+}
+
 /* Трёхколоночная раскладка конфигуратора (см. change redesign-configurator-layout):
    узкая левая колонка выбора сервиса, гибкая центральная рабочая панель, sticky-панель
    результата справа. */
@@ -35,9 +59,18 @@
 .app-pricing {
   flex: 0 0 300px;
   background: #e6f7ff;
+  border: 1px solid #1677ff;
   border-radius: 8px;
   padding: 16px;
   box-sizing: border-box;
   position: sticky;
   top: 16px;
+}
+
+/* Обособленный блок дилерской цены (см. change restyle-configurator-per-figma) — отличается фоном
+   от розничной цены, чтобы не теряться среди прочих чисел колонки результата. */
+.app-pricing__dealer-block {
+  background: #d6e4ff;
+  border-radius: 6px;
+  padding: 8px;
 }

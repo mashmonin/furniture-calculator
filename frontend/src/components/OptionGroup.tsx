@@ -6,33 +6,54 @@ export interface SelectableOption {
 }
 
 interface OptionGroupProps {
-  label: string
+  label?: string
   options: SelectableOption[]
   selectedId?: number
   onChange: (id: number | undefined) => void
   variant?: 'buttons' | 'select'
+  // Сокращает отображаемое значение выбранного пункта до первого слова + «…» (список в открытом
+  // выпадающем меню остаётся полным — сокращается только закрытый контрол). Используется точечно
+  // там, где выпадающий список зажат по ширине (см. блок «Фурнитура», change
+  // restyle-configurator-per-figma), а не глобально для всех OptionGroup.
+  truncateSelectedLabel?: boolean
 }
 
-export function OptionGroup({ label, options, selectedId, onChange, variant = 'buttons' }: OptionGroupProps) {
+function truncateAfterFirstWord(label: string): string {
+  const firstSpaceIndex = label.indexOf(' ')
+  return firstSpaceIndex === -1 ? label : `${label.slice(0, firstSpaceIndex)}…`
+}
+
+export function OptionGroup({
+  label,
+  options,
+  selectedId,
+  onChange,
+  variant = 'buttons',
+  truncateSelectedLabel = false,
+}: OptionGroupProps) {
   if (options.length === 0) {
     return null
   }
 
   return (
     <div>
-      <Typography.Text type="secondary">{label}</Typography.Text>
+      {label && <Typography.Text type="secondary">{label}</Typography.Text>}
       <div style={{ marginTop: 4 }}>
         {variant === 'select' ? (
           <Select
             allowClear
-            style={{ minWidth: 200 }}
+            style={{ width: '100%' }}
             value={selectedId}
             onChange={(id) => onChange(id ?? undefined)}
             onClear={() => onChange(undefined)}
             options={options.map((option) => ({ value: option.id, label: option.label }))}
+            labelRender={truncateSelectedLabel ? (props) => truncateAfterFirstWord(String(props.label ?? '')) : undefined}
           />
         ) : (
-          <Radio.Group value={selectedId} onChange={() => {}}>
+          // block — растягивает группу на всю ширину и делит её поровну между кнопками (antd добавляет
+          // ant-radio-group-block/-wrapper-block: display:flex + flex:1 на каждой кнопке), а не оставляет
+          // компактный кластер слева с пустым местом справа (см. change restyle-configurator-per-figma).
+          <Radio.Group block value={selectedId} onChange={() => {}}>
             {options.map((option) => (
               <Radio.Button
                 key={option.id}
