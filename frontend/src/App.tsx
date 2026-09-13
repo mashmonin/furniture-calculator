@@ -12,8 +12,10 @@ import {
   Spin,
   Statistic,
   Switch,
+  Tag,
   Typography,
 } from 'antd'
+import { HomeOutlined } from '@ant-design/icons'
 import {
   calculateLeafPrice,
   calculatePrice,
@@ -79,11 +81,13 @@ const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
 const NONE_OPTION_ID = 0
 
-// Синтетический id единственного варианта высоты короба «Фантом» (см. HEIGHT_MIRROR_FRAME_TYPE_CODES) —
-// у этого короба нет каталожных liner_dimension_option, поэтому кнопка выбора высоты не ссылается на
-// реальный id, а лишь подтверждает применение значения, скопированного из высоты полотна
-// (customHeightValueMm), как и требует явный клик даже при единственной альтернативе.
-const MIRROR_HEIGHT_OPTION_ID = -1
+// Синтетические id варианта «Другое» в группах «Длина»/«Высота» полотна — показывают его как ещё один
+// сегмент в общем ряду со стандартными значениями (см. change restyle-configurator-per-figma); выбор
+// этого варианта не задаёт lengthOptionId/heightOptionId, а лишь переключает ряд в режим произвольного
+// значения (ввод — в поле ниже, customLengthValueMm/customHeightValueMm).
+const CUSTOM_LENGTH_OPTION_ID = -2
+const CUSTOM_HEIGHT_OPTION_ID = -3
+const CUSTOM_OPTION_LABEL = 'Другое'
 
 const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
   leaf: 'Без полотна',
@@ -436,6 +440,12 @@ function computeSurchargeBreakdown(
 
 const SERVICE_MENU_ITEMS = [{ key: 'door-configurator', label: 'Межкомнатные двери' }]
 
+// Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения») — статичный текст, без
+// отдельного API: подпись прайс-листа задаётся здесь же и правится однострочно при смене прайс-листа
+// (см. design.md изменения restyle-configurator-per-figma, риск «Хардкод текста подписи прайс-листа»).
+const APP_TITLE = 'Я-КОНФИГУРАТОР'
+const PRICE_LIST_LABEL = 'Прайс-лист: hausdoors_emal_i_shpon_rf_13_07_2026'
+
 function App() {
   const [configurations, setConfigurations] = useState<DoorConfigurationDto[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
@@ -456,6 +466,11 @@ function App() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
   const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
   const [selection, setSelection] = useState(emptySelection)
+  // Активен ли сегмент «Другое» в группе «Длина»/«Высота» полотна — отдельно от customLengthValueMm/
+  // customHeightValueMm, чтобы поле ввода разблокировалось сразу по клику на «Другое», ещё до того, как
+  // введено само значение (см. change restyle-configurator-per-figma).
+  const [customLengthMode, setCustomLengthMode] = useState(false)
+  const [customHeightMode, setCustomHeightMode] = useState(false)
 
   const [pricingResult, setPricingResult] = useState<PricingResponseDto | null>(null)
   const [pricingLoading, setPricingLoading] = useState(false)
@@ -594,6 +609,88 @@ function App() {
   const pendingStepKey =
     leafTypeId === undefined && cascadeSteps.length > 0 ? cascadeSteps[cascadeSteps.length - 1].key : undefined
 
+  // Для короба, кромки, наличника и добора значение (высоты или длины погонажа — в зависимости от
+  // компонента), зависящее от высоты полотна, подбирается автоматически из каталога (см. useEffect'ы
+  // ниже) и только показывается в лейбле карточки «Длина погонажа: X для высоты полотна Y» — без
+  // отдельного клика пользователя (см. обратную связь по change restyle-configurator-per-figma).
+  const frameComponent = cascadeSteps.find((step) => step.key === 'frame')?.resolvedComponent
+  const frameTypeCode = frameComponent?.type.code
+  const frameMatchedOption =
+    frameComponent && frameTypeCode !== undefined && leafHeightValue !== undefined && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameTypeCode)
+      ? frameHeightRangeOptions(frameComponent, leafHeightValue)[0]
+      : undefined
+  const frameIsMirrorHeight = frameTypeCode !== undefined && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(frameTypeCode)
+  const frameMatchedValue = frameMatchedOption?.value ?? (frameIsMirrorHeight ? leafHeightValue : undefined)
+
+  useEffect(() => {
+    if (!frameComponent || leafHeightValue === undefined) {
+      return
+    }
+    if (frameMatchedOption && selection.frame.heightOptionId !== frameMatchedOption.id) {
+      updateSelection('frame', { heightOptionId: frameMatchedOption.id, customHeightValueMm: undefined })
+    } else if (!frameMatchedOption && frameIsMirrorHeight && selection.frame.customHeightValueMm !== leafHeightValue) {
+      updateSelection('frame', { customHeightValueMm: leafHeightValue })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameComponent, frameMatchedOption, frameIsMirrorHeight, leafHeightValue, selection.frame.heightOptionId, selection.frame.customHeightValueMm])
+
+  const edgeComponent = cascadeSteps.find((step) => step.key === 'edge')?.resolvedComponent
+  const edgeMatchedOption =
+    edgeComponent && leafHeightValue !== undefined ? edgeHeightOptions(edgeComponent, leafHeightValue)[0] : undefined
+  const edgeMatchedValue = edgeMatchedOption?.value
+
+  useEffect(() => {
+    if (!edgeComponent || leafHeightValue === undefined) {
+      return
+    }
+    if (edgeMatchedOption && selection.edge.heightOptionId !== edgeMatchedOption.id) {
+      updateSelection('edge', { heightOptionId: edgeMatchedOption.id, customHeightValueMm: undefined })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edgeComponent, edgeMatchedOption, leafHeightValue, selection.edge.heightOptionId])
+
+  const doorCasingComponent = cascadeSteps.find((step) => step.key === 'doorCasing')?.resolvedComponent
+  const doorCasingTypeCode = doorCasingComponent?.type.code
+  const doorCasingMatchedOption =
+    doorCasingComponent &&
+    doorCasingTypeCode !== undefined &&
+    leafHeightValue !== undefined &&
+    LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(doorCasingTypeCode)
+      ? lengthRangeOptions(doorCasingComponent, leafHeightValue)[0]
+      : undefined
+  const doorCasingMatchedValue = doorCasingMatchedOption?.value
+
+  useEffect(() => {
+    if (!doorCasingComponent || leafHeightValue === undefined) {
+      return
+    }
+    if (doorCasingMatchedOption && selection.doorCasing.lengthOptionId !== doorCasingMatchedOption.id) {
+      updateSelection('doorCasing', { lengthOptionId: doorCasingMatchedOption.id, customLengthValueMm: undefined })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doorCasingComponent, doorCasingMatchedOption, leafHeightValue, selection.doorCasing.lengthOptionId])
+
+  const frameExtensionsComponent = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent
+  const frameExtensionsTypeCode = frameExtensionsComponent?.type.code
+  const frameExtensionsMatchedOption =
+    frameExtensionsComponent &&
+    frameExtensionsTypeCode !== undefined &&
+    leafHeightValue !== undefined &&
+    LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsTypeCode)
+      ? lengthRangeOptions(frameExtensionsComponent, leafHeightValue)[0]
+      : undefined
+  const frameExtensionsMatchedValue = frameExtensionsMatchedOption?.value
+
+  useEffect(() => {
+    if (!frameExtensionsComponent || leafHeightValue === undefined) {
+      return
+    }
+    if (frameExtensionsMatchedOption && selection.frameExtensions.lengthOptionId !== frameExtensionsMatchedOption.id) {
+      updateSelection('frameExtensions', { lengthOptionId: frameExtensionsMatchedOption.id, customLengthValueMm: undefined })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameExtensionsComponent, frameExtensionsMatchedOption, leafHeightValue, selection.frameExtensions.lengthOptionId])
+
   // Автоматический расчёт стоимости по текущему выбору вместо кнопки «Рассчитать стоимость»
   // (см. specs/door-configurator-ui, «Автоматический расчёт стоимости по текущему выбору»): срабатывает
   // при каждом изменении входов запроса, с паузой debounce, и игнорирует ответы, устаревшие к моменту
@@ -679,6 +776,8 @@ function App() {
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
   }
 
   function handleMirrorFinishEnabledChange(checked: boolean) {
@@ -687,6 +786,8 @@ function App() {
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
   }
 
   function handleMirrorFinishTypeChange(id: number | undefined) {
@@ -694,15 +795,23 @@ function App() {
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
   }
 
   function handleCollectionChange(id: number | undefined) {
     setSelectedCollectionId(id)
     setCascadeSelection({})
     setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
   }
 
   function handleCascadeStepChange(key: ComponentKey, id: number | undefined) {
+    if (key === 'leaf') {
+      setCustomLengthMode(false)
+      setCustomHeightMode(false)
+    }
     setCascadeSelection((prev) => {
       const next: Partial<Record<ComponentKey, number>> = {}
       for (const k of CASCADE_ORDER) {
@@ -785,124 +894,334 @@ function App() {
     resolvedReverse,
   )
 
+  // Кромка — единственный компонент, у которого выбор типа и цвет показаны внутри одной карточки
+  // (заголовок «Кромка», ряд «Тип» + «Цвет»), а не отдельной группой над карточкой, как у остальных
+  // компонентов (см. change restyle-configurator-per-figma). Высота кромки не выбирается вручную —
+  // подставляется автоматически из высоты полотна (см. useEffect с edgeComponent) и видна только
+  // в бейдже заголовка карточки.
+  function renderEdgeCard(step: CascadeStep) {
+    const component = step.resolvedComponent
+    return (
+      <Card
+        key={step.key}
+        size="small"
+        title={
+          <Space align="center">
+            <span>Кромка</span>
+            {edgeMatchedValue !== undefined && leafHeightValue !== undefined && (
+              <>
+                <Tag>
+                  Длина погонажа: <strong>{edgeMatchedValue}</strong> мм
+                </Tag>
+                <Tag>
+                  для высоты полотна: <strong>{leafHeightValue}</strong> мм
+                </Tag>
+              </>
+            )}
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ flex: 2 }}>
+              <OptionGroup
+                label="Тип"
+                options={[
+                  ...step.availableTypes.map((type) => ({ id: type.id, label: displayName(type) })),
+                  ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS.edge }] : []),
+                ]}
+                selectedId={step.selectedId}
+                onChange={(id) => handleCascadeStepChange('edge', id)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <OptionGroup
+                label="Цвет"
+                options={(component?.colourOptions ?? []).map((option) => ({
+                  id: option.id,
+                  label: option.colourType.name,
+                }))}
+                selectedId={selection.edge.colourOptionId}
+                onChange={(id) => updateSelection('edge', { colourOptionId: id })}
+                variant="select"
+              />
+            </div>
+          </div>
+        </Space>
+      </Card>
+    )
+  }
+
+  // Короб — та же схема, что и кромка: заголовок «Короб» с тегами длины/высоты полотна, «Тип» внутри
+  // карточки (не отдельной группой над ней), высота не выбирается вручную — подставляется автоматически
+  // (см. useEffect с frameComponent). Положение самого блока «Короб» в разделе «Короб и обрамление»
+  // не меняется (см. change restyle-configurator-per-figma).
+  function renderFrameCard(step: CascadeStep) {
+    const component = step.resolvedComponent
+    return (
+      <Card
+        key={step.key}
+        size="small"
+        title={
+          <Space align="center">
+            <span>Короб</span>
+            {frameMatchedValue !== undefined && leafHeightValue !== undefined && (
+              <>
+                <Tag>
+                  Длина погонажа: <strong>{frameMatchedValue}</strong> мм
+                </Tag>
+                <Tag>
+                  для высоты полотна: <strong>{leafHeightValue}</strong> мм
+                </Tag>
+              </>
+            )}
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <OptionGroup
+            label="Тип"
+            options={[
+              ...step.availableTypes.map((type) => ({ id: type.id, label: displayName(type) })),
+              ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS.frame }] : []),
+            ]}
+            selectedId={step.selectedId}
+            onChange={(id) => handleCascadeStepChange('frame', id)}
+          />
+          {component && component.posts.length > 0 && (
+            <List
+              size="small"
+              header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+              bordered
+              dataSource={component.posts}
+              renderItem={(post) => (
+                <List.Item>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <span>
+                      {post.postType.name} × {post.quantity}
+                      {post.length !== null ? `, длина ${post.length}` : ''}
+                    </span>
+                    <span>
+                      {post.retailPrice} ₽ / {post.dealerPrice} ₽ (дилер)
+                    </span>
+                  </div>
+                </List.Item>
+              )}
+            />
+          )}
+          {component && component.posts.length === 0 && component.colourOptions.length > 0 && (
+            <List
+              size="small"
+              header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
+              bordered
+              dataSource={[FRAME_KIT_WITHOUT_POSTS_DESCRIPTION]}
+              renderItem={(item) => <List.Item>{item}</List.Item>}
+            />
+          )}
+          {component && (
+            <OptionGroup
+              label="Толщина"
+              options={component.dimensionOptions
+                .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
+                .map((option) => ({ id: option.id, label: String(option.value) }))}
+              selectedId={selection.frame.thicknessOptionId}
+              onChange={(id) => updateSelection('frame', { thicknessOptionId: id })}
+            />
+          )}
+          {component && (
+            <OptionGroup
+              label="Цвет"
+              options={component.colourOptions.map((option) => ({ id: option.id, label: option.colourType.name }))}
+              selectedId={selection.frame.colourOptionId}
+              onChange={(id) => updateSelection('frame', { colourOptionId: id })}
+            />
+          )}
+        </Space>
+      </Card>
+    )
+  }
+
+  // Наличник и добор — та же схема, что короб и кромка: заголовок с тегами длины/высоты полотна,
+  // «Тип» внутри карточки, а рядом с ним, в одну строку — «Количество» (см. change
+  // restyle-configurator-per-figma). Длина здесь не выбирается вручную — подставляется автоматически
+  // (см. useEffect с doorCasingComponent/frameExtensionsComponent).
+  function renderLengthLinkedCard(
+    step: CascadeStep,
+    title: string,
+    matchedValue: number | undefined,
+    key: 'doorCasing' | 'frameExtensions',
+  ) {
+    const component = step.resolvedComponent
+    return (
+      <Card
+        key={step.key}
+        size="small"
+        title={
+          <Space align="center">
+            <span>{title}</span>
+            {matchedValue !== undefined && leafHeightValue !== undefined && (
+              <>
+                <Tag>
+                  Длина погонажа: <strong>{matchedValue}</strong> мм
+                </Tag>
+                <Tag>
+                  для высоты полотна: <strong>{leafHeightValue}</strong> мм
+                </Tag>
+              </>
+            )}
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ flex: 2 }}>
+              <OptionGroup
+                label="Тип"
+                options={[
+                  ...step.availableTypes.map((type) => ({ id: type.id, label: displayName(type) })),
+                  ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[key] }] : []),
+                ]}
+                selectedId={step.selectedId}
+                onChange={(id) => handleCascadeStepChange(key, id)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div>
+                <Typography.Text type="secondary">Количество</Typography.Text>
+                <div style={{ marginTop: 4 }}>
+                  <InputNumber
+                    min={1}
+                    style={{ width: '100%' }}
+                    value={selection[key].quantity ?? 1}
+                    onChange={(value) => updateSelection(key, { quantity: value ?? undefined })}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          {component && (
+            <OptionGroup
+              label="Толщина"
+              options={component.dimensionOptions
+                .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
+                .map((option) => ({ id: option.id, label: String(option.value) }))}
+              selectedId={selection[key].thicknessOptionId}
+              onChange={(id) => updateSelection(key, { thicknessOptionId: id })}
+            />
+          )}
+          {component && (
+            <OptionGroup
+              label="Цвет"
+              options={component.colourOptions.map((option) => ({ id: option.id, label: option.colourType.name }))}
+              selectedId={selection[key].colourOptionId}
+              onChange={(id) => updateSelection(key, { colourOptionId: id })}
+            />
+          )}
+        </Space>
+      </Card>
+    )
+  }
+
   function renderCascadeStep(step: CascadeStep) {
+    if (step.key === 'edge') {
+      return renderEdgeCard(step)
+    }
+    if (step.key === 'frame') {
+      return renderFrameCard(step)
+    }
+    if (step.key === 'doorCasing') {
+      return renderLengthLinkedCard(step, 'Наличник', doorCasingMatchedValue, 'doorCasing')
+    }
+    if (step.key === 'frameExtensions') {
+      return renderLengthLinkedCard(step, 'Добор', frameExtensionsMatchedValue, 'frameExtensions')
+    }
+    // После вынесения кромки/короба/наличника/добора в отдельные функции здесь остаётся только
+    // полотно — раскладка блока «Параметры выбранного полотна» не меняется (см. change
+    // restyle-configurator-per-figma).
     const component = step.resolvedComponent
     return (
       <Fragment key={step.key}>
         <OptionGroup
-          label={COMPONENT_LABELS[step.key]}
-          options={[
-            ...step.availableTypes.map((type) => ({
-              id: type.id,
-              label: step.key === 'edge' ? displayName(type) : type.name,
-            })),
-            ...(step.hasNoneOption ? [{ id: NONE_OPTION_ID, label: NONE_OPTION_LABELS[step.key] }] : []),
-          ]}
+          label={COMPONENT_LABELS.leaf}
+          options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
           selectedId={step.selectedId}
-          onChange={(id) => handleCascadeStepChange(step.key, id)}
+          onChange={(id) => handleCascadeStepChange('leaf', id)}
+          variant="select"
         />
         {component && (
-          <Card
-            size="small"
-            title={`${COMPONENT_LABELS[step.key]}: ${step.key === 'edge' ? displayName(component.type) : component.type.name}`}
-          >
-            <Space direction="vertical" size="middle">
-              {step.key === 'frame' && component.posts.length > 0 && (
-                <List
-                  size="small"
-                  header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
-                  bordered
-                  dataSource={component.posts}
-                  renderItem={(post) => (
-                    <List.Item>
-                      {post.postType.name} × {post.quantity}
-                      {post.length !== null ? `, длина ${post.length}` : ''} — {post.retailPrice} ₽ / {post.dealerPrice} ₽
-                      (дилер)
-                    </List.Item>
-                  )}
-                />
-              )}
-              {step.key === 'frame' && component.posts.length === 0 && component.colourOptions.length > 0 && (
-                <List
-                  size="small"
-                  header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
-                  bordered
-                  dataSource={[FRAME_KIT_WITHOUT_POSTS_DESCRIPTION]}
-                  renderItem={(item) => <List.Item>{item}</List.Item>}
-                />
-              )}
+          <Card size="small" title="Параметры выбранного полотна">
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
               <OptionGroup
-                label="Длина"
-                options={(step.key === 'frameExtensions' && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(component.type.code)
-                  ? lengthRangeOptions(component, leafHeightValue)
-                  : step.key === 'doorCasing' && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(component.type.code)
-                    ? lengthRangeOptions(component, leafHeightValue)
-                    : component.dimensionOptions.filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
-                ).map((option) => ({ id: option.id, label: String(option.value) }))}
-                selectedId={selection[step.key].lengthOptionId}
-                onChange={(id) => updateSelection(step.key, { lengthOptionId: id, customLengthValueMm: undefined })}
+                label="Длина (стандарт)"
+                options={[
+                  ...component.dimensionOptions
+                    .filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
+                    .map((option) => ({ id: option.id, label: String(option.value) })),
+                  { id: CUSTOM_LENGTH_OPTION_ID, label: CUSTOM_OPTION_LABEL },
+                ]}
+                selectedId={selection.leaf.lengthOptionId ?? (customLengthMode ? CUSTOM_LENGTH_OPTION_ID : undefined)}
+                onChange={(id) => {
+                  if (id === CUSTOM_LENGTH_OPTION_ID) {
+                    setCustomLengthMode(true)
+                    updateSelection('leaf', { lengthOptionId: undefined })
+                  } else {
+                    setCustomLengthMode(false)
+                    updateSelection('leaf', { lengthOptionId: id, customLengthValueMm: undefined })
+                  }
+                }}
               />
-              {step.key === 'leaf' && (
-                <Space align="center">
-                  <Typography.Text type="secondary">Другое значение длины (мм)</Typography.Text>
+              <div>
+                <Typography.Text type="secondary">Нестандартное значение (мм)</Typography.Text>
+                <div style={{ marginTop: 4 }}>
                   <InputNumber
                     min={1}
                     step={50}
+                    style={{ width: '100%' }}
+                    disabled={!customLengthMode}
                     value={selection.leaf.customLengthValueMm}
-                    onChange={(value) =>
-                      updateSelection('leaf', { customLengthValueMm: value ?? undefined, lengthOptionId: undefined })
-                    }
+                    onChange={(value) => updateSelection('leaf', { customLengthValueMm: value ?? undefined })}
                   />
-                </Space>
-              )}
-              {step.key === 'frame' && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(component.type.code) ? (
-                <OptionGroup
-                  label="Высота"
-                  options={
-                    leafHeightValue === undefined
-                      ? []
-                      : [{ id: MIRROR_HEIGHT_OPTION_ID, label: String(leafHeightValue) }]
+                </div>
+              </div>
+              <OptionGroup
+                label="Высота (стандарт)"
+                options={[
+                  ...component.dimensionOptions
+                    .filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
+                    .map((option) => ({ id: option.id, label: String(option.value) })),
+                  { id: CUSTOM_HEIGHT_OPTION_ID, label: CUSTOM_OPTION_LABEL },
+                ]}
+                selectedId={selection.leaf.heightOptionId ?? (customHeightMode ? CUSTOM_HEIGHT_OPTION_ID : undefined)}
+                onChange={(id) => {
+                  if (id === CUSTOM_HEIGHT_OPTION_ID) {
+                    setCustomHeightMode(true)
+                    updateSelection('leaf', { heightOptionId: undefined })
+                  } else {
+                    setCustomHeightMode(false)
+                    updateSelection('leaf', { heightOptionId: id, customHeightValueMm: undefined })
                   }
-                  selectedId={selection.frame.customHeightValueMm !== undefined ? MIRROR_HEIGHT_OPTION_ID : undefined}
-                  onChange={(id) =>
-                    updateSelection('frame', {
-                      customHeightValueMm: id === MIRROR_HEIGHT_OPTION_ID ? leafHeightValue : undefined,
-                    })
-                  }
-                />
-              ) : (
-                <OptionGroup
-                  label="Высота"
-                  options={(step.key === 'edge'
-                    ? edgeHeightOptions(component, leafHeightValue)
-                    : step.key === 'frame' && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(component.type.code)
-                      ? frameHeightRangeOptions(component, leafHeightValue)
-                      : component.dimensionOptions.filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
-                  ).map((option) => ({ id: option.id, label: String(option.value) }))}
-                  selectedId={selection[step.key].heightOptionId}
-                  onChange={(id) => updateSelection(step.key, { heightOptionId: id, customHeightValueMm: undefined })}
-                />
-              )}
-              {step.key === 'leaf' && (
-                <Space align="center">
-                  <Typography.Text type="secondary">Другое значение высоты (мм)</Typography.Text>
+                }}
+              />
+              <div>
+                <Typography.Text type="secondary">Нестандартное значение</Typography.Text>
+                <div style={{ marginTop: 4 }}>
                   <InputNumber
                     min={1}
                     step={50}
+                    style={{ width: '100%' }}
+                    disabled={!customHeightMode}
                     value={selection.leaf.customHeightValueMm}
-                    onChange={(value) =>
-                      updateSelection('leaf', { customHeightValueMm: value ?? undefined, heightOptionId: undefined })
-                    }
+                    onChange={(value) => updateSelection('leaf', { customHeightValueMm: value ?? undefined })}
                   />
-                </Space>
-              )}
+                </div>
+              </div>
               <OptionGroup
                 label="Толщина"
                 options={component.dimensionOptions
                   .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
                   .map((option) => ({ id: option.id, label: String(option.value) }))}
-                selectedId={selection[step.key].thicknessOptionId}
-                onChange={(id) => updateSelection(step.key, { thicknessOptionId: id })}
+                selectedId={selection.leaf.thicknessOptionId}
+                onChange={(id) => updateSelection('leaf', { thicknessOptionId: id })}
               />
               <OptionGroup
                 label="Цвет"
@@ -910,20 +1229,10 @@ function App() {
                   id: option.id,
                   label: option.colourType.name,
                 }))}
-                selectedId={selection[step.key].colourOptionId}
-                onChange={(id) => updateSelection(step.key, { colourOptionId: id })}
-                variant={step.key === 'leaf' ? 'select' : 'buttons'}
+                selectedId={selection.leaf.colourOptionId}
+                onChange={(id) => updateSelection('leaf', { colourOptionId: id })}
+                variant="select"
               />
-              {(step.key === 'doorCasing' || step.key === 'frameExtensions') && (
-                <Space align="center">
-                  <Typography.Text type="secondary">Количество</Typography.Text>
-                  <InputNumber
-                    min={1}
-                    value={selection[step.key].quantity ?? 1}
-                    onChange={(value) => updateSelection(step.key, { quantity: value ?? undefined })}
-                  />
-                </Space>
-              )}
             </Space>
           </Card>
         )}
@@ -962,6 +1271,7 @@ function App() {
         options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
         selectedId={selectedCollectionId}
         onChange={handleCollectionChange}
+        variant="select"
       />
       {cascadeSteps.filter((step) => LEAF_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
     </Space>
@@ -981,46 +1291,58 @@ function App() {
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {hardwareLines.map((line) => (
             <Card size="small" key={line.key}>
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                <OptionGroup
-                  label="Категория"
-                  options={hardwareCatalog.map((category) => ({ id: category.category.id, label: category.category.name }))}
-                  selectedId={line.categoryId}
-                  onChange={(id) => updateHardwareLine(line.key, { categoryId: id, typeId: undefined, hardwareOptionId: undefined })}
-                  variant="select"
-                />
-                <OptionGroup
-                  label="Тип"
-                  options={hardwareTypesFor(hardwareCatalog, line.categoryId).map((type) => ({
-                    id: type.type.id,
-                    label: type.type.name,
-                  }))}
-                  selectedId={line.typeId}
-                  onChange={(id) => updateHardwareLine(line.key, { typeId: id, hardwareOptionId: undefined })}
-                  variant="select"
-                />
-                <OptionGroup
-                  label="Цвет"
-                  options={hardwareOptionsFor(hardwareCatalog, line.categoryId, line.typeId).map((option) => ({
-                    id: option.id,
-                    label: option.colourName,
-                  }))}
-                  selectedId={line.hardwareOptionId}
-                  onChange={(id) => updateHardwareLine(line.key, { hardwareOptionId: id })}
-                  variant="select"
-                />
-                <Space align="center">
-                  <Typography.Text type="secondary">Количество</Typography.Text>
-                  <InputNumber
-                    min={1}
-                    value={line.quantity ?? 1}
-                    onChange={(value) => updateHardwareLine(line.key, { quantity: value ?? undefined })}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <OptionGroup
+                    label="Категория"
+                    options={hardwareCatalog.map((category) => ({ id: category.category.id, label: category.category.name }))}
+                    selectedId={line.categoryId}
+                    onChange={(id) => updateHardwareLine(line.key, { categoryId: id, typeId: undefined, hardwareOptionId: undefined })}
+                    variant="select"
+                    truncateSelectedLabel
                   />
-                  <Button danger onClick={() => removeHardwareLine(line.key)}>
-                    Удалить
-                  </Button>
-                </Space>
-              </Space>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <OptionGroup
+                    label="Тип"
+                    options={hardwareTypesFor(hardwareCatalog, line.categoryId).map((type) => ({
+                      id: type.type.id,
+                      label: type.type.name,
+                    }))}
+                    selectedId={line.typeId}
+                    onChange={(id) => updateHardwareLine(line.key, { typeId: id, hardwareOptionId: undefined })}
+                    variant="select"
+                    truncateSelectedLabel
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <OptionGroup
+                    label="Цвет"
+                    options={hardwareOptionsFor(hardwareCatalog, line.categoryId, line.typeId).map((option) => ({
+                      id: option.id,
+                      label: option.colourName,
+                    }))}
+                    selectedId={line.hardwareOptionId}
+                    onChange={(id) => updateHardwareLine(line.key, { hardwareOptionId: id })}
+                    variant="select"
+                    truncateSelectedLabel
+                  />
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <Typography.Text type="secondary">Количество</Typography.Text>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      style={{ width: '100%' }}
+                      value={line.quantity ?? 1}
+                      onChange={(value) => updateHardwareLine(line.key, { quantity: value ?? undefined })}
+                    />
+                  </div>
+                </div>
+                <Button danger onClick={() => removeHardwareLine(line.key)}>
+                  Удалить
+                </Button>
+              </div>
             </Card>
           ))}
           <Button onClick={addHardwareLine}>Добавить позицию фурнитуры</Button>
@@ -1037,6 +1359,18 @@ function App() {
 
   return (
     <div className="page">
+      <div className="app-header">
+        <Space align="center" size={12}>
+          <div className="app-header__logo">
+            <HomeOutlined />
+          </div>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {APP_TITLE}
+          </Typography.Title>
+        </Space>
+        <Typography.Text strong>{PRICE_LIST_LABEL}</Typography.Text>
+      </div>
+
       {updateCheck?.updateAvailable && (
         <Alert
           style={{ marginBottom: 16 }}
@@ -1070,7 +1404,9 @@ function App() {
           )}
           {!catalogLoading && !catalogError && configurations.length > 0 && (
             <Collapse
+              accordion
               defaultActiveKey={[]}
+              expandIconPosition="start"
               items={[
                 { key: 'leaf', label: 'Полотно', children: leafPanelContent },
                 { key: 'frameGroup', label: 'Короб и обрамление', children: frameGroupPanelContent },
@@ -1098,9 +1434,11 @@ function App() {
               {pricingError && <Alert type="error" message={pricingError} showIcon />}
               {!pricingError && pricingResult && (
                 <>
-                  <Space direction="vertical" size="small">
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
                     <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
-                    <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
+                    <div className="app-pricing__dealer-block">
+                      <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
+                    </div>
                   </Space>
                   {surchargeBreakdown.length > 0 && (
                     <List
