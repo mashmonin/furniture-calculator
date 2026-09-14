@@ -50,15 +50,21 @@ export function OptionGroup({
             labelRender={truncateSelectedLabel ? (props) => truncateAfterFirstWord(String(props.label ?? '')) : undefined}
           />
         ) : (
-          // block — растягивает группу на всю ширину и делит её поровну между кнопками (antd добавляет
-          // ant-radio-group-block/-wrapper-block: display:flex + flex:1 на каждой кнопке), а не оставляет
-          // компактный кластер слева с пустым местом справа (см. change restyle-configurator-per-figma).
+          // block — растягивает группу на всю ширину (antd добавляет ant-radio-group-block:
+          // display:flex), а не оставляет компактный кластер слева с пустым местом справа (см. change
+          // restyle-configurator-per-figma). Но вместо равного деления antd (ant-radio-button-wrapper-block
+          // задаёт flex: 1, то есть flex-basis: 0% — ширина кнопки не зависит от её текста) переопределяем
+          // flex на "1 1 auto": базовая ширина кнопки — по её содержимому (длинная подпись вроде «Без
+          // добора» не сжимается до одной седьмой ряда и не переносится на строку), а излишек ширины ряда
+          // распределяется поровну (flex-grow: 1) поверх этой базы, так что ряд всё равно растягивается
+          // на всю доступную ширину.
           <Radio.Group block value={selectedId} onChange={() => {}}>
             {options.map((option) => (
               <Radio.Button
                 key={option.id}
                 value={option.id}
                 onClick={() => onChange(option.id === selectedId ? undefined : option.id)}
+                style={{ flex: '1 1 auto' }}
               >
                 {option.label}
               </Radio.Button>

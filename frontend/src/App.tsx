@@ -15,7 +15,7 @@ import {
   Tag,
   Typography,
 } from 'antd'
-import { HomeOutlined } from '@ant-design/icons'
+import { DeleteOutlined, HomeOutlined } from '@ant-design/icons'
 import {
   calculateLeafPrice,
   calculatePrice,
@@ -698,9 +698,14 @@ function App() {
   // полотно, используется расчёт отдельного полотна (см. «Использование расчёта отдельного полотна
   // до определения конфигурации»); как только конфигурация определена — расчёт переключается на неё.
   useEffect(() => {
+    // Сбрасываем ранее показанный результат сразу при любом изменении набора опций — не оставляем
+    // его видимым (даже приглушённым) пока не придёт ответ на новый запрос, чтобы не показывать
+    // цену, не соответствующую текущему, ещё не полностью заполненному выбору (см. обратную связь
+    // пользователя, заменяет прежнее «приглушённое отображение предыдущего результата»).
+    setPricingResult(null)
+    setPricingError(null)
+
     if (!selectedConfiguration && leafTypeId === undefined) {
-      setPricingResult(null)
-      setPricingError(null)
       setPricingLoading(false)
       return
     }
@@ -846,29 +851,32 @@ function App() {
   }
 
   function updateSelection(key: ComponentKey, patch: Partial<ComponentSelectionDto>) {
-    const isLeafHeightChange = key === 'leaf' && ('heightOptionId' in patch || 'customHeightValueMm' in patch)
+    // Оба измерения полотна («Высота» и «Длина» — ширина) одинаково недостоверны для уже выбранных
+    // кромки, короба, наличника и добора: изменение любого из них полностью сбрасывает выбор типа
+    // (не только его зависимую от полотна высоту/длину) — по требованию пользователя (см. «Полный сброс
+    // типа короба, наличника и добора при изменении измерения полотна»).
+    const isLeafDimensionChange =
+      key === 'leaf' &&
+      ('heightOptionId' in patch ||
+        'customHeightValueMm' in patch ||
+        'lengthOptionId' in patch ||
+        'customLengthValueMm' in patch)
     setSelection((prev) => {
       const next = { ...prev, [key]: { ...prev[key], ...patch } }
-      if (isLeafHeightChange) {
-        next.edge = { ...next.edge, heightOptionId: undefined }
-        const frameType = cascadeSteps.find((step) => step.key === 'frame')?.resolvedComponent?.type
-        if (frameType && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameType.code)) {
-          next.frame = { ...next.frame, heightOptionId: undefined }
-        }
-        if (frameType && HEIGHT_MIRROR_FRAME_TYPE_CODES.includes(frameType.code)) {
-          next.frame = { ...next.frame, customHeightValueMm: undefined }
-        }
-        const frameExtensionsType = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent?.type
-        if (frameExtensionsType && LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES.includes(frameExtensionsType.code)) {
-          next.frameExtensions = { ...next.frameExtensions, lengthOptionId: undefined }
-        }
-        const doorCasingType = cascadeSteps.find((step) => step.key === 'doorCasing')?.resolvedComponent?.type
-        if (doorCasingType && LENGTH_RANGE_DOOR_CASING_TYPE_CODES.includes(doorCasingType.code)) {
-          next.doorCasing = { ...next.doorCasing, lengthOptionId: undefined }
-        }
+      if (isLeafDimensionChange) {
+        next.edge = {}
+        next.frame = {}
+        next.doorCasing = {}
+        next.frameExtensions = {}
       }
       return next
     })
+    if (isLeafDimensionChange) {
+      setCascadeSelection((prev) => {
+        const { edge: _edge, frame: _frame, doorCasing: _doorCasing, frameExtensions: _frameExtensions, ...rest } = prev
+        return rest
+      })
+    }
   }
 
   function addHardwareLine() {
@@ -882,6 +890,20 @@ function App() {
 
   function updateHardwareLine(key: number, patch: Partial<HardwareLine>) {
     setHardwareLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
+  }
+
+  function handleClearAll() {
+    setReverseSelection(undefined)
+    setMirrorFinishEnabled(false)
+    setMirrorFinishTypeId(undefined)
+    setSelectedCollectionId(undefined)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
+    setHardwareLines([])
+    setPricingResult(null)
+    setPricingError(null)
   }
 
   // resolvedReverse (не selectedConfiguration?.reverse) — оно совпадает с ней, когда конфигурация
@@ -1074,7 +1096,10 @@ function App() {
       >
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <div style={{ display: 'flex', gap: 16 }}>
-            <div style={{ flex: 2 }}>
+            {/* Фиксированная ширина «Количество» (как в блоке «Фурнитура») вместо доли ряда — не зависит
+                от общей ширины карточки и не даёт подписи "Количество" переноситься на строку;
+                «Тип» занимает всё оставшееся место. */}
+            <div style={{ flex: 1 }}>
               <OptionGroup
                 label="Тип"
                 options={[
@@ -1085,7 +1110,7 @@ function App() {
                 onChange={(id) => handleCascadeStepChange(key, id)}
               />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '0 0 110px' }}>
               <div>
                 <Typography.Text type="secondary">Количество</Typography.Text>
                 <div style={{ marginTop: 4 }}>
@@ -1318,10 +1343,20 @@ function App() {
                 <div style={{ flex: 1 }}>
                   <OptionGroup
                     label="Цвет"
-                    options={hardwareOptionsFor(hardwareCatalog, line.categoryId, line.typeId).map((option) => ({
-                      id: option.id,
-                      label: option.colourName,
-                    }))}
+                    // Один и тот же цветовой вариант (hardwareOptionId) нельзя выбрать в двух позициях
+                    // одновременно — исключаем варианты, уже занятые другими позициями, из списка этой
+                    // (см. обратную связь по дублированию фурнитуры). Собственный текущий выбор строки
+                    // не исключается, чтобы не пропадал из её же списка.
+                    options={hardwareOptionsFor(hardwareCatalog, line.categoryId, line.typeId)
+                      .filter(
+                        (option) =>
+                          option.id === line.hardwareOptionId ||
+                          !hardwareLines.some((other) => other.key !== line.key && other.hardwareOptionId === option.id),
+                      )
+                      .map((option) => ({
+                        id: option.id,
+                        label: option.colourName,
+                      }))}
                     selectedId={line.hardwareOptionId}
                     onChange={(id) => updateHardwareLine(line.key, { hardwareOptionId: id })}
                     variant="select"
@@ -1339,9 +1374,12 @@ function App() {
                     />
                   </div>
                 </div>
-                <Button danger onClick={() => removeHardwareLine(line.key)}>
-                  Удалить
-                </Button>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  aria-label="Удалить"
+                  onClick={() => removeHardwareLine(line.key)}
+                />
               </div>
             </Card>
           ))}
@@ -1351,11 +1389,6 @@ function App() {
     </>
   )
 
-  // Пока новый расчёт ожидает ответа (включая паузу debounce), ранее показанный результат остаётся
-  // видимым приглушённым, а не скрывается — иначе быстрый ввод вызывал бы постоянное «моргание» пустой
-  // sticky-панели (см. specs/door-configurator-ui, «Приглушённое отображение предыдущего результата
-  // во время пересчёта»).
-  const pricingResultDimmed = pricingLoading && pricingResult !== null
 
   return (
     <div className="page">
@@ -1417,9 +1450,12 @@ function App() {
         </div>
 
         <div className="app-pricing">
-          <Typography.Title level={4} style={{ marginTop: 0 }}>
-            Расчёт стоимости
-          </Typography.Title>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              Расчёт стоимости
+            </Typography.Title>
+            <Button onClick={handleClearAll}>Очистить</Button>
+          </div>
           {leafTypeId === undefined && (
             <Empty
               description={
@@ -1430,7 +1466,7 @@ function App() {
             />
           )}
           {leafTypeId !== undefined && (
-            <div style={{ opacity: pricingResultDimmed ? 0.55 : 1, transition: 'opacity 0.15s ease' }}>
+            <div>
               {pricingError && <Alert type="error" message={pricingError} showIcon />}
               {!pricingError && pricingResult && (
                 <>
