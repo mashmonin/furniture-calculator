@@ -1,0 +1,75 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0088-1-update-frame-extensions-type-short-name-data
+      author: furniture-calculator
+      changes:
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "100"
+            where: code = 'FET-004'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "140"
+            where: code = 'FET-005'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "190"
+            where: code = 'FET-006'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "400"
+            where: code = 'FET-007'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "100"
+            where: code = 'FET-008'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "140"
+            where: code = 'FET-009'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "190"
+            where: code = 'FET-010'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "400"
+            where: code = 'FET-011'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "600"
+            where: code = 'FET-012'
+        - update:
+            tableName: frame_extensions_type
+            columns:
+              - column:
+                  name: short_name
+                  value: "800"
+            where: code = 'FET-013'
