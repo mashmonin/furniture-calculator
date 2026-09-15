@@ -1,0 +1,113 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0090-1-create-glazing-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: glazing_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0090-2-create-glazing-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: glazing_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: glazing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_glazing_option_type
+                    references: glazing_type(id)
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_glazing_option_leaf_type
+                    references: leaf_type(id)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_glazing_option_type_leaf ON glazing_option (glazing_type_id, leaf_type_id)
+
+  - changeSet:
+      id: 0090-3-insert-glazing-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO glazing_type (name) VALUES
+              ('Прозрачное'),
+              ('Прозрачное серое'),
+              ('Прозрачное бронза'),
+              ('Сатинированное'),
+              ('Сатинированное серое'),
+              ('Сатинированное бронзовое')
+
+  - changeSet:
+      id: 0090-4-insert-glazing-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO glazing_option (glazing_type_id, leaf_type_id)
+              SELECT gt.id, lt.id
+              FROM glazing_type gt
+              CROSS JOIN leaf_type lt
+              WHERE lt.code IN (
+                'LT-017', 'LT-018', 'LT-019',
+                'LT-023', 'LT-024', 'LT-025',
+                'LT-030', 'LT-031', 'LT-032', 'LT-033',
+                'LT-036', 'LT-037'
+              )
+
+  - changeSet:
+      id: 0090-5-remove-mirror-finish-for-glazed-models
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM mirror_finish_option
+              WHERE leaf_type_id IN (
+                SELECT id FROM leaf_type WHERE code IN (
+                  'LT-017', 'LT-018', 'LT-019',
+                  'LT-023', 'LT-024', 'LT-025',
+                  'LT-030', 'LT-031', 'LT-032', 'LT-033',
+                  'LT-036', 'LT-037'
+                )
+              )
+
+  - changeSet:
+      id: 0090-6-reclassify-glazed-models
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET panel_type = 'GLAZED'
+              WHERE code IN (
+                'LT-017', 'LT-018', 'LT-019',
+                'LT-023', 'LT-024', 'LT-025',
+                'LT-030', 'LT-031', 'LT-032', 'LT-033',
+                'LT-036', 'LT-037'
+              )

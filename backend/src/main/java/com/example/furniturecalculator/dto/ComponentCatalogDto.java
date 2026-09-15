@@ -15,5 +15,8 @@ public record ComponentCatalogDto(
         List<ReferenceDto> mirrorFinishOptions,
         // Тип полотна (глухое/остеклённое/с зеркалом) — заполняется только для leaf-компонента
         // (см. change add-leaf-panel-type); для остальных компонентов всегда null.
-        LeafPanelType panelType) {
+        LeafPanelType panelType,
+        // Допустимые виды остекления (glazing_option) — заполняется только для leaf-компонента
+        // (см. change add-glazing-catalog-for-v-models); для остальных компонентов всегда пустой список.
+        List<ReferenceDto> glazingOptions) {
 }
