@@ -69,7 +69,8 @@ public class DoorConfigurationCatalogService {
                 component.dimensionOptions(),
                 component.colourOptions(),
                 component.posts(),
-                mirrorFinishOptions);
+                mirrorFinishOptions,
+                leafType.getPanelType());
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -82,7 +83,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
-                List.of());
+                List.of(), null);
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -95,7 +96,7 @@ public class DoorConfigurationCatalogService {
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()
                 .map(this::toDto)
                 .toList();
-        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of());
+        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null);
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
