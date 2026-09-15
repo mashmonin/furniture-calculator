@@ -25,6 +25,7 @@ import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
+import com.example.furniturecalculator.repository.GlazingOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
 import com.example.furniturecalculator.support.TestEntities;
@@ -42,6 +43,8 @@ class DoorConfigurationCatalogServiceTest {
     private FramePostRepository framePostRepository;
     @Mock
     private MirrorFinishOptionRepository mirrorFinishOptionRepository;
+    @Mock
+    private GlazingOptionRepository glazingOptionRepository;
 
     @InjectMocks
     private DoorConfigurationCatalogService service;
@@ -63,6 +66,7 @@ class DoorConfigurationCatalogServiceTest {
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         List<DoorConfigurationDto> result = service.getAllConfigurations();
 
@@ -93,6 +97,7 @@ class DoorConfigurationCatalogServiceTest {
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
         when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
         when(linerDimensionOptionRepository.findByEdgeTypeId(3L)).thenReturn(List.of());
@@ -108,9 +113,11 @@ class DoorConfigurationCatalogServiceTest {
         assertThat(dto.leaf()).isNotNull();
         assertThat(dto.leaf().collection()).isNotNull();
         assertThat(dto.leaf().panelType()).isEqualTo(LeafPanelType.BLIND);
+        assertThat(dto.leaf().glazingOptions()).isEmpty();
         assertThat(dto.frame()).isNotNull();
         assertThat(dto.frame().collection()).isNull();
         assertThat(dto.frame().panelType()).isNull();
+        assertThat(dto.frame().glazingOptions()).isEmpty();
         assertThat(dto.frame().posts()).isEmpty();
         assertThat(dto.edge()).isNotNull();
         assertThat(dto.doorCasing()).isNotNull();
@@ -129,6 +136,7 @@ class DoorConfigurationCatalogServiceTest {
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
         when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(topPost, sidePostsKit));
@@ -151,6 +159,7 @@ class DoorConfigurationCatalogServiceTest {
                 .thenReturn(List.of(TestEntities.linerDimensionOption(1000L, lengthType, BigDecimal.valueOf(600), true, leafType)));
         when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
         when(colourOptionRepository.findByFrameTypeId(2L))
                 .thenReturn(List.of(TestEntities.colourOption(2000L, TestEntities.colourType(200L), frameType)));
@@ -174,6 +183,7 @@ class DoorConfigurationCatalogServiceTest {
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionOptionRepository.findByEdgeTypeId(3L)).thenReturn(List.of());
         when(colourOptionRepository.findByEdgeTypeId(3L)).thenReturn(List.of());
 

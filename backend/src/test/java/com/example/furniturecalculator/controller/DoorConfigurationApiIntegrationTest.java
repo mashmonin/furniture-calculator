@@ -119,6 +119,49 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     @Test
+    void каталог_возвращает_виды_остекления_только_для_полотна() throws Exception {
+        Long leafTypeId = insertLeafType("IT-GLAZING-LEAF-1", "GLAZED");
+        Long frameTypeId = insertFrameType("IT-GLAZING-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        Long glazingTypeId = insertGlazingType("Сатинированное");
+        insertGlazingOption(glazingTypeId, leafTypeId);
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.leaf().glazingOptions()).hasSize(1);
+        assertThat(created.leaf().glazingOptions().get(0).name()).isEqualTo("Сатинированное");
+        assertThat(created.frame().glazingOptions()).isEmpty();
+    }
+
+    @Test
+    void каталог_возвращает_пустой_список_видов_остекления_если_их_нет() throws Exception {
+        Long leafTypeId = insertLeafType("IT-GLAZING-LEAF-2");
+        Long configurationId = insertDoorConfiguration(leafTypeId, null, null, null, null);
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.leaf().glazingOptions()).isEmpty();
+    }
+
+    @Test
+    void glazing_type_без_наименования_отклоняется() {
+        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO glazing_type DEFAULT VALUES"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void повторная_пара_glazing_type_и_leaf_type_отклоняется() {
+        Long leafTypeId = insertLeafType("IT-GLAZING-LEAF-3");
+        Long glazingTypeId = insertGlazingType("IT-GLAZING-TYPE-DUP");
+        insertGlazingOption(glazingTypeId, leafTypeId);
+
+        assertThatThrownBy(() -> insertGlazingOption(glazingTypeId, leafTypeId)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void leaf_type_без_типа_полотна_отклоняется() {
         Long collectionId = insertLeafCollection("COLL-IT-PANEL-TYPE-MISSING-1");
 
@@ -387,5 +430,15 @@ class DoorConfigurationApiIntegrationTest {
         return jdbcTemplate.queryForObject(
                 "INSERT INTO mirror_finish_option (mirror_finish_type_id, leaf_type_id) VALUES (?, ?) RETURNING id",
                 Long.class, mirrorFinishTypeId, leafTypeId);
+    }
+
+    private Long insertGlazingType(String name) {
+        return jdbcTemplate.queryForObject("INSERT INTO glazing_type (name) VALUES (?) RETURNING id", Long.class, name);
+    }
+
+    private Long insertGlazingOption(Long glazingTypeId, Long leafTypeId) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO glazing_option (glazing_type_id, leaf_type_id) VALUES (?, ?) RETURNING id",
+                Long.class, glazingTypeId, leafTypeId);
     }
 }
