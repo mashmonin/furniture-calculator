@@ -33,6 +33,7 @@ import type {
   HardwareOptionDto,
   HardwareSelectionDto,
   HardwareTypeDto,
+  LeafPanelType,
   LinerDimensionOptionDto,
   PricingRequestDto,
   PricingResponseDto,
@@ -73,6 +74,16 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
   doorCasing: 'Наличник',
   frameExtensions: 'Добор',
 }
+
+// Тип полотна (панель leaf_type) — информационный сегментированный переключатель в карточке параметров
+// полотна, визуально повторяющий стиль макета Figma (те же радио-кнопки, что у «Кромки»/«Короба»/
+// «Толщины»), но не влияющий на выбор/сужение каталога — onChange намеренно no-op (см. change
+// show-leaf-panel-type, add-leaf-panel-type). Синтетические id нужны только для OptionGroup.
+const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string }[] = [
+  { code: 'BLIND', id: 1, label: 'Глухое' },
+  { code: 'GLAZED', id: 2, label: 'С остеклением' },
+  { code: 'MIRRORED', id: 3, label: 'Зеркальное' },
+]
 
 const COLLECTION_LABEL = 'Коллекция'
 const MIRROR_FINISH_NEEDED_LABEL = 'Нужно зеркало'
@@ -1291,13 +1302,27 @@ function App() {
           onChange={handleMirrorFinishTypeChange}
         />
       )}
-      <OptionGroup
-        label={COLLECTION_LABEL}
-        options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
-        selectedId={selectedCollectionId}
-        onChange={handleCollectionChange}
-        variant="select"
-      />
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <OptionGroup
+            label={COLLECTION_LABEL}
+            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
+            selectedId={selectedCollectionId}
+            onChange={handleCollectionChange}
+            variant="select"
+          />
+        </div>
+        {leafComponent?.panelType && (
+          <div style={{ flex: 1 }}>
+            <OptionGroup
+              label="Тип полотна"
+              options={LEAF_PANEL_TYPE_OPTIONS.map(({ id, label }) => ({ id, label }))}
+              selectedId={LEAF_PANEL_TYPE_OPTIONS.find((option) => option.code === leafComponent.panelType)?.id}
+              onChange={() => {}}
+            />
+          </div>
+        )}
+      </div>
       {cascadeSteps.filter((step) => LEAF_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
     </Space>
   )
