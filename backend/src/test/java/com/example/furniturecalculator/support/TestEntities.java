@@ -20,6 +20,7 @@ import com.example.furniturecalculator.domain.HardwareCategory;
 import com.example.furniturecalculator.domain.HardwareOption;
 import com.example.furniturecalculator.domain.HardwareType;
 import com.example.furniturecalculator.domain.LeafCollection;
+import com.example.furniturecalculator.domain.LeafPanelType;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
@@ -37,6 +38,7 @@ public final class TestEntities {
     public static LeafType leafType(long id) {
         LeafType leafType = referenceType(LeafType.class, id);
         ReflectionTestUtils.setField(leafType, "collection", leafCollection(id));
+        ReflectionTestUtils.setField(leafType, "panelType", LeafPanelType.BLIND);
         return leafType;
     }
 

@@ -293,3 +293,6 @@ databaseChangeLog:
   - include:
       file: changes/0088-frame-extensions-type-short-name-data.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0089-leaf-type-panel-type.yaml
+      relativeToChangelogFile: true

@@ -1,6 +1,7 @@
 package com.example.furniturecalculator.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,11 +13,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.furniturecalculator.domain.LeafPanelType;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
@@ -100,6 +103,39 @@ class DoorConfigurationApiIntegrationTest {
 
         DoorConfigurationDto created = findById(configurations, configurationId);
         assertThat(created.leaf().mirrorFinishOptions()).isEmpty();
+    }
+
+    @Test
+    void каталог_возвращает_тип_полотна_только_для_leaf_компонента() throws Exception {
+        Long leafTypeId = insertLeafType("IT-PANEL-TYPE-LEAF-1", "GLAZED");
+        Long frameTypeId = insertFrameType("IT-PANEL-TYPE-FRAME-1");
+        Long configurationId = insertDoorConfiguration(leafTypeId, frameTypeId, null, null, null);
+
+        List<DoorConfigurationDto> configurations = performGetCatalog();
+
+        DoorConfigurationDto created = findById(configurations, configurationId);
+        assertThat(created.leaf().panelType()).isEqualTo(LeafPanelType.GLAZED);
+        assertThat(created.frame().panelType()).isNull();
+    }
+
+    @Test
+    void leaf_type_без_типа_полотна_отклоняется() {
+        Long collectionId = insertLeafCollection("COLL-IT-PANEL-TYPE-MISSING-1");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO leaf_type (code, name, collection_id) VALUES (?, ?, ?)",
+                "IT-PANEL-TYPE-MISSING-1", "IT-PANEL-TYPE-MISSING-1", collectionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void leaf_type_с_недопустимым_типом_полотна_отклоняется() {
+        Long collectionId = insertLeafCollection("COLL-IT-PANEL-TYPE-INVALID-1");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO leaf_type (code, name, collection_id, panel_type) VALUES (?, ?, ?, ?)",
+                "IT-PANEL-TYPE-INVALID-1", "IT-PANEL-TYPE-INVALID-1", collectionId, "SOLID"))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -273,10 +309,14 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     private Long insertLeafType(String code) {
+        return insertLeafType(code, "BLIND");
+    }
+
+    private Long insertLeafType(String code, String panelType) {
         Long collectionId = insertLeafCollection("COLL-" + code);
         return jdbcTemplate.queryForObject(
-                "INSERT INTO leaf_type (code, name, collection_id) VALUES (?, ?, ?) RETURNING id",
-                Long.class, code, code, collectionId);
+                "INSERT INTO leaf_type (code, name, collection_id, panel_type) VALUES (?, ?, ?, ?) RETURNING id",
+                Long.class, code, code, collectionId, panelType);
     }
 
     private Long insertLeafCollection(String code) {

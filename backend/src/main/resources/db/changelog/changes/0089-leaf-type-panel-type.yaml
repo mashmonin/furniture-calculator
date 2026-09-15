@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0089-1-add-leaf-type-panel-type-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: leaf_type
+            columns:
+              - column:
+                  name: panel_type
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0089-2-backfill-leaf-type-panel-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET panel_type = 'MIRRORED'
+              WHERE id IN (SELECT DISTINCT leaf_type_id FROM mirror_finish_option)
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET panel_type = 'BLIND'
+              WHERE panel_type IS NULL
+
+  - changeSet:
+      id: 0089-3-leaf-type-panel-type-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: leaf_type
+            columnName: panel_type
+            columnDataType: VARCHAR(255)
+
+  - changeSet:
+      id: 0089-4-check-leaf-type-panel-type-values
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type ADD CONSTRAINT chk_leaf_type_panel_type
+              CHECK (panel_type IN ('BLIND', 'GLAZED', 'MIRRORED'))
