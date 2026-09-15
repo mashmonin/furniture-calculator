@@ -75,10 +75,11 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
   frameExtensions: 'Добор',
 }
 
-// Тип полотна (панель leaf_type) — информационный сегментированный переключатель в карточке параметров
-// полотна, визуально повторяющий стиль макета Figma (те же радио-кнопки, что у «Кромки»/«Короба»/
-// «Толщины»), но не влияющий на выбор/сужение каталога — onChange намеренно no-op (см. change
-// show-leaf-panel-type, add-leaf-panel-type). Синтетические id нужны только для OptionGroup.
+// Тип полотна (панель leaf_type) — пред-коллекционный псевдо-шаг каскада (см. resolvePanelTypeStep),
+// сегментированный переключатель в стиле макета Figma (те же радио-кнопки, что у «Кромки»/«Короба»/
+// «Толщины»). Сужает каталог и заменяет прежний переключатель «Нужно зеркало» (см. change
+// filter-by-leaf-panel-type, show-leaf-panel-type, add-leaf-panel-type). Синтетические id нужны только
+// для OptionGroup.
 const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string }[] = [
   { code: 'BLIND', id: 1, label: 'Глухое' },
   { code: 'GLAZED', id: 2, label: 'С остеклением' },
@@ -86,7 +87,6 @@ const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string 
 ]
 
 const COLLECTION_LABEL = 'Коллекция'
-const MIRROR_FINISH_NEEDED_LABEL = 'Нужно зеркало'
 const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
 
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
@@ -281,33 +281,45 @@ function resolveReverseStep(
   return { resolvedReverse: configurations.length > 0 ? configurations[0].reverse : false }
 }
 
+interface PanelTypeStep {
+  visible: boolean
+  options: LeafPanelType[]
+  value: LeafPanelType
+}
+
+// Тип полотна — пред-коллекционный псевдо-шаг, симметричный resolveReverseStep: идёт сразу после реверса
+// и до коллекции, оценивается по configurations, суженным реверсом. Заменяет прежний переключатель
+// «Нужно зеркало» (см. design.md, change filter-by-leaf-panel-type) — выбор «Зеркальное» даёт то же
+// сужение и раскрывает тот же шаг выбора исполнения. Показывается, только если среди кандидатов
+// встречается более одного значения panelType; по умолчанию выбрано «Глухое», если оно есть среди
+// вариантов, иначе — первый встречающийся.
+function resolvePanelTypeStep(
+  configurations: DoorConfigurationDto[],
+  panelTypeSelection: LeafPanelType | undefined,
+): { panelTypeStep?: PanelTypeStep; resolvedPanelType: LeafPanelType | undefined } {
+  const panelTypes = Array.from(
+    new Set(configurations.map((configuration) => configuration.leaf.panelType).filter((type): type is LeafPanelType => Boolean(type))),
+  )
+  if (panelTypes.length <= 1) {
+    return { resolvedPanelType: panelTypes[0] }
+  }
+  const resolved =
+    panelTypeSelection !== undefined && panelTypes.includes(panelTypeSelection)
+      ? panelTypeSelection
+      : (panelTypes.includes('BLIND') ? 'BLIND' : panelTypes[0])
+  return { panelTypeStep: { visible: true, options: panelTypes, value: resolved }, resolvedPanelType: resolved }
+}
+
 interface MirrorFinishStep {
   visible: boolean
   options: ReferenceDto[]
 }
 
-// Исполнение зеркала — пред-коллекционный псевдо-шаг, симметричный resolveReverseStep, но независимый от него:
-// оценивается уже по configurations, суженным реверсом (см. design.md). Переключатель «Нужно зеркало»
-// выключен по умолчанию (аналог «без зеркала»); включение показывает варианты исполнения зеркала.
+// Выбор конкретного исполнения зеркала — раскрывается только когда resolvedPanelType === 'MIRRORED'
+// (см. resolvePanelTypeStep), от configurations, уже суженных по типу полотна.
 function resolveMirrorFinishStep(configurations: DoorConfigurationDto[]): MirrorFinishStep {
   const options = uniqueById(configurations.flatMap((configuration) => configuration.leaf.mirrorFinishOptions))
   return { visible: options.length > 0, options }
-}
-
-function filterByMirrorFinish(
-  configurations: DoorConfigurationDto[],
-  mirrorFinishEnabled: boolean,
-  mirrorFinishTypeId: number | undefined,
-): DoorConfigurationDto[] {
-  if (!mirrorFinishEnabled) {
-    return configurations
-  }
-  if (mirrorFinishTypeId === undefined) {
-    return configurations.filter((configuration) => configuration.leaf.mirrorFinishOptions.length > 0)
-  }
-  return configurations.filter((configuration) =>
-    configuration.leaf.mirrorFinishOptions.some((option) => option.id === mirrorFinishTypeId),
-  )
 }
 
 // Сужает candidates по одному шагу CASCADE_ORDER; возвращает undefined в steps-массиве
@@ -472,7 +484,7 @@ function App() {
   const [nextHardwareLineKey, setNextHardwareLineKey] = useState(1)
 
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
-  const [mirrorFinishEnabled, setMirrorFinishEnabled] = useState(false)
+  const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
   const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
@@ -581,18 +593,27 @@ function App() {
   const { reverseStep, resolvedReverse } = resolveReverseStep(configurations, reverseSelection)
   const reverseFilteredConfigurations = configurations.filter((configuration) => configuration.reverse === resolvedReverse)
 
-  const mirrorFinishStep = resolveMirrorFinishStep(reverseFilteredConfigurations)
-  const mirrorFilteredConfigurations = filterByMirrorFinish(reverseFilteredConfigurations, mirrorFinishEnabled, mirrorFinishTypeId)
+  const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(reverseFilteredConfigurations, panelTypeSelection)
+  // «Глухое» — не отдельная непересекающаяся категория моделей, а базовое исполнение, доступное любому
+  // полотну (в том числе тем, что дополнительно поддерживают зеркало/остекление) — поэтому оно не сужает
+  // каталог, в отличие от «Зеркальное»/«С остеклением», которые сужают точным совпадением panelType до
+  // моделей, дополнительно это поддерживающих (см. обратную связь после первой реализации, design.md).
+  const panelTypeFilteredConfigurations =
+    resolvedPanelType === 'BLIND'
+      ? reverseFilteredConfigurations
+      : reverseFilteredConfigurations.filter((configuration) => configuration.leaf.panelType === resolvedPanelType)
+  const mirrorFinishStep =
+    resolvedPanelType === 'MIRRORED' ? resolveMirrorFinishStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
 
   const collectionOptions = uniqueById(
-    mirrorFilteredConfigurations
+    panelTypeFilteredConfigurations
       .map((configuration) => configuration.leaf.collection)
       .filter((type): type is ReferenceDto => Boolean(type)),
   )
   const collectionFilteredConfigurations =
     selectedCollectionId === undefined
       ? []
-      : mirrorFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
+      : panelTypeFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
 
   // Первый проход — только чтобы узнать leafHeightValue (шаг leaf не зависит от неё, поэтому второй
   // проход её не меняет). Второй проход использует эту высоту, чтобы исключить короб «НЕО» из шага
@@ -796,8 +817,8 @@ function App() {
     setCustomHeightMode(false)
   }
 
-  function handleMirrorFinishEnabledChange(checked: boolean) {
-    setMirrorFinishEnabled(checked)
+  function handlePanelTypeChange(value: LeafPanelType) {
+    setPanelTypeSelection(value)
     setMirrorFinishTypeId(undefined)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
@@ -905,7 +926,7 @@ function App() {
 
   function handleClearAll() {
     setReverseSelection(undefined)
-    setMirrorFinishEnabled(false)
+    setPanelTypeSelection(undefined)
     setMirrorFinishTypeId(undefined)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
@@ -1177,13 +1198,27 @@ function App() {
     const component = step.resolvedComponent
     return (
       <Fragment key={step.key}>
-        <OptionGroup
-          label={COMPONENT_LABELS.leaf}
-          options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
-          selectedId={step.selectedId}
-          onChange={(id) => handleCascadeStepChange('leaf', id)}
-          variant="select"
-        />
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <OptionGroup
+              label={COMPONENT_LABELS.leaf}
+              options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
+              selectedId={step.selectedId}
+              onChange={(id) => handleCascadeStepChange('leaf', id)}
+              variant="select"
+            />
+          </div>
+          {mirrorFinishStep.visible && (
+            <div style={{ flex: 1 }}>
+              <OptionGroup
+                label={MIRROR_FINISH_LABEL}
+                options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: displayName(type) }))}
+                selectedId={mirrorFinishTypeId}
+                onChange={handleMirrorFinishTypeChange}
+              />
+            </div>
+          )}
+        </div>
         {component && (
           <Card size="small" title="Параметры выбранного полотна">
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -1278,29 +1313,13 @@ function App() {
 
   const leafPanelContent = (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      {(reverseStep?.visible || mirrorFinishStep.visible) && (
+      {reverseStep?.visible && (
         <Space align="center" size="large">
-          {reverseStep?.visible && (
-            <Space align="center">
-              <Typography.Text>Реверс</Typography.Text>
-              <Switch checked={reverseStep.value} onChange={handleReverseChange} />
-            </Space>
-          )}
-          {mirrorFinishStep.visible && (
-            <Space align="center">
-              <Typography.Text>{MIRROR_FINISH_NEEDED_LABEL}</Typography.Text>
-              <Switch checked={mirrorFinishEnabled} onChange={handleMirrorFinishEnabledChange} />
-            </Space>
-          )}
+          <Space align="center">
+            <Typography.Text>Реверс</Typography.Text>
+            <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+          </Space>
         </Space>
-      )}
-      {mirrorFinishStep.visible && mirrorFinishEnabled && (
-        <OptionGroup
-          label={MIRROR_FINISH_LABEL}
-          options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: displayName(type) }))}
-          selectedId={mirrorFinishTypeId}
-          onChange={handleMirrorFinishTypeChange}
-        />
       )}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
@@ -1312,13 +1331,20 @@ function App() {
             variant="select"
           />
         </div>
-        {leafComponent?.panelType && (
+        {panelTypeStep?.visible && (
           <div style={{ flex: 1 }}>
             <OptionGroup
               label="Тип полотна"
-              options={LEAF_PANEL_TYPE_OPTIONS.map(({ id, label }) => ({ id, label }))}
-              selectedId={LEAF_PANEL_TYPE_OPTIONS.find((option) => option.code === leafComponent.panelType)?.id}
-              onChange={() => {}}
+              options={LEAF_PANEL_TYPE_OPTIONS.filter((option) => panelTypeStep.options.includes(option.code)).map(
+                ({ id, label }) => ({ id, label }),
+              )}
+              selectedId={LEAF_PANEL_TYPE_OPTIONS.find((option) => option.code === panelTypeStep.value)?.id}
+              onChange={(id) => {
+                const option = LEAF_PANEL_TYPE_OPTIONS.find((candidate) => candidate.id === id)
+                if (option) {
+                  handlePanelTypeChange(option.code)
+                }
+              }}
             />
           </div>
         )}
