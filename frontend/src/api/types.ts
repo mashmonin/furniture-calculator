@@ -38,6 +38,7 @@ export interface ComponentCatalogDto {
   posts: FramePostDto[]
   mirrorFinishOptions: ReferenceDto[]
   panelType: LeafPanelType | null
+  glazingOptions: ReferenceDto[]
 }
 
 export interface DoorConfigurationDto {

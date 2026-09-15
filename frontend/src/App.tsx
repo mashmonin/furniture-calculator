@@ -88,6 +88,7 @@ const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string 
 
 const COLLECTION_LABEL = 'Коллекция'
 const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
+const GLAZING_LABEL = 'Вид остекления'
 
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
 const NONE_OPTION_ID = 0
@@ -322,6 +323,21 @@ function resolveMirrorFinishStep(configurations: DoorConfigurationDto[]): Mirror
   return { visible: options.length > 0, options }
 }
 
+interface GlazingStep {
+  visible: boolean
+  options: ReferenceDto[]
+}
+
+// Выбор вида остекления — симметричен resolveMirrorFinishStep, раскрывается только когда
+// resolvedPanelType === 'GLAZED' (см. change add-glazing-catalog-for-v-models). В отличие от исполнения
+// зеркала, выбранный вид остекления нигде не сужает каталог и не участвует в запросе расчёта стоимости —
+// backend пока не принимает его (наценки за остекление нет, см. design.md); это только отображение
+// справочных значений и локальный выбор пользователя.
+function resolveGlazingStep(configurations: DoorConfigurationDto[]): GlazingStep {
+  const options = uniqueById(configurations.flatMap((configuration) => configuration.leaf.glazingOptions))
+  return { visible: options.length > 0, options }
+}
+
 // Сужает candidates по одному шагу CASCADE_ORDER; возвращает undefined в steps-массиве
 // вызывающей стороны, если шаг ещё не разрешён (кандидат не сужен дальше).
 function applyCascadeStep(
@@ -486,6 +502,7 @@ function App() {
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
+  const [glazingTypeId, setGlazingTypeId] = useState<number | undefined>(undefined)
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
   const [cascadeSelection, setCascadeSelection] = useState<Partial<Record<ComponentKey, number>>>({})
   const [selection, setSelection] = useState(emptySelection)
@@ -604,6 +621,8 @@ function App() {
       : reverseFilteredConfigurations.filter((configuration) => configuration.leaf.panelType === resolvedPanelType)
   const mirrorFinishStep =
     resolvedPanelType === 'MIRRORED' ? resolveMirrorFinishStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
+  const glazingStep =
+    resolvedPanelType === 'GLAZED' ? resolveGlazingStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
 
   const collectionOptions = uniqueById(
     panelTypeFilteredConfigurations
@@ -820,6 +839,7 @@ function App() {
   function handlePanelTypeChange(value: LeafPanelType) {
     setPanelTypeSelection(value)
     setMirrorFinishTypeId(undefined)
+    setGlazingTypeId(undefined)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
@@ -827,13 +847,20 @@ function App() {
     setCustomHeightMode(false)
   }
 
+  // Ничего не сбрасывает: несмотря на прежнюю формулировку в спецификации, выбор конкретного исполнения
+  // зеркала фактически не сужает collectionOptions/panelTypeFilteredConfigurations (это отпало при переходе
+  // на сужение по «Тип полотна» — см. change filter-by-leaf-panel-type) — сброс каскада был лишним и стирал
+  // уже выбранную модель полотна при каждой смене исполнения (см. обратную связь, тот же баг, что и у вида
+  // остекления). Выбранное исполнение по-прежнему уходит в запрос расчёта и влияет на наценку.
   function handleMirrorFinishTypeChange(id: number | undefined) {
     setMirrorFinishTypeId(id)
-    setSelectedCollectionId(undefined)
-    setCascadeSelection({})
-    setSelection(emptySelection())
-    setCustomLengthMode(false)
-    setCustomHeightMode(false)
+  }
+
+  // В отличие от handleMirrorFinishTypeChange, ничего не сбрасывает: вид остекления ни на что не влияет
+  // (не сужает каталог, не входит в запрос расчёта — см. design.md change add-glazing-catalog-for-v-models),
+  // поэтому выбор коллекции/модели/уже введённых опций должен сохраняться.
+  function handleGlazingTypeChange(id: number | undefined) {
+    setGlazingTypeId(id)
   }
 
   function handleCollectionChange(id: number | undefined) {
@@ -928,6 +955,7 @@ function App() {
     setReverseSelection(undefined)
     setPanelTypeSelection(undefined)
     setMirrorFinishTypeId(undefined)
+    setGlazingTypeId(undefined)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
@@ -1215,6 +1243,17 @@ function App() {
                 options={mirrorFinishStep.options.map((type) => ({ id: type.id, label: displayName(type) }))}
                 selectedId={mirrorFinishTypeId}
                 onChange={handleMirrorFinishTypeChange}
+              />
+            </div>
+          )}
+          {glazingStep.visible && (
+            <div style={{ flex: 1 }}>
+              <OptionGroup
+                label={GLAZING_LABEL}
+                options={glazingStep.options.map((type) => ({ id: type.id, label: displayName(type) }))}
+                selectedId={glazingTypeId}
+                onChange={handleGlazingTypeChange}
+                variant="select"
               />
             </div>
           )}
