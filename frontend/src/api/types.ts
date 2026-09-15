@@ -28,6 +28,8 @@ export interface FramePostDto {
   dealerPrice: number
 }
 
+export type LeafPanelType = 'BLIND' | 'GLAZED' | 'MIRRORED'
+
 export interface ComponentCatalogDto {
   type: ReferenceDto
   collection: ReferenceDto | null
@@ -35,6 +37,7 @@ export interface ComponentCatalogDto {
   colourOptions: ColourOptionDto[]
   posts: FramePostDto[]
   mirrorFinishOptions: ReferenceDto[]
+  panelType: LeafPanelType | null
 }
 
 export interface DoorConfigurationDto {
