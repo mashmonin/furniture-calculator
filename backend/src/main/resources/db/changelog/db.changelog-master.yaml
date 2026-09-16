@@ -299,3 +299,6 @@ databaseChangeLog:
   - include:
       file: changes/0090-glazing-catalog.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0091-glazing-type-surcharge.yaml
+      relativeToChangelogFile: true

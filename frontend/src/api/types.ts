@@ -62,6 +62,7 @@ export interface ComponentSelectionDto {
   customHeightValueMm?: number
   quantity?: number
   mirrorFinishTypeId?: number
+  glazingTypeId?: number
 }
 
 export interface HardwareSelectionDto {
@@ -133,10 +134,17 @@ export interface MirrorFinishSurchargeDto {
   surchargePercent: number
 }
 
+export interface GlazingSurchargeDto {
+  id: number
+  name: string
+  surchargePercent: number
+}
+
 export interface PricingSurchargesDto {
   reverseSurchargePercent: number
   dimensionSurchargeRules: DimensionSurchargeRuleDto[]
   mirrorFinishSurcharges: MirrorFinishSurchargeDto[]
+  glazingSurcharges: GlazingSurchargeDto[]
 }
 
 export interface UpdateCheckDto {
