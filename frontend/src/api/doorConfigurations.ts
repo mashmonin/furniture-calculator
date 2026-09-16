@@ -8,6 +8,7 @@ import type {
   PricingRequestDto,
   PricingResponseDto,
   PricingSurchargesDto,
+  SpecificationExportRequestDto,
 } from './types'
 
 export async function fetchDoorConfigurations(): Promise<DoorConfigurationDto[]> {
@@ -83,4 +84,42 @@ export async function calculateHardwarePrice(
     throw new Error(`Не удалось рассчитать стоимость (HTTP ${response.status})`)
   }
   return (await response.json()) as HardwarePricingResponseDto
+}
+
+const DEFAULT_SPECIFICATION_FILENAME = 'specification.xlsx'
+
+// Имя файла — из Content-Disposition ответа, если он его содержит, иначе запасное имя по умолчанию
+// (см. design.md изменения add-specification-export, «Скачивание на фронте»). Backend кодирует кириллицу
+// по RFC 5987 (filename*=UTF-8''%D0%97...), а не как обычный filename="..." — иначе Tomcat падает при
+// записи заголовка (см. UnmappableCharacterException, ISO-8859-1 не вмещает кириллицу).
+function filenameFromContentDisposition(header: string | null): string {
+  const extendedMatch = header?.match(/filename\*=UTF-8''([^;]+)/i)
+  if (extendedMatch) {
+    try {
+      return decodeURIComponent(extendedMatch[1])
+    } catch {
+      // Битый процент-энкодинг — падаем на обычный filename ниже.
+    }
+  }
+  const match = header?.match(/filename="?([^";]+)"?/)
+  return match ? match[1] : DEFAULT_SPECIFICATION_FILENAME
+}
+
+// Выгрузка .xlsx-спецификации по собранной конфигурации (см. change add-specification-export) — backend
+// пересчитывает цены заново теми же правилами, что и три этапных эндпоинта, не доверяя уже показанным на
+// экране числам.
+export async function exportSpecification(
+  request: SpecificationExportRequestDto,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch('/api/specification/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`Не удалось сформировать спецификацию (HTTP ${response.status})`)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'))
+  return { blob, filename }
 }

@@ -20,6 +20,7 @@ import {
   calculateFrameGroupPrice,
   calculateHardwarePrice,
   calculateLeafPrice,
+  exportSpecification,
   fetchDoorConfigurations,
   fetchHardwareCatalog,
   fetchPricingSurcharges,
@@ -43,6 +44,7 @@ import type {
   PricingResponseDto,
   PricingSurchargesDto,
   ReferenceDto,
+  SpecificationExportRequestDto,
   UpdateCheckDto,
 } from './api/types'
 import { OptionGroup } from './components/OptionGroup'
@@ -559,6 +561,11 @@ function App() {
   const [hardwarePricingError, setHardwarePricingError] = useState<string | null>(null)
   const hardwareRequestSeqRef = useRef(0)
 
+  // Выгрузка спецификации (см. change add-specification-export) — отдельное состояние загрузки/ошибки, не
+  // трогающее уже показанный результат расчёта в pricingResult/pricingError.
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     setCatalogLoading(true)
@@ -988,6 +995,71 @@ function App() {
           hardware: hardwarePricingResult?.hardware ?? [],
         }
       : null
+
+  // Кнопка «Скачать excel спецификацию» (см. change add-specification-export) — собирает
+  // SpecificationExportRequestDto из уже имеющегося состояния (то же, что уходит в три этапных запроса
+  // расчёта выше) и скачивает файл через синтетический <a download>, не трогая уже показанный
+  // pricingResult/pricingError при ошибке.
+  function handleExportSpecification() {
+    if (leafTypeId === undefined) {
+      return
+    }
+
+    let leafSelection = selection.leaf
+    if (mirrorFinishTypeId !== undefined) {
+      leafSelection = { ...leafSelection, mirrorFinishTypeId }
+    }
+    if (glazingTypeId !== undefined) {
+      leafSelection = { ...leafSelection, glazingTypeId }
+    }
+
+    const request: SpecificationExportRequestDto = {
+      leafTypeId,
+      leaf: leafSelection,
+      isReverse: resolvedReverse,
+      leafHeightValue,
+    }
+    if (edgeTypeId !== undefined) {
+      request.edgeTypeId = edgeTypeId
+      request.edge = selection.edge
+    }
+    if (frameTypeId !== undefined) {
+      request.frameTypeId = frameTypeId
+      request.frame = selection.frame
+    }
+    if (doorCasingTypeId !== undefined) {
+      request.doorCasingTypeId = doorCasingTypeId
+      request.doorCasing = selection.doorCasing
+    }
+    if (frameExtensionsTypeId !== undefined) {
+      request.frameExtensionsTypeId = frameExtensionsTypeId
+      request.frameExtensions = selection.frameExtensions
+    }
+    const hardwareSelections: HardwareSelectionDto[] = hardwareLines
+      .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
+      .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
+    if (hardwareSelections.length > 0) {
+      request.hardware = hardwareSelections
+    }
+
+    setExportLoading(true)
+    setExportError(null)
+    exportSpecification(request)
+      .then(({ blob, filename }) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = filename
+        link.click()
+        URL.revokeObjectURL(url)
+      })
+      .catch((error: unknown) => {
+        setExportError(error instanceof Error ? error.message : 'Не удалось сформировать спецификацию')
+      })
+      .finally(() => {
+        setExportLoading(false)
+      })
+  }
 
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
@@ -1796,6 +1868,16 @@ function App() {
                       )}
                     />
                   )}
+                  {exportError && <Alert style={{ marginTop: 16 }} type="error" message={exportError} showIcon />}
+                  <Button
+                    type="primary"
+                    block
+                    style={{ marginTop: 16 }}
+                    loading={exportLoading}
+                    onClick={handleExportSpecification}
+                  >
+                    Скачать excel спецификацию
+                  </Button>
                 </>
               )}
               {!pricingError && !pricingResult && pricingLoading && (

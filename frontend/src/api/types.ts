@@ -129,6 +129,26 @@ export interface FrameGroupPricingResponseDto {
   components: ComponentPriceDto[]
 }
 
+// Объединяет поля PricingRequestDto (этап «Полотно») и FrameGroupPricingRequestDto (этап «Короб и
+// обрамление») плюс hardware в один запрос выгрузки спецификации (см. change add-specification-export) —
+// зеркально backend SpecificationExportRequestDto. leafTypeId обязателен, остальные id — опциональны, как
+// и в исходных этапных запросах.
+export interface SpecificationExportRequestDto {
+  leafTypeId: number
+  leaf?: ComponentSelectionDto
+  edgeTypeId?: number
+  edge?: ComponentSelectionDto
+  isReverse?: boolean
+  frameTypeId?: number
+  frame?: ComponentSelectionDto
+  doorCasingTypeId?: number
+  doorCasing?: ComponentSelectionDto
+  frameExtensionsTypeId?: number
+  frameExtensions?: ComponentSelectionDto
+  leafHeightValue?: number
+  hardware?: HardwareSelectionDto[]
+}
+
 // Расчёт этапа «Фурнитура» независимо от door_configuration и её компонентов (см. change
 // add-staged-pricing-endpoints, frontend-staged-pricing).
 export interface HardwarePricingRequestDto {

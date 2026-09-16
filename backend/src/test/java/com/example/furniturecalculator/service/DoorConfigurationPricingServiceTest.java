@@ -45,6 +45,7 @@ import com.example.furniturecalculator.dto.HardwarePricingResponseDto;
 import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
+import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
@@ -3397,5 +3398,124 @@ class DoorConfigurationPricingServiceTest {
                 new HardwarePricingRequestDto(List.of(new HardwareSelectionDto(999L, 1)))))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    // resolveSpecificationComponents (см. change add-specification-export) — та же валидация, что и у
+    // calculateForLeaf/calculateForFrameGroup выше, поэтому тесты мокируют репозитории по тому же образцу.
+
+    @Test
+    void resolveSpecificationComponents_без_leafTypeId_возвращает_404() {
+        SpecificationExportRequestDto request = new SpecificationExportRequestDto(
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.resolveSpecificationComponents(request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(404));
+    }
+
+    @Test
+    void resolveSpecificationComponents_несуществующий_leaf_type_возвращает_404() {
+        when(leafTypeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        SpecificationExportRequestDto request = new SpecificationExportRequestDto(
+                999L, null, null, null, null, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.resolveSpecificationComponents(request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(404));
+    }
+
+    @Test
+    void resolveSpecificationComponents_недопустимая_кромка_возвращает_400() {
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(doorConfigurationRepository.existsByLeafTypeIdAndEdgeTypeId(1L, 3L)).thenReturn(false);
+
+        SpecificationExportRequestDto request = new SpecificationExportRequestDto(
+                1L, ComponentSelectionDto.EMPTY, 3L, null, null, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.resolveSpecificationComponents(request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void resolveSpecificationComponents_минимальный_запрос_только_полотно() {
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+
+        SpecificationExportRequestDto request = new SpecificationExportRequestDto(
+                1L, ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null, null, null, null, null);
+
+        SpecificationComponents components = service.resolveSpecificationComponents(request);
+
+        assertThat(components.leaf()).isNotNull();
+        assertThat(components.leaf().price().priced()).isFalse();
+        assertThat(components.edge()).isNull();
+        assertThat(components.frame()).isNull();
+        assertThat(components.doorCasing()).isNull();
+        assertThat(components.frameExtensions()).isNull();
+        assertThat(components.hardware()).isEmpty();
+    }
+
+    @Test
+    void resolveSpecificationComponents_полный_набор_компонентов_резолвится_с_ценами() {
+        FrameType frameType = TestEntities.frameType(2L);
+        EdgeType edgeType = TestEntities.edgeType(3L);
+        DoorCasingType doorCasingType = TestEntities.doorCasingType(5L);
+        FrameExtensionsType frameExtensionsType = TestEntities.frameExtensionsType(6L);
+        HardwareCategory category = TestEntities.hardwareCategory(300L);
+        HardwareType hardwareType = TestEntities.hardwareType(301L, category);
+        HardwareOption hardwareOption =
+                TestEntities.hardwareOption(302L, "хром", BigDecimal.valueOf(1000), BigDecimal.valueOf(700), hardwareType);
+
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        ConfigurationPrice edgePrice = TestEntities.configurationPrice(
+                2L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), edgeType, null, null, null, null);
+        ConfigurationPrice casingPrice = TestEntities.configurationPrice(
+                3L, BigDecimal.valueOf(300), BigDecimal.valueOf(200), doorCasingType, null, null, null, null);
+        ConfigurationPrice extensionsPrice = TestEntities.configurationPrice(
+                4L, BigDecimal.valueOf(150), BigDecimal.valueOf(100), frameExtensionsType, null, null, null, null);
+
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        when(doorConfigurationRepository.existsByLeafTypeIdAndEdgeTypeId(1L, 3L)).thenReturn(true);
+        when(edgeTypeRepository.findById(3L)).thenReturn(Optional.of(edgeType));
+        when(configurationPriceRepository.findByEdgeTypeId(3L)).thenReturn(List.of(edgePrice));
+
+        when(frameTypeRepository.findById(2L)).thenReturn(Optional.of(frameType));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+        when(colourOptionRepository.findByFrameTypeId(2L)).thenReturn(List.of());
+
+        when(doorConfigurationRepository.existsByFrameTypeIdAndDoorCasingTypeId(2L, 5L)).thenReturn(true);
+        when(doorCasingTypeRepository.findById(5L)).thenReturn(Optional.of(doorCasingType));
+        when(configurationPriceRepository.findByDoorCasingTypeId(5L)).thenReturn(List.of(casingPrice));
+
+        when(doorConfigurationRepository.existsByFrameTypeIdAndFrameExtensionsTypeId(2L, 6L)).thenReturn(true);
+        when(frameExtensionsTypeRepository.findById(6L)).thenReturn(Optional.of(frameExtensionsType));
+        when(configurationPriceRepository.findByFrameExtensionsTypeId(6L)).thenReturn(List.of(extensionsPrice));
+
+        when(hardwareOptionRepository.findById(302L)).thenReturn(Optional.of(hardwareOption));
+
+        SpecificationExportRequestDto request = new SpecificationExportRequestDto(
+                1L, ComponentSelectionDto.EMPTY,
+                3L, ComponentSelectionDto.EMPTY,
+                null,
+                2L, ComponentSelectionDto.EMPTY,
+                5L, ComponentSelectionDto.EMPTY,
+                6L, ComponentSelectionDto.EMPTY,
+                null,
+                List.of(new HardwareSelectionDto(302L, 2)));
+
+        SpecificationComponents components = service.resolveSpecificationComponents(request);
+
+        assertThat(components.leaf().price().retailPrice()).isEqualByComparingTo("1000");
+        assertThat(components.edge().price().retailPrice()).isEqualByComparingTo("500");
+        assertThat(components.frame()).isNotNull();
+        assertThat(components.doorCasing().price().retailPrice()).isEqualByComparingTo("300");
+        assertThat(components.frameExtensions().price().retailPrice()).isEqualByComparingTo("150");
+        assertThat(components.hardware()).hasSize(1);
+        assertThat(components.hardware().get(0).retailPrice()).isEqualByComparingTo("2000");
     }
 }

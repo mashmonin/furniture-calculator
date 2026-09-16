@@ -40,6 +40,7 @@ import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
+import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
@@ -248,6 +249,85 @@ public class DoorConfigurationPricingService {
         return new HardwarePricingResponseDto(totalRetail, totalDealer, hardware);
     }
 
+    // Полный резолв конфигурации для выгрузки спецификации (см. change add-specification-export) —
+    // переиспользует тот же addComponentIfPresent (теперь возвращающий ResolvedComponent, см. change
+    // add-specification-export) и тот же priceHardwareSelections, что и три этапных эндпоинта расчёта,
+    // вместо повторной реализации валидации/подбора цены отдельным путём. leaf обязателен (проверяется
+    // раньше — в контроллере уровня DTO/валидации не выполняется, см. SpecificationExportController);
+    // здесь просто 404, если leaf_type не указан или не найден — та же семантика, что у calculateForLeaf.
+    @Transactional(readOnly = true)
+    SpecificationComponents resolveSpecificationComponents(SpecificationExportRequestDto request) {
+        Long leafTypeId = request.leafTypeId();
+        if (leafTypeId == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "leaf_type не указан");
+        }
+        LeafType leafType = leafTypeRepository.findById(leafTypeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "leaf_type с id=" + leafTypeId + " не найден"));
+
+        ComponentSelectionDto leafSelection = request.leaf() != null ? request.leaf() : ComponentSelectionDto.EMPTY;
+        LinerDimensionOption leafHeightOption = validatedDimensionOption("leaf", leafType, leafSelection.heightOptionId());
+        BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
+        boolean applyReverseSurcharge = Boolean.TRUE.equals(request.isReverse());
+
+        List<ComponentPriceDto> scratch = new ArrayList<>();
+        ResolvedComponent leafResolved = addComponentIfPresent(scratch, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge);
+
+        ResolvedComponent edgeResolved = null;
+        Long edgeTypeId = request.edgeTypeId();
+        if (edgeTypeId != null) {
+            if (!doorConfigurationRepository.existsByLeafTypeIdAndEdgeTypeId(leafTypeId, edgeTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "вид кромки с id=" + edgeTypeId + " недопустим для этого полотна");
+            }
+            EdgeType edgeType = edgeTypeRepository.findById(edgeTypeId).orElseThrow();
+            ComponentSelectionDto edgeSelection = request.edge() != null ? request.edge() : ComponentSelectionDto.EMPTY;
+            edgeResolved = addComponentIfPresent(scratch, "edge", edgeType, edgeSelection, leafHeightValue, false);
+        }
+
+        ResolvedComponent frameResolved = null;
+        Long frameTypeId = request.frameTypeId();
+        if (frameTypeId != null) {
+            FrameType frameType = frameTypeRepository.findById(frameTypeId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "frame_type с id=" + frameTypeId + " не найден"));
+            ComponentSelectionDto frameSelection = request.frame() != null ? request.frame() : ComponentSelectionDto.EMPTY;
+            frameResolved = addComponentIfPresent(scratch, "frame", frameType, frameSelection, request.leafHeightValue(), false);
+        }
+
+        ResolvedComponent doorCasingResolved = null;
+        Long doorCasingTypeId = request.doorCasingTypeId();
+        if (doorCasingTypeId != null) {
+            if (frameTypeId == null || !doorConfigurationRepository.existsByFrameTypeIdAndDoorCasingTypeId(frameTypeId, doorCasingTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "наличник с id=" + doorCasingTypeId + " недопустим для этого короба");
+            }
+            DoorCasingType doorCasingType = doorCasingTypeRepository.findById(doorCasingTypeId).orElseThrow();
+            ComponentSelectionDto doorCasingSelection = request.doorCasing() != null ? request.doorCasing() : ComponentSelectionDto.EMPTY;
+            doorCasingResolved = addComponentIfPresent(scratch, "doorCasing", doorCasingType, doorCasingSelection, request.leafHeightValue(), false);
+        }
+
+        ResolvedComponent frameExtensionsResolved = null;
+        Long frameExtensionsTypeId = request.frameExtensionsTypeId();
+        if (frameExtensionsTypeId != null) {
+            if (frameTypeId == null
+                    || !doorConfigurationRepository.existsByFrameTypeIdAndFrameExtensionsTypeId(frameTypeId, frameExtensionsTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "добор с id=" + frameExtensionsTypeId + " недопустим для этого короба");
+            }
+            FrameExtensionsType frameExtensionsType = frameExtensionsTypeRepository.findById(frameExtensionsTypeId).orElseThrow();
+            ComponentSelectionDto frameExtensionsSelection =
+                    request.frameExtensions() != null ? request.frameExtensions() : ComponentSelectionDto.EMPTY;
+            frameExtensionsResolved =
+                    addComponentIfPresent(scratch, "frameExtensions", frameExtensionsType, frameExtensionsSelection, request.leafHeightValue(), false);
+        }
+
+        List<HardwarePriceDto> hardware = priceHardwareSelections(request.hardware() != null ? request.hardware() : List.of());
+
+        return new SpecificationComponents(
+                leafResolved, leafHeightValue, edgeResolved, frameResolved, doorCasingResolved, frameExtensionsResolved, hardware);
+    }
+
     // Итоговые суммы и фурнитура не зависят от того, найдены ли компоненты через door_configuration
     // или напрямую по leaf_type — общий хвост для calculate() и calculateForLeaf() (см. change
     // add-standalone-leaf-pricing, design.md).
@@ -319,11 +399,17 @@ public class DoorConfigurationPricingService {
         return selection != null ? selection : ComponentSelectionDto.EMPTY;
     }
 
-    private void addComponentIfPresent(
+    // Возвращает не только добавленный в components ComponentPriceDto (как и раньше — единственное, что
+    // используют calculate()/calculateForLeaf()/calculateForFrameGroup()), но и объекты, использованные для
+    // его резолва — нужны только выгрузке спецификации (см. resolveSpecificationComponents, change
+    // add-specification-export), чтобы не резолвить их заново отдельным путём и не дублировать эту
+    // валидацию/подбор цены. Существующие три вызывающих места продолжают вызывать этот метод как
+    // выражение-оператор, не читая возврат, — их поведение не меняется.
+    private ResolvedComponent addComponentIfPresent(
             List<ComponentPriceDto> components, String componentName, CatalogType type, ComponentSelectionDto selection,
             BigDecimal leafHeightValue, boolean applyReverseSurcharge) {
         if (type == null) {
-            return;
+            return null;
         }
 
         if (selection.customLengthValueMm() != null && !(type instanceof LeafType)) {
@@ -340,33 +426,41 @@ public class DoorConfigurationPricingService {
         }
 
         int quantity = resolveQuantity(componentName, type, selection.quantity());
-        BigDecimal mirrorFinishMultiplier = resolveMirrorFinishMultiplier(componentName, type, selection.mirrorFinishTypeId());
-        BigDecimal glazingMultiplier = resolveGlazingMultiplier(componentName, type, selection.glazingTypeId());
+        OptionSurcharge mirrorFinish = resolveMirrorFinishMultiplier(componentName, type, selection.mirrorFinishTypeId());
+        OptionSurcharge glazing = resolveGlazingMultiplier(componentName, type, selection.glazingTypeId());
 
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
-            // Высота короба сама по себе не влияет на цену (framePostPrice её не использует) — здесь она
-            // только валидируется. Для коробов из HEIGHT_MIRROR_FRAME_TYPE_CODES (см. change
+            // Высота короба сама по себе не влияет на цену (framePostPrice её не использует) — валидируется
+            // и, где применимо, сохраняется в возврате (см. change add-specification-export — колонка
+            // «Измерения» в выгрузке спецификации). Для коробов из HEIGHT_MIRROR_FRAME_TYPE_CODES (см. change
             // mirror-fantom-frame-height-to-leaf-height) высота не выбирается из каталога — её вообще нет
             // (validatedDimensionOption ниже отклонит любой переданный heightOptionId как непринадлежащий),
-            // а обязана в точности совпадать с высотой полотна. Для коробов из HEIGHT_RANGE_FRAME_TYPE_CODES —
-            // прежняя диапазонная проверка обязательности и совместимости.
+            // а обязана в точности совпадать с высотой полотна — поэтому для выгрузки берём leafHeightValue
+            // напрямую (frameHeightMmOverride), а не каталожную опцию. Для коробов из HEIGHT_RANGE_FRAME_TYPE_CODES —
+            // прежняя диапазонная проверка обязательности и совместимости, высота — обычная каталожная опция.
+            LinerDimensionOption frameHeightOption = null;
+            BigDecimal frameHeightMmOverride = null;
             if (HEIGHT_MIRROR_FRAME_TYPE_CODES.contains(frameType.getCode())) {
                 validatedDimensionOption(componentName, frameType, selection.heightOptionId());
                 requireHeightMirrorsLeaf(componentName, selection.customHeightValueMm(), leafHeightValue);
+                frameHeightMmOverride = leafHeightValue;
             } else {
                 // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
                 if (HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode()) && selection.heightOptionId() == null) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "для этого короба необходимо выбрать высоту");
                 }
-                LinerDimensionOption heightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
-                if (heightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
-                    validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
+                frameHeightOption = validatedDimensionOption(componentName, frameType, selection.heightOptionId());
+                if (frameHeightOption != null && HEIGHT_RANGE_FRAME_TYPE_CODES.contains(frameType.getCode())) {
+                    validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, frameHeightOption, leafHeightValue);
                 }
             }
-            components.add(framePostPrice(componentName, frameType, colourOption));
-            return;
+            ComponentPriceDto framePrice = framePostPrice(componentName, frameType, colourOption);
+            components.add(framePrice);
+            List<FramePost> framePosts = framePostRepository.findByFrameTypeId(frameType.getId());
+            return new ResolvedComponent(type, framePrice, null, frameHeightOption, null, colourOption, framePosts, 1,
+                    List.of(), List.of(), frameHeightMmOverride);
         }
 
         LeafDimensionSurcharge leafDimensionSurcharge = type instanceof LeafType leafType
@@ -402,10 +496,60 @@ public class DoorConfigurationPricingService {
         }
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
-        components.add(matched
-                .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, mirrorFinishMultiplier,
-                        glazingMultiplier, applyReverseSurcharge, quantity))
-                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null)));
+        ComponentPriceDto price = matched
+                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, mirrorFinish.multiplier(),
+                        glazing.multiplier(), applyReverseSurcharge, quantity))
+                .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
+        components.add(price);
+        List<LeafPriceSurcharge> surcharges = type instanceof LeafType
+                ? leafPriceSurcharges(leafDimensionSurcharge, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
+                : List.of();
+        List<String> selectedOptions = type instanceof LeafType ? leafSelectedOptions(mirrorFinish, glazing) : List.of();
+        return new ResolvedComponent(
+                type, price, lengthOption, heightOption, thicknessOption, colourOption, null, quantity, surcharges,
+                selectedOptions, null);
+    }
+
+    // Наименования выбранных опций полотна (исполнение зеркала/вид остекления) для строки «выбранные опции»
+    // под полотном в выгрузке спецификации (см. change add-specification-export) — тип открывания туда не
+    // входит: это атрибут всей конфигурации (isReverse из запроса), а не опция, резолвимая здесь для
+    // конкретного компонента, поэтому строится отдельно на уровне SpecificationExportService.
+    private List<String> leafSelectedOptions(OptionSurcharge mirrorFinish, OptionSurcharge glazing) {
+        List<String> options = new ArrayList<>();
+        if (mirrorFinish.selectedLabel() != null) {
+            options.add(mirrorFinish.selectedLabel());
+        }
+        if (glazing.selectedLabel() != null) {
+            options.add(glazing.selectedLabel());
+        }
+        return options;
+    }
+
+    // Разбивка надбавок, применённых к цене полотна — те же формулировки, что и в App.tsx,
+    // computeSurchargeBreakdown (см. LeafPriceSurcharge), но выведенные из уже посчитанных здесь множителей,
+    // а не пересчитанные отдельно: multiplier == 1 означает, что соответствующая надбавка не применена
+    // (в том числе для glazingMultiplier у «Прозрачного» остекления, surcharge_percent которого — 0), поэтому
+    // отдельная проверка на этот случай не нужна — как и на совпадение произвольного размера со стандартным
+    // (resolveAxisSurchargeMultiplier уже возвращает ONE и в этом случае).
+    private List<LeafPriceSurcharge> leafPriceSurcharges(
+            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal mirrorFinishMultiplier,
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
+        List<LeafPriceSurcharge> surcharges = new ArrayList<>();
+        addSurchargeIfApplied(surcharges, "За нестандартную ширину", leafDimensionSurcharge.lengthMultiplier());
+        addSurchargeIfApplied(surcharges, "За нестандартную высоту", leafDimensionSurcharge.heightMultiplier());
+        addSurchargeIfApplied(surcharges, "За исполнение зеркала", mirrorFinishMultiplier);
+        addSurchargeIfApplied(surcharges, "За вид остекления", glazingMultiplier);
+        if (applyReverseSurcharge) {
+            addSurchargeIfApplied(surcharges, "За реверс", REVERSE_SURCHARGE_MULTIPLIER);
+        }
+        return surcharges;
+    }
+
+    private void addSurchargeIfApplied(List<LeafPriceSurcharge> surcharges, String label, BigDecimal multiplier) {
+        if (multiplier.compareTo(BigDecimal.ONE) != 0) {
+            BigDecimal percent = multiplier.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
+            surcharges.add(new LeafPriceSurcharge(label, percent));
+        }
     }
 
     // Количество применимо только к doorCasing/frameExtensions (см. change add-casing-extensions-quantity);
@@ -432,9 +576,9 @@ public class DoorConfigurationPricingService {
     // а не на владение (mirror_finish_option.id), в отличие от colour_option/liner_dimension_option: наценка
     // не зависит от конкретной строки владения, только от типа, поэтому владение достаточно проверить, не выдавая
     // его id клиенту отдельно.
-    private BigDecimal resolveMirrorFinishMultiplier(String componentName, CatalogType type, Long mirrorFinishTypeId) {
+    private OptionSurcharge resolveMirrorFinishMultiplier(String componentName, CatalogType type, Long mirrorFinishTypeId) {
         if (mirrorFinishTypeId == null) {
-            return BigDecimal.ONE;
+            return OptionSurcharge.NONE;
         }
         if (!(type instanceof LeafType leafType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -444,16 +588,20 @@ public class DoorConfigurationPricingService {
                 .findByMirrorFinishTypeIdAndLeafTypeId(mirrorFinishTypeId, leafType.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "исполнение зеркала с id=" + mirrorFinishTypeId + " недопустимо для этого полотна"));
-        return BigDecimal.ONE.add(option.getMirrorFinishType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        BigDecimal multiplier =
+                BigDecimal.ONE.add(option.getMirrorFinishType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        return new OptionSurcharge(multiplier, "Исполнение зеркала: " + option.getMirrorFinishType().getName());
     }
 
     // Вид остекления допустим только для leaf (см. change add-glazing-price-surcharge), по тому же принципу, что и
     // resolveMirrorFinishMultiplier: запрос ссылается на glazing_type.id (глобальный, тот же id, что и в каталоге
     // и в ответе GET /api/pricing-surcharges), а не на glazing_option.id. Для «Прозрачное» (surcharge_percent = 0)
-    // результат естественно равен BigDecimal.ONE — отдельной ветки для него не требуется.
-    private BigDecimal resolveGlazingMultiplier(String componentName, CatalogType type, Long glazingTypeId) {
+    // множитель естественно равен BigDecimal.ONE — отдельной ветки для него не требуется; selectedLabel при этом
+    // всё равно заполняется (см. change add-specification-export — строка «выбранной опции» под полотном
+    // показывает сам факт выбора вида остекления, а не только те виды, что дают надбавку).
+    private OptionSurcharge resolveGlazingMultiplier(String componentName, CatalogType type, Long glazingTypeId) {
         if (glazingTypeId == null) {
-            return BigDecimal.ONE;
+            return OptionSurcharge.NONE;
         }
         if (!(type instanceof LeafType leafType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -463,7 +611,17 @@ public class DoorConfigurationPricingService {
                 .findByGlazingTypeIdAndLeafTypeId(glazingTypeId, leafType.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "вид остекления с id=" + glazingTypeId + " недопустим для этого полотна"));
-        return BigDecimal.ONE.add(option.getGlazingType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        BigDecimal multiplier =
+                BigDecimal.ONE.add(option.getGlazingType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        return new OptionSurcharge(multiplier, "Вид остекления: " + option.getGlazingType().getName());
+    }
+
+    // Множитель надбавки вместе с наименованием выбранной опции (если она предполагает выбор — исполнение
+    // зеркала/вид остекления) — нужно и для расчёта цены (multiplier), и для строки «выбранные опции» под
+    // полотном в выгрузке спецификации (selectedLabel, см. change add-specification-export), чтобы не резолвить
+    // MirrorFinishOption/GlazingOption заново отдельным путём.
+    private record OptionSurcharge(BigDecimal multiplier, String selectedLabel) {
+        static final OptionSurcharge NONE = new OptionSurcharge(BigDecimal.ONE, null);
     }
 
     // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → зеркало →
