@@ -329,10 +329,9 @@ interface GlazingStep {
 }
 
 // Выбор вида остекления — симметричен resolveMirrorFinishStep, раскрывается только когда
-// resolvedPanelType === 'GLAZED' (см. change add-glazing-catalog-for-v-models). В отличие от исполнения
-// зеркала, выбранный вид остекления нигде не сужает каталог и не участвует в запросе расчёта стоимости —
-// backend пока не принимает его (наценки за остекление нет, см. design.md); это только отображение
-// справочных значений и локальный выбор пользователя.
+// resolvedPanelType === 'GLAZED' (см. change add-glazing-catalog-for-v-models). Выбранный вид остекления
+// по-прежнему нигде не сужает каталог, но теперь участвует в запросе расчёта стоимости — наценка за вид
+// остекления (см. change add-glazing-price-surcharge).
 function resolveGlazingStep(configurations: DoorConfigurationDto[]): GlazingStep {
   const options = uniqueById(configurations.flatMap((configuration) => configuration.leaf.glazingOptions))
   return { visible: options.length > 0, options }
@@ -440,6 +439,7 @@ function computeSurchargeBreakdown(
   pricingSurcharges: PricingSurchargesDto | null,
   leafSelection: ComponentSelectionDto,
   mirrorFinishTypeId: number | undefined,
+  glazingTypeId: number | undefined,
   isReverse: boolean,
 ): SurchargeBreakdownItem[] {
   if (!pricingSurcharges) {
@@ -470,6 +470,16 @@ function computeSurchargeBreakdown(
       : undefined
   if (mirrorFinishSurcharge) {
     items.push({ label: 'За исполнение зеркала', percent: mirrorFinishSurcharge.surchargePercent })
+  }
+  // «Прозрачное» тоже присутствует в glazingSurcharges (с surchargePercent = 0) — базовое остекление не
+  // должно показываться как надбавка (см. change add-glazing-price-surcharge, «Базовое «Прозрачное»
+  // остекление не показывается как надбавка»).
+  const glazingSurcharge =
+    glazingTypeId !== undefined
+      ? pricingSurcharges.glazingSurcharges.find((surcharge) => surcharge.id === glazingTypeId)
+      : undefined
+  if (glazingSurcharge && glazingSurcharge.surchargePercent !== 0) {
+    items.push({ label: 'За вид остекления', percent: glazingSurcharge.surchargePercent })
   }
   if (isReverse) {
     items.push({ label: 'За реверс', percent: pricingSurcharges.reverseSurchargePercent })
@@ -766,8 +776,13 @@ function App() {
     let cancelled = false
 
     const timer = window.setTimeout(() => {
-      const leafSelection =
-        mirrorFinishTypeId !== undefined ? { ...selection.leaf, mirrorFinishTypeId } : selection.leaf
+      let leafSelection = selection.leaf
+      if (mirrorFinishTypeId !== undefined) {
+        leafSelection = { ...leafSelection, mirrorFinishTypeId }
+      }
+      if (glazingTypeId !== undefined) {
+        leafSelection = { ...leafSelection, glazingTypeId }
+      }
       // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
       // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
       const hardwareSelections: HardwareSelectionDto[] = hardwareLines
@@ -825,7 +840,7 @@ function App() {
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConfiguration, leafTypeId, resolvedReverse, selection, mirrorFinishTypeId, hardwareLines])
+  }, [selectedConfiguration, leafTypeId, resolvedReverse, selection, mirrorFinishTypeId, glazingTypeId, hardwareLines])
 
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
@@ -856,9 +871,10 @@ function App() {
     setMirrorFinishTypeId(id)
   }
 
-  // В отличие от handleMirrorFinishTypeChange, ничего не сбрасывает: вид остекления ни на что не влияет
-  // (не сужает каталог, не входит в запрос расчёта — см. design.md change add-glazing-catalog-for-v-models),
-  // поэтому выбор коллекции/модели/уже введённых опций должен сохраняться.
+  // Как и handleMirrorFinishTypeChange, ничего не сбрасывает: вид остекления не сужает каталог (см. change
+  // add-glazing-catalog-for-v-models), поэтому выбор коллекции/модели/уже введённых опций должен
+  // сохраняться. Выбранный вид остекления по-прежнему уходит в запрос расчёта и влияет на наценку
+  // (см. change add-glazing-price-surcharge).
   function handleGlazingTypeChange(id: number | undefined) {
     setGlazingTypeId(id)
   }
@@ -973,6 +989,7 @@ function App() {
     pricingSurcharges,
     selection.leaf,
     mirrorFinishTypeId,
+    glazingTypeId,
     resolvedReverse,
   )
 

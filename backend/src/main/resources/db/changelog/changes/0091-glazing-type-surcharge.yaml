@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0091-1-add-glazing-type-surcharge-percent-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: glazing_type
+            columns:
+              - column:
+                  name: surcharge_percent
+                  type: DECIMAL
+
+  - changeSet:
+      id: 0091-2-backfill-glazing-type-surcharge-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE glazing_type SET surcharge_percent = 0 WHERE name = 'Прозрачное'
+        - sql:
+            sql: >-
+              UPDATE glazing_type SET surcharge_percent = 5
+              WHERE name IN ('Прозрачное серое', 'Прозрачное бронза', 'Сатинированное')
+        - sql:
+            sql: >-
+              UPDATE glazing_type SET surcharge_percent = 10
+              WHERE name IN ('Сатинированное серое', 'Сатинированное бронзовое')
+
+  - changeSet:
+      id: 0091-3-glazing-type-surcharge-percent-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: glazing_type
+            columnName: surcharge_percent
+            columnDataType: DECIMAL

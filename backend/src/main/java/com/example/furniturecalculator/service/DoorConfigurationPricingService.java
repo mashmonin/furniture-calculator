@@ -23,6 +23,7 @@ import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.GlazingOption;
 import com.example.furniturecalculator.domain.HardwareOption;
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
@@ -40,6 +41,7 @@ import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
+import com.example.furniturecalculator.repository.GlazingOptionRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
@@ -102,6 +104,7 @@ public class DoorConfigurationPricingService {
     private final ConfigurationPriceRepository configurationPriceRepository;
     private final FramePostRepository framePostRepository;
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
+    private final GlazingOptionRepository glazingOptionRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
     private final LeafTypeRepository leafTypeRepository;
 
@@ -243,6 +246,7 @@ public class DoorConfigurationPricingService {
 
         int quantity = resolveQuantity(componentName, type, selection.quantity());
         BigDecimal mirrorFinishMultiplier = resolveMirrorFinishMultiplier(componentName, type, selection.mirrorFinishTypeId());
+        BigDecimal glazingMultiplier = resolveGlazingMultiplier(componentName, type, selection.glazingTypeId());
 
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
@@ -304,8 +308,8 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         components.add(matched
-                .map(price -> componentPriceFrom(
-                        componentName, price, leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge, quantity))
+                .map(price -> componentPriceFrom(componentName, price, leafDimensionSurcharge, mirrorFinishMultiplier,
+                        glazingMultiplier, applyReverseSurcharge, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null)));
     }
 
@@ -348,38 +352,61 @@ public class DoorConfigurationPricingService {
         return BigDecimal.ONE.add(option.getMirrorFinishType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
     }
 
-    // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → реверс),
-    // а не единым перемножением коэффициентов — так итоговая цена зависит от порядка шагов, как того требует бизнес-логика
-    // (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной композиции). Количество
-    // (см. change add-casing-extensions-quantity) умножает уже посчитанную (с надбавками) цену — для
-    // компонентов, где количество вообще допустимо (doorCasing/frameExtensions), надбавок никогда нет,
+    // Вид остекления допустим только для leaf (см. change add-glazing-price-surcharge), по тому же принципу, что и
+    // resolveMirrorFinishMultiplier: запрос ссылается на glazing_type.id (глобальный, тот же id, что и в каталоге
+    // и в ответе GET /api/pricing-surcharges), а не на glazing_option.id. Для «Прозрачное» (surcharge_percent = 0)
+    // результат естественно равен BigDecimal.ONE — отдельной ветки для него не требуется.
+    private BigDecimal resolveGlazingMultiplier(String componentName, CatalogType type, Long glazingTypeId) {
+        if (glazingTypeId == null) {
+            return BigDecimal.ONE;
+        }
+        if (!(type instanceof LeafType leafType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "вид остекления допустим только для компонента leaf, а не для " + componentName);
+        }
+        GlazingOption option = glazingOptionRepository
+                .findByGlazingTypeIdAndLeafTypeId(glazingTypeId, leafType.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "вид остекления с id=" + glazingTypeId + " недопустим для этого полотна"));
+        return BigDecimal.ONE.add(option.getGlazingType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+    }
+
+    // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → зеркало →
+    // остекление → реверс), а не единым перемножением коэффициентов — так итоговая цена зависит от порядка шагов,
+    // как того требует бизнес-логика (см. change add-dimension-surcharge-rules, решение об отказе от коммутативной
+    // композиции). Количество (см. change add-casing-extensions-quantity) умножает уже посчитанную (с надбавками)
+    // цену — для компонентов, где количество вообще допустимо (doorCasing/frameExtensions), надбавок никогда нет,
     // поэтому порядок «сначала надбавки, потом количество» не имеет практического значения.
     // price.getRetailPrice()/getDealerPrice() — цена компонента до применения этих наценок; умноженная на
     // количество, она передаётся в ответе как baseRetailPrice/baseDealerPrice (см. change
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            BigDecimal mirrorFinishMultiplier, boolean applyReverseSurcharge, int quantity) {
+            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
-        BigDecimal retailPrice = applySequentialSurcharges(
-                price.getRetailPrice(), leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge)
+        BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge,
+                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge)
                 .multiply(quantityMultiplier);
-        BigDecimal dealerPrice = applySequentialSurcharges(
-                price.getDealerPrice(), leafDimensionSurcharge, mirrorFinishMultiplier, applyReverseSurcharge)
+        BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge,
+                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge)
                 .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
         BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
         return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
-    // Порядок шагов: длина → высота → исполнение зеркала → реверс (см. change add-mirror-finish-leaf-option) —
-    // зеркало встаёт строго между высотой и реверсом, тем же принципом округления после каждого шага.
+    // Порядок шагов: длина → высота → исполнение зеркала → вид остекления → реверс (см. change
+    // add-mirror-finish-leaf-option, add-glazing-price-surcharge) — остекление встаёт строго между зеркалом и
+    // реверсом, тем же принципом округления после каждого шага. Зеркало и остекление физически взаимоисключающи
+    // для одного и того же leaf_type (см. миграция 0090-5-remove-mirror-finish-for-glazed-models), поэтому на
+    // практике не применяются одновременно — порядок между ними фиксирован на будущее, для предсказуемости.
     private BigDecimal applySequentialSurcharges(
             BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal mirrorFinishMultiplier,
-            boolean applyReverseSurcharge) {
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
         result = applyPercentMultiplier(result, mirrorFinishMultiplier);
+        result = applyPercentMultiplier(result, glazingMultiplier);
         if (applyReverseSurcharge) {
             result = applyReverseSurcharge(result);
         }

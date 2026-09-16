@@ -16,6 +16,8 @@ import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.domain.FrameType;
+import com.example.furniturecalculator.domain.GlazingOption;
+import com.example.furniturecalculator.domain.GlazingType;
 import com.example.furniturecalculator.domain.HardwareCategory;
 import com.example.furniturecalculator.domain.HardwareOption;
 import com.example.furniturecalculator.domain.HardwareType;
@@ -188,6 +190,22 @@ public final class TestEntities {
         MirrorFinishOption option = instantiate(MirrorFinishOption.class);
         ReflectionTestUtils.setField(option, "id", id);
         ReflectionTestUtils.setField(option, "mirrorFinishType", mirrorFinishType);
+        ReflectionTestUtils.setField(option, "leafType", leafType);
+        return option;
+    }
+
+    public static GlazingType glazingType(long id, BigDecimal surchargePercent) {
+        GlazingType type = instantiate(GlazingType.class);
+        ReflectionTestUtils.setField(type, "id", id);
+        ReflectionTestUtils.setField(type, "name", "Вид остекления " + id);
+        ReflectionTestUtils.setField(type, "surchargePercent", surchargePercent);
+        return type;
+    }
+
+    public static GlazingOption glazingOption(long id, GlazingType glazingType, LeafType leafType) {
+        GlazingOption option = instantiate(GlazingOption.class);
+        ReflectionTestUtils.setField(option, "id", id);
+        ReflectionTestUtils.setField(option, "glazingType", glazingType);
         ReflectionTestUtils.setField(option, "leafType", leafType);
         return option;
     }
