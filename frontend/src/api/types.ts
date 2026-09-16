@@ -76,6 +76,11 @@ export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionD
   // add-standalone-leaf-pricing); расчётом по door_configuration игнорируется, там реверс определяется
   // самой конфигурацией.
   isReverse?: boolean
+  // id вида кромки (edge_type, не edge_type владения через door_configuration) — читается только
+  // расчётом отдельного полотна (см. change add-staged-pricing-endpoints, add-glazing-price-surcharge
+  // про аналогичный принцип с mirrorFinishTypeId/glazingTypeId, но edgeTypeId — поле верхнего уровня,
+  // а не часть ComponentSelectionDto полотна, поскольку кромка — самостоятельный компонент).
+  edgeTypeId?: number
 }
 
 export interface ComponentPriceDto {
@@ -100,6 +105,39 @@ export interface PricingResponseDto {
   totalRetailPrice: number
   totalDealerPrice: number
   components: ComponentPriceDto[]
+  hardware: HardwarePriceDto[]
+}
+
+// Расчёт этапа «Короб и обрамление» независимо от полотна/кромки/фурнитуры (см. change
+// add-staged-pricing-endpoints, frontend-staged-pricing) — frameTypeId передаётся отдельным
+// path-параметром запроса, не полем этого DTO.
+export interface FrameGroupPricingRequestDto {
+  frame?: ComponentSelectionDto
+  doorCasingTypeId?: number
+  doorCasing?: ComponentSelectionDto
+  frameExtensionsTypeId?: number
+  frameExtensions?: ComponentSelectionDto
+  // Значение высоты полотна, уже известное фронтенду с этапа «Полотно» — нужно только для диапазонных
+  // проверок короба/наличника/добора, ранее вычислявшихся backend из опций полотна той же
+  // door_configuration.
+  leafHeightValue?: number
+}
+
+export interface FrameGroupPricingResponseDto {
+  totalRetailPrice: number
+  totalDealerPrice: number
+  components: ComponentPriceDto[]
+}
+
+// Расчёт этапа «Фурнитура» независимо от door_configuration и её компонентов (см. change
+// add-staged-pricing-endpoints, frontend-staged-pricing).
+export interface HardwarePricingRequestDto {
+  hardware?: HardwareSelectionDto[]
+}
+
+export interface HardwarePricingResponseDto {
+  totalRetailPrice: number
+  totalDealerPrice: number
   hardware: HardwarePriceDto[]
 }
 
