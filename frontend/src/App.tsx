@@ -87,7 +87,7 @@ const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string 
 ]
 
 const COLLECTION_LABEL = 'Коллекция'
-const MIRROR_FINISH_LABEL = 'Исполнение с зеркалом'
+const MIRROR_FINISH_LABEL = 'Вид зеркала'
 const GLAZING_LABEL = 'Вид остекления'
 
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
@@ -1244,15 +1244,6 @@ function App() {
     return (
       <Fragment key={step.key}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: 1 }}>
-            <OptionGroup
-              label={COMPONENT_LABELS.leaf}
-              options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
-              selectedId={step.selectedId}
-              onChange={(id) => handleCascadeStepChange('leaf', id)}
-              variant="select"
-            />
-          </div>
           {mirrorFinishStep.visible && (
             <div style={{ flex: 1 }}>
               <OptionGroup
@@ -1274,6 +1265,15 @@ function App() {
               />
             </div>
           )}
+          <div style={{ flex: 1 }}>
+            <OptionGroup
+              label={COMPONENT_LABELS.leaf}
+              options={step.availableTypes.map((type) => ({ id: type.id, label: type.name }))}
+              selectedId={step.selectedId}
+              onChange={(id) => handleCascadeStepChange('leaf', id)}
+              variant="select"
+            />
+          </div>
         </div>
         {component && (
           <Card size="small" title="Параметры выбранного полотна">
@@ -1378,15 +1378,6 @@ function App() {
         </Space>
       )}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          <OptionGroup
-            label={COLLECTION_LABEL}
-            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
-            selectedId={selectedCollectionId}
-            onChange={handleCollectionChange}
-            variant="select"
-          />
-        </div>
         {panelTypeStep?.visible && (
           <div style={{ flex: 1 }}>
             <OptionGroup
@@ -1404,6 +1395,15 @@ function App() {
             />
           </div>
         )}
+        <div style={{ flex: 1 }}>
+          <OptionGroup
+            label={COLLECTION_LABEL}
+            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
+            selectedId={selectedCollectionId}
+            onChange={handleCollectionChange}
+            variant="select"
+          />
+        </div>
       </div>
       {cascadeSteps.filter((step) => LEAF_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
     </Space>
