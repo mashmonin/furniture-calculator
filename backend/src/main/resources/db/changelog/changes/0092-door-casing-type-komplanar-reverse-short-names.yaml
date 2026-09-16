@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0092-1-door-casing-type-komplanar-reverse-short-names
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE door_casing_type SET short_name = 'Авеню' WHERE code = 'DCT-005'
+        - sql:
+            sql: >-
+              UPDATE door_casing_type SET short_name = 'Аура' WHERE code = 'DCT-007'
+        - sql:
+            sql: >-
+              UPDATE door_casing_type SET short_name = 'Ария' WHERE code = 'DCT-009'

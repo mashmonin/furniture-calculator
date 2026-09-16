@@ -80,6 +80,11 @@ const PRICING_DEBOUNCE_MS = 500
 // из комплекта стоек — эта строка чисто описательная, в расчёт не входит.
 const FRAME_KIT_WITHOUT_POSTS_DESCRIPTION = 'Комплект (2 стойки и верх)'
 
+// Длина у этой позиции (2170 мм) описывает одну зарезную стойку внутри комплекта, а не комплект целиком —
+// показ её рядом с «× 2» вводит в заблуждение, как будто это длина всего комплекта (см. change
+// refine-catalog-and-edge-reverse-rule).
+const FRAME_POST_NAME_WITHOUT_LENGTH = 'Комплект зарезных стоек'
+
 const COMPONENT_LABELS: Record<ComponentKey, string> = {
   leaf: 'Полотно',
   frame: 'Коробка',
@@ -1244,7 +1249,9 @@ function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                     <span>
                       {post.postType.name} × {post.quantity}
-                      {post.length !== null ? `, длина ${post.length}` : ''}
+                      {post.length !== null && post.postType.name !== FRAME_POST_NAME_WITHOUT_LENGTH
+                        ? `, длина ${post.length}`
+                        : ''}
                     </span>
                     <span>
                       {post.retailPrice} ₽ / {post.dealerPrice} ₽ (дилер)
