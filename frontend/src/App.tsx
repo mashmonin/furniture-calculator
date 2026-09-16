@@ -1711,7 +1711,7 @@ function App() {
 
         <div className="app-pricing">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Typography.Title level={4} style={{ margin: 0 }}>
+            <Typography.Title level={4} style={{ margin: 0, fontSize: 16, whiteSpace: 'nowrap' }}>
               Расчёт стоимости
             </Typography.Title>
             <Button onClick={handleClearAll}>Очистить</Button>
