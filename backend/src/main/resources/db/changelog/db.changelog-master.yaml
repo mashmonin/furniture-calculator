@@ -302,3 +302,9 @@ databaseChangeLog:
   - include:
       file: changes/0091-glazing-type-surcharge.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0092-door-casing-type-komplanar-reverse-short-names.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0093-edge-type-reverse-rule.yaml
+      relativeToChangelogFile: true

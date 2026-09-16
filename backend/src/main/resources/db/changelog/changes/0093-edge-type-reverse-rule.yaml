@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0093-1-edge-type-reverse-rule
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-001') AND is_reverse = true
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-002') AND is_reverse = false
