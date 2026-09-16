@@ -31,7 +31,11 @@ import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.FrameGroupPricingRequestDto;
+import com.example.furniturecalculator.dto.FrameGroupPricingResponseDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
+import com.example.furniturecalculator.dto.HardwarePricingRequestDto;
+import com.example.furniturecalculator.dto.HardwarePricingResponseDto;
 import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.PricingRequestDto;
 import com.example.furniturecalculator.dto.PricingResponseDto;
@@ -39,8 +43,12 @@ import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
+import com.example.furniturecalculator.repository.DoorCasingTypeRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
+import com.example.furniturecalculator.repository.EdgeTypeRepository;
+import com.example.furniturecalculator.repository.FrameExtensionsTypeRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
+import com.example.furniturecalculator.repository.FrameTypeRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LeafTypeRepository;
@@ -107,6 +115,10 @@ public class DoorConfigurationPricingService {
     private final GlazingOptionRepository glazingOptionRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
     private final LeafTypeRepository leafTypeRepository;
+    private final EdgeTypeRepository edgeTypeRepository;
+    private final FrameTypeRepository frameTypeRepository;
+    private final DoorCasingTypeRepository doorCasingTypeRepository;
+    private final FrameExtensionsTypeRepository frameExtensionsTypeRepository;
 
     // Читается PricingSurchargesController для отображения процента надбавки фронтенду
     // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
@@ -138,12 +150,12 @@ public class DoorConfigurationPricingService {
         return finalizeResponse(components, request);
     }
 
-    // Расчёт стоимости одного полотна (leaf_type) в отрыве от door_configuration — например, пока
-    // каскад выбора на фронтенде ещё не определил конкретную согласованную конфигурацию с коробом
-    // и др. (см. change add-standalone-leaf-pricing). Переиспользует тот же подбор цены и те же
-    // надбавки за размер/исполнение зеркала, что и для leaf-компонента внутри calculate(); надбавка
-    // за реверс не применяется — она свойство короба/портала конкретной door_configuration, а не
-    // самого полотна.
+    // Расчёт стоимости одного полотна (leaf_type), опционально вместе с кромкой (см. change
+    // add-staged-pricing-endpoints), в отрыве от door_configuration — например, пока каскад выбора на
+    // фронтенде ещё не определил конкретную согласованную конфигурацию с коробом и др. (см. change
+    // add-standalone-leaf-pricing). Переиспользует тот же подбор цены и те же надбавки за размер/исполнение
+    // зеркала, что и для leaf-компонента внутри calculate(); надбавка за реверс не применяется — она
+    // свойство короба/портала конкретной door_configuration, а не самого полотна.
     @Transactional(readOnly = true)
     public PricingResponseDto calculateForLeaf(Long leafTypeId, PricingRequestDto request) {
         LeafType leafType = leafTypeRepository.findById(leafTypeId)
@@ -151,28 +163,95 @@ public class DoorConfigurationPricingService {
                         "leaf_type с id=" + leafTypeId + " не найден"));
 
         ComponentSelectionDto leafSelection = selectionOf(request, PricingRequestDto::leaf);
+        // Высота полотна нужна не только для наценки за размер leaf (внутри addComponentIfPresent), но и
+        // для проверки диапазона кромки, если она выбрана — вычисляется тем же способом, что и в calculate()
+        // (см. change add-staged-pricing-endpoints).
+        LinerDimensionOption leafHeightOption = validatedDimensionOption("leaf", leafType, leafSelection.heightOptionId());
+        BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
         // У отдельного полотна нет door_configuration.is_reverse — клиент передаёт признак реверса
         // явно (см. change add-standalone-leaf-pricing); отсутствие поля равносильно false.
         boolean applyReverseSurcharge = request != null && Boolean.TRUE.equals(request.isReverse());
         List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "leaf", leafType, leafSelection, null, applyReverseSurcharge);
+        addComponentIfPresent(components, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge);
+
+        Long edgeTypeId = request != null ? request.edgeTypeId() : null;
+        if (edgeTypeId != null) {
+            // Как и у mirror_finish_type/glazing_type, «id не существует» и «существует, но недопустим для
+            // этого полотна» не различаются — единая проверка существования пары даёт единый ответ 400
+            // (см. change add-staged-pricing-endpoints).
+            if (!doorConfigurationRepository.existsByLeafTypeIdAndEdgeTypeId(leafTypeId, edgeTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "вид кромки с id=" + edgeTypeId + " недопустим для этого полотна");
+            }
+            EdgeType edgeType = edgeTypeRepository.findById(edgeTypeId).orElseThrow();
+            addComponentIfPresent(components, "edge", edgeType, selectionOf(request, PricingRequestDto::edge), leafHeightValue, false);
+        }
 
         return finalizeResponse(components, request);
+    }
+
+    // Расчёт стоимости короба и, опционально, наличника/добора независимо от полотна, кромки и
+    // фурнитуры (см. change add-staged-pricing-endpoints) — переиспользует тот же addComponentIfPresent,
+    // что и calculate()/calculateForLeaf(); leafHeightValue берётся из запроса явно, а не вычисляется из
+    // опций полотна (у этого эндпоинта их нет).
+    @Transactional(readOnly = true)
+    public FrameGroupPricingResponseDto calculateForFrameGroup(Long frameTypeId, FrameGroupPricingRequestDto request) {
+        FrameType frameType = frameTypeRepository.findById(frameTypeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "frame_type с id=" + frameTypeId + " не найден"));
+
+        BigDecimal leafHeightValue = request != null ? request.leafHeightValue() : null;
+        ComponentSelectionDto frameSelection =
+                request != null && request.frame() != null ? request.frame() : ComponentSelectionDto.EMPTY;
+
+        List<ComponentPriceDto> components = new ArrayList<>();
+        addComponentIfPresent(components, "frame", frameType, frameSelection, leafHeightValue, false);
+
+        Long doorCasingTypeId = request != null ? request.doorCasingTypeId() : null;
+        if (doorCasingTypeId != null) {
+            // Единая проверка существования пары, как у leaf/edge (см. calculateForLeaf) — не различает
+            // «id не существует» и «недопустим для этого короба».
+            if (!doorConfigurationRepository.existsByFrameTypeIdAndDoorCasingTypeId(frameTypeId, doorCasingTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "наличник с id=" + doorCasingTypeId + " недопустим для этого короба");
+            }
+            DoorCasingType doorCasingType = doorCasingTypeRepository.findById(doorCasingTypeId).orElseThrow();
+            ComponentSelectionDto doorCasingSelection =
+                    request.doorCasing() != null ? request.doorCasing() : ComponentSelectionDto.EMPTY;
+            addComponentIfPresent(components, "doorCasing", doorCasingType, doorCasingSelection, leafHeightValue, false);
+        }
+
+        Long frameExtensionsTypeId = request != null ? request.frameExtensionsTypeId() : null;
+        if (frameExtensionsTypeId != null) {
+            if (!doorConfigurationRepository.existsByFrameTypeIdAndFrameExtensionsTypeId(frameTypeId, frameExtensionsTypeId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "добор с id=" + frameExtensionsTypeId + " недопустим для этого короба");
+            }
+            FrameExtensionsType frameExtensionsType = frameExtensionsTypeRepository.findById(frameExtensionsTypeId).orElseThrow();
+            ComponentSelectionDto frameExtensionsSelection =
+                    request.frameExtensions() != null ? request.frameExtensions() : ComponentSelectionDto.EMPTY;
+            addComponentIfPresent(components, "frameExtensions", frameExtensionsType, frameExtensionsSelection, leafHeightValue, false);
+        }
+
+        return new FrameGroupPricingResponseDto(sumRetail(components), sumDealer(components), components);
+    }
+
+    // Расчёт стоимости произвольного списка позиций фурнитуры независимо от door_configuration и её
+    // компонентов (см. change add-staged-pricing-endpoints) — переиспользует тот же priceHardwareSelections,
+    // что и finalizeResponse().
+    @Transactional(readOnly = true)
+    public HardwarePricingResponseDto calculateHardware(HardwarePricingRequestDto request) {
+        List<HardwarePriceDto> hardware = priceHardwareSelections(
+                request != null && request.hardware() != null ? request.hardware() : List.of());
+        BigDecimal totalRetail = hardware.stream().map(HardwarePriceDto::retailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalDealer = hardware.stream().map(HardwarePriceDto::dealerPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new HardwarePricingResponseDto(totalRetail, totalDealer, hardware);
     }
 
     // Итоговые суммы и фурнитура не зависят от того, найдены ли компоненты через door_configuration
     // или напрямую по leaf_type — общий хвост для calculate() и calculateForLeaf() (см. change
     // add-standalone-leaf-pricing, design.md).
     private PricingResponseDto finalizeResponse(List<ComponentPriceDto> components, PricingRequestDto request) {
-        BigDecimal totalRetail = components.stream()
-                .filter(ComponentPriceDto::priced)
-                .map(ComponentPriceDto::retailPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalDealer = components.stream()
-                .filter(ComponentPriceDto::priced)
-                .map(ComponentPriceDto::dealerPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
         // Фурнитура не привязана к door_configuration и не участвует в надбавках компонентов —
         // прибавляется к итогу последним слагаемым (см. change add-hardware-catalog, design.md).
         List<HardwarePriceDto> hardware = priceHardwareSelections(
@@ -185,7 +264,23 @@ public class DoorConfigurationPricingService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new PricingResponseDto(
-                totalRetail.add(hardwareRetailTotal), totalDealer.add(hardwareDealerTotal), components, hardware);
+                sumRetail(components).add(hardwareRetailTotal), sumDealer(components).add(hardwareDealerTotal), components, hardware);
+    }
+
+    // Общие суммы разбивки по компонентам — переиспользуются finalizeResponse() (calculate()/
+    // calculateForLeaf()) и calculateForFrameGroup() (см. change add-staged-pricing-endpoints).
+    private static BigDecimal sumRetail(List<ComponentPriceDto> components) {
+        return components.stream()
+                .filter(ComponentPriceDto::priced)
+                .map(ComponentPriceDto::retailPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static BigDecimal sumDealer(List<ComponentPriceDto> components) {
+        return components.stream()
+                .filter(ComponentPriceDto::priced)
+                .map(ComponentPriceDto::dealerPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     // Позиции не объединяются: один и тот же hardware_option может повторяться несколькими независимыми

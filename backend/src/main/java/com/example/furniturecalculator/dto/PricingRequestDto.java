@@ -16,17 +16,23 @@ public record PricingRequestDto(
         // берётся is_reverse, поэтому клиент передаёт его сам. Эндпоинтом расчёта по door_configuration
         // (calculate()) не читается — там реверс определяется исключительно самой конфигурацией.
         // Null-безопасно трактуется как false.
-        Boolean isReverse) {
+        Boolean isReverse,
+        // edge_type.id (не edge_type владения через door_configuration) — по тому же принципу, что и
+        // isReverse: читается только расчётом отдельного полотна (см. change add-staged-pricing-endpoints),
+        // где кромка передаётся как самостоятельный компонент, а не через согласованную door_configuration.
+        // Эндпоинтом расчёта по door_configuration (calculate()) не читается — там кромка определяется
+        // исключительно значением configuration.getEdgeType().
+        Long edgeTypeId) {
 
     public PricingRequestDto(
             ComponentSelectionDto leaf, ComponentSelectionDto frame, ComponentSelectionDto edge,
             ComponentSelectionDto doorCasing, ComponentSelectionDto frameExtensions) {
-        this(leaf, frame, edge, doorCasing, frameExtensions, null, null);
+        this(leaf, frame, edge, doorCasing, frameExtensions, null, null, null);
     }
 
     public PricingRequestDto(
             ComponentSelectionDto leaf, ComponentSelectionDto frame, ComponentSelectionDto edge,
             ComponentSelectionDto doorCasing, ComponentSelectionDto frameExtensions, List<HardwareSelectionDto> hardware) {
-        this(leaf, frame, edge, doorCasing, frameExtensions, hardware, null);
+        this(leaf, frame, edge, doorCasing, frameExtensions, hardware, null, null);
     }
 }

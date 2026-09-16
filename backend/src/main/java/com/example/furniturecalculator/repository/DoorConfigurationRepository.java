@@ -19,4 +19,13 @@ public interface DoorConfigurationRepository extends JpaRepository<DoorConfigura
             LEFT JOIN FETCH dc.frameExtensionsType
             """)
     List<DoorConfiguration> findAllWithTypes();
+
+    // Проверки допустимости межкомпонентных пар для этапных эндпоинтов (см. change
+    // add-staged-pricing-endpoints) — по аналогии с MirrorFinishOptionRepository/GlazingOptionRepository:
+    // не различают «id не существует» и «существует, но недопустим для этой пары», обе ветки дают false.
+    boolean existsByLeafTypeIdAndEdgeTypeId(Long leafTypeId, Long edgeTypeId);
+
+    boolean existsByFrameTypeIdAndDoorCasingTypeId(Long frameTypeId, Long doorCasingTypeId);
+
+    boolean existsByFrameTypeIdAndFrameExtensionsTypeId(Long frameTypeId, Long frameExtensionsTypeId);
 }
