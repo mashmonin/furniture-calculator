@@ -17,8 +17,9 @@ import {
 } from 'antd'
 import { DeleteOutlined, HomeOutlined } from '@ant-design/icons'
 import {
+  calculateFrameGroupPrice,
+  calculateHardwarePrice,
   calculateLeafPrice,
-  calculatePrice,
   fetchDoorConfigurations,
   fetchHardwareCatalog,
   fetchPricingSurcharges,
@@ -29,8 +30,11 @@ import type {
   ComponentKey,
   ComponentSelectionDto,
   DoorConfigurationDto,
+  FrameGroupPricingRequestDto,
+  FrameGroupPricingResponseDto,
   HardwareCategoryDto,
   HardwareOptionDto,
+  HardwarePricingResponseDto,
   HardwareSelectionDto,
   HardwareTypeDto,
   LeafPanelType,
@@ -45,6 +49,15 @@ import { OptionGroup } from './components/OptionGroup'
 import './App.css'
 
 const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 'frameExtensions']
+
+// Сортировка объединённой разбивки по компонентам из ответов этапов «Полотно» ([leaf, edge]) и «Короб и
+// обрамление» ([frame, doorCasing, frameExtensions]) в привычном порядке COMPONENT_ORDER — простая
+// конкатенация дала бы [leaf, edge, frame, ...] вместо [leaf, frame, edge, ...] (см. change
+// frontend-staged-pricing, design.md).
+function componentOrderIndex(component: string): number {
+  const index = COMPONENT_ORDER.indexOf(component as ComponentKey)
+  return index === -1 ? COMPONENT_ORDER.length : index
+}
 
 // Единый поток «Введите данные двери»: реверс → коллекция → полотно → кромка → короб → наличник → добор
 // (см. change redesign-door-configurator-flow). Реверс и коллекция вычисляются отдельно от этого списка —
@@ -522,13 +535,24 @@ function App() {
   const [customLengthMode, setCustomLengthMode] = useState(false)
   const [customHeightMode, setCustomHeightMode] = useState(false)
 
-  const [pricingResult, setPricingResult] = useState<PricingResponseDto | null>(null)
-  const [pricingLoading, setPricingLoading] = useState(false)
-  const [pricingError, setPricingError] = useState<string | null>(null)
-  // Возрастающий номер последнего фактически отправленного запроса расчёта — ответ применяется к
-  // состоянию, только если совпадает с этим номером на момент получения (см. design.md изменения
-  // redesign-configurator-layout, «Замена кнопки на debounce-триггер с защитой от гонки устаревших ответов»).
-  const requestSeqRef = useRef(0)
+  // Три независимых этапа расчёта стоимости — «Полотно» (+кромка), «Короб и обрамление», «Фурнитура» —
+  // каждый со своей тройкой состояния и своим requestSeqRef (защита от гонки устаревших ответов, см.
+  // design.md изменения redesign-configurator-layout), поскольку каждый этап вызывает свой backend-эндпоинт
+  // независимо от готовности двух других (см. change add-staged-pricing-endpoints, frontend-staged-pricing).
+  const [leafPricingResult, setLeafPricingResult] = useState<PricingResponseDto | null>(null)
+  const [leafPricingLoading, setLeafPricingLoading] = useState(false)
+  const [leafPricingError, setLeafPricingError] = useState<string | null>(null)
+  const leafRequestSeqRef = useRef(0)
+
+  const [frameGroupPricingResult, setFrameGroupPricingResult] = useState<FrameGroupPricingResponseDto | null>(null)
+  const [frameGroupPricingLoading, setFrameGroupPricingLoading] = useState(false)
+  const [frameGroupPricingError, setFrameGroupPricingError] = useState<string | null>(null)
+  const frameGroupRequestSeqRef = useRef(0)
+
+  const [hardwarePricingResult, setHardwarePricingResult] = useState<HardwarePricingResponseDto | null>(null)
+  const [hardwarePricingLoading, setHardwarePricingLoading] = useState(false)
+  const [hardwarePricingError, setHardwarePricingError] = useState<string | null>(null)
+  const hardwareRequestSeqRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -653,7 +677,11 @@ function App() {
     selection.leaf.customHeightValueMm ??
     leafComponent?.dimensionOptions.find((option) => option.id === selection.leaf.heightOptionId)?.value
 
-  const { steps: cascadeSteps, selectedConfiguration } = buildCascadeSteps(
+  // selectedConfiguration больше не читается: каждый из трёх этапов расчёта стоимости (см. ниже) резолвится
+  // по своим собственным id (leafTypeId/edgeTypeId, frameTypeId/doorCasingTypeId/frameExtensionsTypeId), а
+  // не по единой согласованной door_configuration (см. change frontend-staged-pricing) — но сама функция
+  // buildCascadeSteps продолжает вычислять его для других потенциальных потребителей cascadeSteps.
+  const { steps: cascadeSteps } = buildCascadeSteps(
     collectionFilteredConfigurations,
     cascadeSelection,
     leafHeightValue,
@@ -675,6 +703,9 @@ function App() {
   // ниже) и только показывается в лейбле карточки «Длина погонажа: X для высоты полотна Y» — без
   // отдельного клика пользователя (см. обратную связь по change restyle-configurator-per-figma).
   const frameComponent = cascadeSteps.find((step) => step.key === 'frame')?.resolvedComponent
+  // Этап «Короб и обрамление» расчёта стоимости запускается, как только определён короб, независимо
+  // от готовности этапа «Полотно» (см. change add-staged-pricing-endpoints, frontend-staged-pricing).
+  const frameTypeId = frameComponent?.type.id
   const frameTypeCode = frameComponent?.type.code
   const frameMatchedOption =
     frameComponent && frameTypeCode !== undefined && leafHeightValue !== undefined && HEIGHT_RANGE_FRAME_TYPE_CODES.includes(frameTypeCode)
@@ -696,6 +727,9 @@ function App() {
   }, [frameComponent, frameMatchedOption, frameIsMirrorHeight, leafHeightValue, selection.frame.heightOptionId, selection.frame.customHeightValueMm])
 
   const edgeComponent = cascadeSteps.find((step) => step.key === 'edge')?.resolvedComponent
+  // Передаётся в запрос этапа «Полотно» вместе с edge-опциями, как только определена — не блокирует сам
+  // расчёт полотна (см. change add-staged-pricing-endpoints, frontend-staged-pricing).
+  const edgeTypeId = edgeComponent?.type.id
   const edgeMatchedOption =
     edgeComponent && leafHeightValue !== undefined ? edgeHeightOptions(edgeComponent, leafHeightValue)[0] : undefined
   const edgeMatchedValue = edgeMatchedOption?.value
@@ -711,6 +745,7 @@ function App() {
   }, [edgeComponent, edgeMatchedOption, leafHeightValue, selection.edge.heightOptionId])
 
   const doorCasingComponent = cascadeSteps.find((step) => step.key === 'doorCasing')?.resolvedComponent
+  const doorCasingTypeId = doorCasingComponent?.type.id
   const doorCasingTypeCode = doorCasingComponent?.type.code
   const doorCasingMatchedOption =
     doorCasingComponent &&
@@ -732,6 +767,7 @@ function App() {
   }, [doorCasingComponent, doorCasingMatchedOption, leafHeightValue, selection.doorCasing.lengthOptionId])
 
   const frameExtensionsComponent = cascadeSteps.find((step) => step.key === 'frameExtensions')?.resolvedComponent
+  const frameExtensionsTypeId = frameExtensionsComponent?.type.id
   const frameExtensionsTypeCode = frameExtensionsComponent?.type.code
   const frameExtensionsMatchedOption =
     frameExtensionsComponent &&
@@ -753,26 +789,28 @@ function App() {
   }, [frameExtensionsComponent, frameExtensionsMatchedOption, leafHeightValue, selection.frameExtensions.lengthOptionId])
 
   // Автоматический расчёт стоимости по текущему выбору вместо кнопки «Рассчитать стоимость»
-  // (см. specs/door-configurator-ui, «Автоматический расчёт стоимости по текущему выбору»): срабатывает
-  // при каждом изменении входов запроса, с паузой debounce, и игнорирует ответы, устаревшие к моменту
-  // получения (см. requestSeqRef выше). Пока не определена конкретная конфигурация, но определено
-  // полотно, используется расчёт отдельного полотна (см. «Использование расчёта отдельного полотна
-  // до определения конфигурации»); как только конфигурация определена — расчёт переключается на неё.
-  useEffect(() => {
-    // Сбрасываем ранее показанный результат сразу при любом изменении набора опций — не оставляем
-    // его видимым (даже приглушённым) пока не придёт ответ на новый запрос, чтобы не показывать
-    // цену, не соответствующую текущему, ещё не полностью заполненному выбору (см. обратную связь
-    // пользователя, заменяет прежнее «приглушённое отображение предыдущего результата»).
-    setPricingResult(null)
-    setPricingError(null)
+  // (см. specs/door-configurator-ui, «Автоматический расчёт стоимости по текущему выбору») — тремя
+  // независимыми этапами, каждый ищет свой backend-эндпоинт по своим условиям запуска, не дожидаясь
+  // готовности двух других (см. «Расчёт полотна и кромки», «Расчёт короба, наличника и добора», «Расчёт
+  // фурнитуры», add-staged-pricing-endpoints). Sticky-панель показывает объединение результатов (см.
+  // pricingResult/pricingLoading/pricingError ниже, «Объединение результатов трёх этапов расчёта»).
 
-    if (!selectedConfiguration && leafTypeId === undefined) {
-      setPricingLoading(false)
+  // Этап «Полотно» (+ кромка, если определена) — запускается, как только определён тип полотна,
+  // независимо от готовности короба/обрамления.
+  useEffect(() => {
+    // Сбрасываем ранее показанный результат сразу при любом изменении набора опций этого этапа — не
+    // оставляем его видимым (даже приглушённым) пока не придёт ответ на новый запрос (см. обратную связь
+    // пользователя, заменяет прежнее «приглушённое отображение предыдущего результата»).
+    setLeafPricingResult(null)
+    setLeafPricingError(null)
+
+    if (leafTypeId === undefined) {
+      setLeafPricingLoading(false)
       return
     }
 
-    setPricingLoading(true)
-    const requestId = ++requestSeqRef.current
+    setLeafPricingLoading(true)
+    const requestId = ++leafRequestSeqRef.current
     let cancelled = false
 
     const timer = window.setTimeout(() => {
@@ -783,54 +821,33 @@ function App() {
       if (glazingTypeId !== undefined) {
         leafSelection = { ...leafSelection, glazingTypeId }
       }
-      // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
-      // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
-      const hardwareSelections: HardwareSelectionDto[] = hardwareLines
-        .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
-        .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
 
-      let pricingPromise: Promise<PricingResponseDto>
-      if (selectedConfiguration) {
-        const request: PricingRequestDto = {}
-        for (const key of COMPONENT_ORDER) {
-          if (selectedConfiguration[key]) {
-            request[key] = key === 'leaf' ? leafSelection : selection[key]
-          }
-        }
-        if (hardwareSelections.length > 0) {
-          request.hardware = hardwareSelections
-        }
-        pricingPromise = calculatePrice(selectedConfiguration.id, request)
-      } else if (leafTypeId !== undefined) {
-        // У отдельного полотна нет door_configuration.is_reverse — передаём текущее значение
-        // переключателя «Реверс» явно (см. change add-standalone-leaf-pricing).
-        const request: PricingRequestDto = { leaf: leafSelection, isReverse: resolvedReverse }
-        if (hardwareSelections.length > 0) {
-          request.hardware = hardwareSelections
-        }
-        pricingPromise = calculateLeafPrice(leafTypeId, request)
-      } else {
-        return
+      // У отдельного полотна нет door_configuration.is_reverse — передаём текущее значение
+      // переключателя «Реверс» явно (см. change add-standalone-leaf-pricing).
+      const request: PricingRequestDto = { leaf: leafSelection, isReverse: resolvedReverse }
+      if (edgeTypeId !== undefined) {
+        request.edgeTypeId = edgeTypeId
+        request.edge = selection.edge
       }
 
-      pricingPromise
+      calculateLeafPrice(leafTypeId, request)
         .then((result) => {
-          if (!cancelled && requestId === requestSeqRef.current) {
-            setPricingResult(result)
-            setPricingError(null)
+          if (!cancelled && requestId === leafRequestSeqRef.current) {
+            setLeafPricingResult(result)
+            setLeafPricingError(null)
           }
         })
         .catch((error: unknown) => {
-          if (!cancelled && requestId === requestSeqRef.current) {
+          if (!cancelled && requestId === leafRequestSeqRef.current) {
             // Ошибка замещает собой ранее показанный результат, а не отображается рядом с ним
             // (см. design.md изменения redesign-configurator-layout).
-            setPricingResult(null)
-            setPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
+            setLeafPricingResult(null)
+            setLeafPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
           }
         })
         .finally(() => {
-          if (!cancelled && requestId === requestSeqRef.current) {
-            setPricingLoading(false)
+          if (!cancelled && requestId === leafRequestSeqRef.current) {
+            setLeafPricingLoading(false)
           }
         })
     }, PRICING_DEBOUNCE_MS)
@@ -840,7 +857,132 @@ function App() {
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConfiguration, leafTypeId, resolvedReverse, selection, mirrorFinishTypeId, glazingTypeId, hardwareLines])
+  }, [leafTypeId, resolvedReverse, selection.leaf, selection.edge, mirrorFinishTypeId, glazingTypeId, edgeTypeId])
+
+  // Этап «Короб и обрамление» — запускается, как только определён тип короба, независимо от готовности
+  // полотна/кромки/фурнитуры; высота полотна передаётся явно (см. leafHeightValue выше).
+  useEffect(() => {
+    setFrameGroupPricingResult(null)
+    setFrameGroupPricingError(null)
+
+    if (frameTypeId === undefined) {
+      setFrameGroupPricingLoading(false)
+      return
+    }
+
+    setFrameGroupPricingLoading(true)
+    const requestId = ++frameGroupRequestSeqRef.current
+    let cancelled = false
+
+    const timer = window.setTimeout(() => {
+      const request: FrameGroupPricingRequestDto = { frame: selection.frame, leafHeightValue }
+      if (doorCasingTypeId !== undefined) {
+        request.doorCasingTypeId = doorCasingTypeId
+        request.doorCasing = selection.doorCasing
+      }
+      if (frameExtensionsTypeId !== undefined) {
+        request.frameExtensionsTypeId = frameExtensionsTypeId
+        request.frameExtensions = selection.frameExtensions
+      }
+
+      calculateFrameGroupPrice(frameTypeId, request)
+        .then((result) => {
+          if (!cancelled && requestId === frameGroupRequestSeqRef.current) {
+            setFrameGroupPricingResult(result)
+            setFrameGroupPricingError(null)
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled && requestId === frameGroupRequestSeqRef.current) {
+            setFrameGroupPricingResult(null)
+            setFrameGroupPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
+          }
+        })
+        .finally(() => {
+          if (!cancelled && requestId === frameGroupRequestSeqRef.current) {
+            setFrameGroupPricingLoading(false)
+          }
+        })
+    }, PRICING_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameTypeId, selection.frame, doorCasingTypeId, selection.doorCasing, frameExtensionsTypeId, selection.frameExtensions, leafHeightValue])
+
+  // Этап «Фурнитура» — запускается, как только определён тип полотна И есть хотя бы одна завершённая
+  // позиция фурнитуры; правка полотна/короба не перезапускает этот эффект, и наоборот.
+  useEffect(() => {
+    setHardwarePricingResult(null)
+    setHardwarePricingError(null)
+
+    // Незавершённые позиции (без выбранного цветового варианта) в запрос не включаются
+    // (см. change add-hardware-catalog, «Выбор позиций фурнитуры»).
+    const hardwareSelections: HardwareSelectionDto[] = hardwareLines
+      .filter((line): line is HardwareLine & { hardwareOptionId: number } => line.hardwareOptionId !== undefined)
+      .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
+
+    if (leafTypeId === undefined || hardwareSelections.length === 0) {
+      setHardwarePricingLoading(false)
+      return
+    }
+
+    setHardwarePricingLoading(true)
+    const requestId = ++hardwareRequestSeqRef.current
+    let cancelled = false
+
+    const timer = window.setTimeout(() => {
+      calculateHardwarePrice({ hardware: hardwareSelections })
+        .then((result) => {
+          if (!cancelled && requestId === hardwareRequestSeqRef.current) {
+            setHardwarePricingResult(result)
+            setHardwarePricingError(null)
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled && requestId === hardwareRequestSeqRef.current) {
+            setHardwarePricingResult(null)
+            setHardwarePricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
+          }
+        })
+        .finally(() => {
+          if (!cancelled && requestId === hardwareRequestSeqRef.current) {
+            setHardwarePricingLoading(false)
+          }
+        })
+    }, PRICING_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leafTypeId, hardwareLines])
+
+  // Объединение результатов трёх этапов в единый результат для sticky-панели (см. specs/door-configurator-ui,
+  // «Объединение результатов трёх этапов расчёта») — намеренно названо так же, как раньше называлось
+  // единственное состояние расчёта, чтобы JSX sticky-панели ниже не менялся.
+  const pricingLoading = leafPricingLoading || frameGroupPricingLoading || hardwarePricingLoading
+  const pricingError = leafPricingError ?? frameGroupPricingError ?? hardwarePricingError
+  const pricingResult: PricingResponseDto | null =
+    !pricingLoading && !pricingError && leafPricingResult
+      ? {
+          totalRetailPrice:
+            leafPricingResult.totalRetailPrice +
+            (frameGroupPricingResult?.totalRetailPrice ?? 0) +
+            (hardwarePricingResult?.totalRetailPrice ?? 0),
+          totalDealerPrice:
+            leafPricingResult.totalDealerPrice +
+            (frameGroupPricingResult?.totalDealerPrice ?? 0) +
+            (hardwarePricingResult?.totalDealerPrice ?? 0),
+          components: [...leafPricingResult.components, ...(frameGroupPricingResult?.components ?? [])].sort(
+            (a, b) => componentOrderIndex(a.component) - componentOrderIndex(b.component),
+          ),
+          hardware: hardwarePricingResult?.hardware ?? [],
+        }
+      : null
 
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
@@ -978,8 +1120,12 @@ function App() {
     setCustomLengthMode(false)
     setCustomHeightMode(false)
     setHardwareLines([])
-    setPricingResult(null)
-    setPricingError(null)
+    setLeafPricingResult(null)
+    setLeafPricingError(null)
+    setFrameGroupPricingResult(null)
+    setFrameGroupPricingError(null)
+    setHardwarePricingResult(null)
+    setHardwarePricingError(null)
   }
 
   // resolvedReverse (не selectedConfiguration?.reverse) — оно совпадает с ней, когда конфигурация
