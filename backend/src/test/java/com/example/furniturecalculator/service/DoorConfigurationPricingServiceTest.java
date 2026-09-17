@@ -35,6 +35,7 @@ import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.domain.MirrorFinishType;
+import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingRequestDto;
@@ -61,6 +62,7 @@ import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
+import com.example.furniturecalculator.repository.PogonazhSurchargeRuleRepository;
 import com.example.furniturecalculator.support.TestEntities;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,6 +76,8 @@ class DoorConfigurationPricingServiceTest {
     private LinerDimensionTypeRepository linerDimensionTypeRepository;
     @Mock
     private DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
+    @Mock
+    private PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     @Mock
     private ColourOptionRepository colourOptionRepository;
     @Mock
@@ -512,6 +516,79 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void наценка_за_погонаж_применяется_к_коробу_нео_за_нестандартную_высоту() {
+        FrameType neoFrameType = TestEntities.frameType(3L, "FT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, neoFrameType, null, null, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2200), true, leafType);
+        LinerDimensionOption neoHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, neoFrameType);
+        FramePost framePost = TestEntities.framePost(2001L, BigDecimal.valueOf(1000), BigDecimal.valueOf(800), neoFrameType);
+        PogonazhSurchargeRule rule = TestEntities.pogonazhSurchargeRule(
+                5000L, neoFrameType, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(3L)).thenReturn(List.of(framePost));
+        when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(3L, BigDecimal.valueOf(2400))).thenReturn(Optional.of(rule));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.priced()).isTrue();
+        assertThat(framePrice.baseRetailPrice()).isEqualByComparingTo("1000");
+        assertThat(framePrice.baseDealerPrice()).isEqualByComparingTo("800");
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("1300");
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo("1040");
+    }
+
+    @Test
+    void базовая_высота_короба_нео_не_добавляет_наценку_за_погонаж() {
+        FrameType neoFrameType = TestEntities.frameType(3L, "FT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, neoFrameType, null, null, null);
+        LinerDimensionOption leafHeight =
+                TestEntities.linerDimensionOption(1000L, heightType, BigDecimal.valueOf(2000), true, leafType);
+        LinerDimensionOption neoHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(2170), BigDecimal.valueOf(1900), BigDecimal.valueOf(2100), true, neoFrameType);
+        FramePost framePost = TestEntities.framePost(2001L, BigDecimal.valueOf(1000), BigDecimal.valueOf(800), neoFrameType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(framePostRepository.findByFrameTypeId(3L)).thenReturn(List.of(framePost));
+        // Правила pogonazh_surcharge_rule для базового значения 2170 нет — findByFrameTypeIdAndValue
+        // намеренно не застублен, Mockito по умолчанию возвращает Optional.empty().
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto framePrice = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo(framePrice.baseRetailPrice());
+        assertThat(framePrice.dealerPrice()).isEqualByComparingTo(framePrice.baseDealerPrice());
+        assertThat(framePrice.retailPrice()).isEqualByComparingTo("1000");
+    }
+
+    @Test
     void высота_полотна_вне_диапазона_короба_нео_возвращает_400() {
         FrameType neoFrameType = TestEntities.frameType(3L, "FT-003");
         LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
@@ -902,6 +979,50 @@ class DoorConfigurationPricingServiceTest {
         PricingResponseDto response = service.calculate(10L, request);
 
         assertThat(response.components()).hasSize(2);
+    }
+
+    @Test
+    void наценка_за_погонаж_короба_фантом_независима_от_наценки_за_размер_полотна() {
+        FrameType fantomType = TestEntities.frameType(2L, "FT-001");
+        LinerDimensionType leafHeightType = TestEntities.linerDimensionType(300L, "DT-002");
+        // Значение 2200 одновременно совпадает с dimension_surcharge_rule (наценка за нестандартный
+        // размер полотна, применяется только к leaf) и с pogonazh_surcharge_rule этого frame_type
+        // (наценка за нестандартный погонаж, применяется только к frame) — обе наценки независимы
+        // (см. change add-pogonazh-length-surcharge, специфи «Независимость от dimension_surcharge_rule»).
+        DimensionSurchargeRule leafRule = TestEntities.dimensionSurchargeRule(
+                1L, leafHeightType, BigDecimal.valueOf(2200), BigDecimal.valueOf(20));
+        PogonazhSurchargeRule frameRule = TestEntities.pogonazhSurchargeRule(
+                5002L, fantomType, null, null, BigDecimal.valueOf(2200), BigDecimal.valueOf(30));
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, fantomType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                2L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        FramePost framePost = TestEntities.framePost(2002L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), fantomType);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(300L, BigDecimal.valueOf(2200)))
+                .thenReturn(Optional.of(leafRule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+        when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
+        when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(2L, BigDecimal.valueOf(2200))).thenReturn(Optional.of(frameRule));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leafPriceResult = response.components().stream()
+                .filter(c -> c.component().equals("leaf")).findFirst().orElseThrow();
+        ComponentPriceDto framePriceResult = response.components().stream()
+                .filter(c -> c.component().equals("frame")).findFirst().orElseThrow();
+
+        assertThat(leafPriceResult.baseRetailPrice()).isEqualByComparingTo("1000");
+        assertThat(leafPriceResult.retailPrice()).isEqualByComparingTo("1200");
+        assertThat(framePriceResult.baseRetailPrice()).isEqualByComparingTo("500");
+        assertThat(framePriceResult.retailPrice()).isEqualByComparingTo("650");
     }
 
     @Test
@@ -2573,6 +2694,72 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void наценка_за_погонаж_наличника_применяется_до_умножения_на_количество() {
+        DoorCasingType doorCasingType = TestEntities.doorCasingType(5L);
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(300L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, doorCasingType, null);
+        LinerDimensionOption casingLength =
+                TestEntities.linerDimensionOption(2000L, lengthType, BigDecimal.valueOf(2400), true, doorCasingType);
+        ConfigurationPrice price = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), doorCasingType, casingLength, null, null, null);
+        PogonazhSurchargeRule rule = TestEntities.pogonazhSurchargeRule(
+                5001L, null, doorCasingType, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(5L)).thenReturn(List.of(price));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(casingLength));
+        when(pogonazhSurchargeRuleRepository.findByDoorCasingTypeIdAndValue(5L, BigDecimal.valueOf(2400))).thenReturn(Optional.of(rule));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, 3, null, null), null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto doorCasing = response.components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+        // (500 × 1.30 = 650) × 3 = 1950; базовая цена (без наценки за погонаж) — 500 × 3 = 1500.
+        assertThat(doorCasing.retailPrice()).isEqualByComparingTo("1950");
+        assertThat(doorCasing.dealerPrice()).isEqualByComparingTo("1560");
+        assertThat(doorCasing.baseRetailPrice()).isEqualByComparingTo("1500");
+        assertThat(doorCasing.baseDealerPrice()).isEqualByComparingTo("1200");
+    }
+
+    @Test
+    void базовая_длина_наличника_не_добавляет_наценку_за_погонаж() {
+        DoorCasingType doorCasingType = TestEntities.doorCasingType(5L);
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(300L, "DT-001");
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, doorCasingType, null);
+        LinerDimensionOption casingLength =
+                TestEntities.linerDimensionOption(2000L, lengthType, BigDecimal.valueOf(2250), true, doorCasingType);
+        ConfigurationPrice price = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(500), BigDecimal.valueOf(400), doorCasingType, casingLength, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(configurationPriceRepository.findByDoorCasingTypeId(5L)).thenReturn(List.of(price));
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(casingLength));
+        // Правила pogonazh_surcharge_rule для базового значения 2250 нет — findByDoorCasingTypeIdAndValue
+        // намеренно не застублен, Mockito по умолчанию возвращает Optional.empty().
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null,
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null), null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto doorCasing = response.components().stream()
+                .filter(c -> c.component().equals("doorCasing"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(doorCasing.retailPrice()).isEqualByComparingTo(doorCasing.baseRetailPrice());
+        assertThat(doorCasing.retailPrice()).isEqualByComparingTo("500");
+    }
+
+    @Test
     void цена_добора_тс_не_зависит_от_выбранной_длины() {
         FrameExtensionsType doborTsType = TestEntities.frameExtensionsType(6L, "FET-004");
         LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
@@ -3263,6 +3450,40 @@ class DoorConfigurationPricingServiceTest {
         assertThat(frame.dealerPrice()).isEqualByComparingTo("2000");
         assertThat(response.totalRetailPrice()).isEqualByComparingTo("3000");
         assertThat(response.totalDealerPrice()).isEqualByComparingTo("2000");
+    }
+
+    @Test
+    void расчёт_короба_учитывает_наценку_за_нестандартную_высоту_погонажа() {
+        FrameType neoFrameType = TestEntities.frameType(3L, "FT-003");
+        LinerDimensionType heightType = TestEntities.linerDimensionType(300L, "DT-002");
+        LinerDimensionOption neoHeightRange = TestEntities.linerDimensionOptionRange(
+                2000L, heightType, BigDecimal.valueOf(2400), BigDecimal.valueOf(2150), BigDecimal.valueOf(2250), true, neoFrameType);
+        FramePost post = TestEntities.framePost(100L, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000), neoFrameType);
+        PogonazhSurchargeRule rule = TestEntities.pogonazhSurchargeRule(
+                5003L, neoFrameType, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+
+        when(frameTypeRepository.findById(3L)).thenReturn(Optional.of(neoFrameType));
+        when(framePostRepository.findByFrameTypeId(3L)).thenReturn(List.of(post));
+        when(colourOptionRepository.findByFrameTypeId(3L)).thenReturn(List.of());
+        when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
+        when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(3L, BigDecimal.valueOf(2400))).thenReturn(Optional.of(rule));
+
+        FrameGroupPricingRequestDto request = new FrameGroupPricingRequestDto(
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                null, null, null, null, BigDecimal.valueOf(2200));
+
+        FrameGroupPricingResponseDto response = service.calculateForFrameGroup(3L, request);
+
+        ComponentPriceDto frame = response.components().stream()
+                .filter(c -> c.component().equals("frame"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(frame.baseRetailPrice()).isEqualByComparingTo("3000");
+        assertThat(frame.baseDealerPrice()).isEqualByComparingTo("2000");
+        assertThat(frame.retailPrice()).isEqualByComparingTo("3900");
+        assertThat(frame.dealerPrice()).isEqualByComparingTo("2600");
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("3900");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("2600");
     }
 
     @Test

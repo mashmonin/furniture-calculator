@@ -308,3 +308,6 @@ databaseChangeLog:
   - include:
       file: changes/0093-edge-type-reverse-rule.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0094-pogonazh-surcharge-rule.yaml
+      relativeToChangelogFile: true

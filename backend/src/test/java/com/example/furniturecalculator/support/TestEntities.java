@@ -28,6 +28,7 @@ import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.domain.MirrorFinishType;
+import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.domain.PostType;
 
 // Сущности домена не имеют публичных конструкторов/сеттеров (только Hibernate field-access),
@@ -173,6 +174,21 @@ public final class TestEntities {
         DimensionSurchargeRule rule = instantiate(DimensionSurchargeRule.class);
         ReflectionTestUtils.setField(rule, "id", id);
         ReflectionTestUtils.setField(rule, "linerDimensionType", dimensionType);
+        ReflectionTestUtils.setField(rule, "value", value);
+        ReflectionTestUtils.setField(rule, "surchargePercent", surchargePercent);
+        return rule;
+    }
+
+    // Ровно один из frameType/doorCasingType/frameExtensionsType должен быть не-null — как и в самой
+    // сущности (см. миграцию 0094-pogonazh-surcharge-rule.yaml, CHECK-constraint single-owner).
+    public static PogonazhSurchargeRule pogonazhSurchargeRule(
+            long id, FrameType frameType, DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType,
+            BigDecimal value, BigDecimal surchargePercent) {
+        PogonazhSurchargeRule rule = instantiate(PogonazhSurchargeRule.class);
+        ReflectionTestUtils.setField(rule, "id", id);
+        ReflectionTestUtils.setField(rule, "frameType", frameType);
+        ReflectionTestUtils.setField(rule, "doorCasingType", doorCasingType);
+        ReflectionTestUtils.setField(rule, "frameExtensionsType", frameExtensionsType);
         ReflectionTestUtils.setField(rule, "value", value);
         ReflectionTestUtils.setField(rule, "surchargePercent", surchargePercent);
         return rule;

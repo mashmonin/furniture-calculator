@@ -29,6 +29,7 @@ import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
+import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingRequestDto;
@@ -56,6 +57,7 @@ import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
 import com.example.furniturecalculator.repository.LinerDimensionTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishOptionRepository;
+import com.example.furniturecalculator.repository.PogonazhSurchargeRuleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -109,6 +111,7 @@ public class DoorConfigurationPricingService {
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final LinerDimensionTypeRepository linerDimensionTypeRepository;
     private final DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
+    private final PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     private final ColourOptionRepository colourOptionRepository;
     private final ConfigurationPriceRepository configurationPriceRepository;
     private final FramePostRepository framePostRepository;
@@ -456,7 +459,10 @@ public class DoorConfigurationPricingService {
                     validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, frameHeightOption, leafHeightValue);
                 }
             }
-            ComponentPriceDto framePrice = framePostPrice(componentName, frameType, colourOption);
+            BigDecimal frameHeightValue = frameHeightOption != null ? frameHeightOption.getValue() : frameHeightMmOverride;
+            BigDecimal pogonazhMultiplier = resolvePogonazhSurchargeMultiplier(frameType, frameHeightValue);
+            ComponentPriceDto framePrice = applyPogonazhSurcharge(
+                    framePostPrice(componentName, frameType, colourOption), pogonazhMultiplier);
             components.add(framePrice);
             List<FramePost> framePosts = framePostRepository.findByFrameTypeId(frameType.getId());
             return new ResolvedComponent(type, framePrice, null, frameHeightOption, null, colourOption, framePosts, 1,
@@ -495,10 +501,17 @@ public class DoorConfigurationPricingService {
                     "для этого наличника необходимо выбрать длину", selection, lengthOption, leafHeightValue);
         }
 
+        BigDecimal lengthValue = lengthOption != null ? lengthOption.getValue() : null;
+        BigDecimal pogonazhMultiplier = switch (type) {
+            case DoorCasingType doorCasingType -> resolvePogonazhSurchargeMultiplier(doorCasingType, lengthValue);
+            case FrameExtensionsType frameExtensionsType -> resolvePogonazhSurchargeMultiplier(frameExtensionsType, lengthValue);
+            default -> BigDecimal.ONE;
+        };
+
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         ComponentPriceDto price = matched
                 .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, mirrorFinish.multiplier(),
-                        glazing.multiplier(), applyReverseSurcharge, quantity))
+                        glazing.multiplier(), applyReverseSurcharge, pogonazhMultiplier, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
         components.add(price);
         List<LeafPriceSurcharge> surcharges = type instanceof LeafType
@@ -635,13 +648,14 @@ public class DoorConfigurationPricingService {
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge, int quantity) {
+            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge,
+            BigDecimal pogonazhSurchargeMultiplier, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
         BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge,
-                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge)
+                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge,
-                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge)
+                mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
         BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
@@ -655,7 +669,7 @@ public class DoorConfigurationPricingService {
     // практике не применяются одновременно — порядок между ними фиксирован на будущее, для предсказуемости.
     private BigDecimal applySequentialSurcharges(
             BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal mirrorFinishMultiplier,
-            BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
         result = applyPercentMultiplier(result, mirrorFinishMultiplier);
@@ -663,6 +677,11 @@ public class DoorConfigurationPricingService {
         if (applyReverseSurcharge) {
             result = applyReverseSurcharge(result);
         }
+        // Наценка за нестандартную длину/высоту погонажа (короб/наличник/добор, см. change
+        // add-pogonazh-length-surcharge) — для leaf этот множитель всегда ONE (наценка на leaf не
+        // распространяется), поэтому её место в общей последовательности не влияет на существующее
+        // поведение leaf.
+        result = applyPercentMultiplier(result, pogonazhSurchargeMultiplier);
         return result;
     }
 
@@ -717,6 +736,57 @@ public class DoorConfigurationPricingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "фабрика не производит полотно с размером " + customValue + " мм для этой оси"));
         return BigDecimal.ONE.add(rule.getSurchargePercent().divide(BigDecimal.valueOf(100)));
+    }
+
+    // Наценка за нестандартную длину/высоту погонажа (короб/наличник/добор, см. change
+    // add-pogonazh-length-surcharge) — отсутствие строки pogonazh_surcharge_rule для (владелец, value)
+    // означает базовое значение (множитель ONE), а не ошибку: в отличие от dimension_surcharge_rule для
+    // leaf, значение здесь уже провалидировано другим путём (каталожная опция короба/наличника/добора,
+    // либо высота полотна для короба «Фантом») и не может оказаться физически недопустимым.
+    private BigDecimal resolvePogonazhSurchargeMultiplier(FrameType frameType, BigDecimal heightValue) {
+        if (heightValue == null) {
+            return BigDecimal.ONE;
+        }
+        return pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(frameType.getId(), heightValue)
+                .map(this::pogonazhSurchargeMultiplier)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal resolvePogonazhSurchargeMultiplier(DoorCasingType doorCasingType, BigDecimal lengthValue) {
+        if (lengthValue == null) {
+            return BigDecimal.ONE;
+        }
+        return pogonazhSurchargeRuleRepository.findByDoorCasingTypeIdAndValue(doorCasingType.getId(), lengthValue)
+                .map(this::pogonazhSurchargeMultiplier)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal resolvePogonazhSurchargeMultiplier(FrameExtensionsType frameExtensionsType, BigDecimal lengthValue) {
+        if (lengthValue == null) {
+            return BigDecimal.ONE;
+        }
+        return pogonazhSurchargeRuleRepository.findByFrameExtensionsTypeIdAndValue(frameExtensionsType.getId(), lengthValue)
+                .map(this::pogonazhSurchargeMultiplier)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal pogonazhSurchargeMultiplier(PogonazhSurchargeRule rule) {
+        return BigDecimal.ONE.add(rule.getSurchargePercent().divide(BigDecimal.valueOf(100)));
+    }
+
+    // Короб — единственный компонент, чья цена не собирается через componentPriceFrom/
+    // applySequentialSurcharges (см. framePostPrice) — наценку за погонаж применяем к нему отдельно,
+    // тем же способом (applyPercentMultiplier), после того как базовая цена уже найдена. baseRetailPrice/
+    // baseDealerPrice переданного price здесь всегда равны его retailPrice/dealerPrice (короб до этой
+    // наценки не нёс других надбавок), поэтому их можно использовать как «цену без наценки за погонаж».
+    private ComponentPriceDto applyPogonazhSurcharge(ComponentPriceDto price, BigDecimal multiplier) {
+        if (!price.priced() || multiplier.compareTo(BigDecimal.ONE) == 0) {
+            return price;
+        }
+        BigDecimal retailPrice = applyPercentMultiplier(price.retailPrice(), multiplier);
+        BigDecimal dealerPrice = applyPercentMultiplier(price.dealerPrice(), multiplier);
+        return new ComponentPriceDto(
+                price.component(), true, retailPrice, dealerPrice, price.baseRetailPrice(), price.baseDealerPrice());
     }
 
     // expectedDimensionTypeCode — ось размера, для которой вызывающая сторона ожидает эту проверку

@@ -7,5 +7,6 @@ public record PricingSurchargesDto(
         BigDecimal reverseSurchargePercent,
         List<DimensionSurchargeRuleDto> dimensionSurchargeRules,
         List<MirrorFinishSurchargeDto> mirrorFinishSurcharges,
-        List<GlazingSurchargeDto> glazingSurcharges) {
+        List<GlazingSurchargeDto> glazingSurcharges,
+        List<PogonazhSurchargeRuleDto> pogonazhSurchargeRules) {
 }
