@@ -41,5 +41,11 @@ class PricingSurchargesControllerTest {
                 });
         assertThat(result.mirrorFinishSurcharges())
                 .anySatisfy(surcharge -> assertThat(surcharge.surchargePercent()).isEqualByComparingTo("30"));
+        assertThat(result.pogonazhSurchargeRules())
+                .anySatisfy(rule -> {
+                    assertThat(rule.ownerType()).isEqualTo("frame");
+                    assertThat(rule.value()).isEqualByComparingTo("2400");
+                    assertThat(rule.surchargePercent()).isEqualByComparingTo("30");
+                });
     }
 }

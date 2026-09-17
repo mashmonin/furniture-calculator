@@ -507,6 +507,24 @@ function computeSurchargeBreakdown(
   return items
 }
 
+// Процент наценки за нестандартную длину/высоту погонажа (короб/наличник/добор) для конкретного
+// владельца и выбранного значения — по тому же принципу, что и computeSurchargeBreakdown для полотна:
+// вычисляется локально из уже загруженных правил, не из ответа calculate() (см. design.md изменения
+// add-pogonazh-length-surcharge, «Фронтенд»). undefined означает базовое значение — надбавки нет.
+function pogonazhSurchargePercent(
+  pricingSurcharges: PricingSurchargesDto | null,
+  ownerType: string,
+  ownerId: number | undefined,
+  value: number | undefined,
+): number | undefined {
+  if (!pricingSurcharges || ownerId === undefined || value === undefined) {
+    return undefined
+  }
+  return pricingSurcharges.pogonazhSurchargeRules.find(
+    (rule) => rule.ownerType === ownerType && rule.ownerId === ownerId && rule.value === value,
+  )?.surchargePercent
+}
+
 const SERVICE_MENU_ITEMS = [{ key: 'door-configurator', label: 'Межкомнатные двери' }]
 
 // Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения») — статичный текст, без
@@ -799,6 +817,16 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameExtensionsComponent, frameExtensionsMatchedOption, leafHeightValue, selection.frameExtensions.lengthOptionId])
+
+  // Наценка за нестандартную длину/высоту погонажа — по значению, автоматически подобранному выше для
+  // короба/наличника/добора (frameMatchedValue/doorCasingMatchedValue/frameExtensionsMatchedValue), не
+  // по customLengthValueMm/customHeightValueMm (см. specs/door-configurator-ui, «Разбивка наценки за
+  // нестандартный погонаж короба, наличника и добора»).
+  const framePogonazhSurchargePercent = pogonazhSurchargePercent(pricingSurcharges, 'frame', frameTypeId, frameMatchedValue)
+  const doorCasingPogonazhSurchargePercent =
+    pogonazhSurchargePercent(pricingSurcharges, 'doorCasing', doorCasingTypeId, doorCasingMatchedValue)
+  const frameExtensionsPogonazhSurchargePercent =
+    pogonazhSurchargePercent(pricingSurcharges, 'frameExtensions', frameExtensionsTypeId, frameExtensionsMatchedValue)
 
   // Автоматический расчёт стоимости по текущему выбору вместо кнопки «Рассчитать стоимость»
   // (см. specs/door-configurator-ui, «Автоматический расчёт стоимости по текущему выбору») — тремя
@@ -1215,6 +1243,18 @@ function App() {
     glazingTypeId,
     resolvedReverse,
   )
+
+  // Наценка за нестандартный погонаж показывается в общем блоке «Надбавки к цене за нестандарт» вместе
+  // с надбавками к цене полотна, а не рядом с ценой конкретного компонента (короб/наличник/добор) —
+  // одна строка на каждое встретившееся значение процента, без дублирования, если несколько компонентов
+  // одновременно нестандартны с одинаковым процентом (см. change add-pogonazh-length-surcharge,
+  // обновление отображения).
+  const pogonazhPercents = [framePogonazhSurchargePercent, doorCasingPogonazhSurchargePercent, frameExtensionsPogonazhSurchargePercent]
+  const uniquePogonazhPercents = [...new Set(pogonazhPercents.filter((percent): percent is number => percent !== undefined))]
+  const combinedSurchargeBreakdown = [
+    ...surchargeBreakdown,
+    ...uniquePogonazhPercents.map((percent) => ({ label: 'Наценка за нестандартную длину погонажа', percent })),
+  ]
 
   // Кромка — единственный компонент, у которого выбор типа и цвет показаны внутри одной карточки
   // (заголовок «Кромка», ряд «Тип» + «Цвет»), а не отдельной группой над карточкой, как у остальных
@@ -1808,13 +1848,13 @@ function App() {
                       <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
                     </div>
                   </Space>
-                  {surchargeBreakdown.length > 0 && (
+                  {combinedSurchargeBreakdown.length > 0 && (
                     <List
                       style={{ marginTop: 16 }}
                       size="small"
-                      header={<Typography.Text type="secondary">Надбавки к цене полотна</Typography.Text>}
+                      header={<Typography.Text type="secondary">Надбавки к цене за нестандарт</Typography.Text>}
                       bordered
-                      dataSource={surchargeBreakdown}
+                      dataSource={combinedSurchargeBreakdown}
                       renderItem={(item) => (
                         <List.Item>
                           {item.label}: +{item.percent}%

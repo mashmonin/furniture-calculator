@@ -13,11 +13,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
+import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishType;
+import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.PricingSurchargesDto;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
+import com.example.furniturecalculator.repository.GlazingTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishTypeRepository;
+import com.example.furniturecalculator.repository.PogonazhSurchargeRuleRepository;
 import com.example.furniturecalculator.support.TestEntities;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +31,10 @@ class PricingSurchargesServiceTest {
     private DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
     @Mock
     private MirrorFinishTypeRepository mirrorFinishTypeRepository;
+    @Mock
+    private GlazingTypeRepository glazingTypeRepository;
+    @Mock
+    private PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     @Mock
     private DoorConfigurationPricingService pricingService;
 
@@ -75,5 +83,37 @@ class PricingSurchargesServiceTest {
         assertThat(result.mirrorFinishSurcharges()).hasSize(1);
         assertThat(result.mirrorFinishSurcharges().get(0).id()).isEqualTo(1L);
         assertThat(result.mirrorFinishSurcharges().get(0).surchargePercent()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void непустой_справочник_наценок_за_погонаж_возвращает_все_строки_с_правильными_полями() {
+        FrameType frameType = TestEntities.frameType(3L, "FT-003");
+        PogonazhSurchargeRule rule =
+                TestEntities.pogonazhSurchargeRule(1L, frameType, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+        when(dimensionSurchargeRuleRepository.findAll()).thenReturn(List.of());
+        when(mirrorFinishTypeRepository.findAll()).thenReturn(List.of());
+        when(pogonazhSurchargeRuleRepository.findAll()).thenReturn(List.of(rule));
+        when(pricingService.reverseSurchargePercent()).thenReturn(BigDecimal.TEN);
+
+        PricingSurchargesDto result = service.getPricingSurcharges();
+
+        assertThat(result.pogonazhSurchargeRules()).hasSize(1);
+        assertThat(result.pogonazhSurchargeRules().get(0).ownerType()).isEqualTo("frame");
+        assertThat(result.pogonazhSurchargeRules().get(0).ownerId()).isEqualTo(3L);
+        assertThat(result.pogonazhSurchargeRules().get(0).value()).isEqualByComparingTo("2400");
+        assertThat(result.pogonazhSurchargeRules().get(0).surchargePercent()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void пустой_справочник_наценок_за_погонаж_не_влияет_на_остальные_поля() {
+        when(dimensionSurchargeRuleRepository.findAll()).thenReturn(List.of());
+        when(mirrorFinishTypeRepository.findAll()).thenReturn(List.of());
+        when(pogonazhSurchargeRuleRepository.findAll()).thenReturn(List.of());
+        when(pricingService.reverseSurchargePercent()).thenReturn(BigDecimal.TEN);
+
+        PricingSurchargesDto result = service.getPricingSurcharges();
+
+        assertThat(result.pogonazhSurchargeRules()).isEmpty();
+        assertThat(result.reverseSurchargePercent()).isEqualByComparingTo("10");
     }
 }

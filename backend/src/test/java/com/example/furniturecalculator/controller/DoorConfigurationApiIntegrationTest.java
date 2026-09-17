@@ -441,4 +441,63 @@ class DoorConfigurationApiIntegrationTest {
                 "INSERT INTO glazing_option (glazing_type_id, leaf_type_id) VALUES (?, ?) RETURNING id",
                 Long.class, glazingTypeId, leafTypeId);
     }
+
+    private Long insertDoorCasingType(String code) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO door_casing_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+    }
+
+    private Long insertFrameExtensionsType(String code) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO frame_extensions_type (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+    }
+
+    private Long insertPogonazhSurchargeRule(
+            Long frameTypeId, Long doorCasingTypeId, Long frameExtensionsTypeId, BigDecimal value, BigDecimal surchargePercent) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO pogonazh_surcharge_rule (frame_type_id, door_casing_type_id, frame_extensions_type_id, value, surcharge_percent) "
+                        + "VALUES (?, ?, ?, ?, ?) RETURNING id",
+                Long.class, frameTypeId, doorCasingTypeId, frameExtensionsTypeId, value, surchargePercent);
+    }
+
+    @Test
+    void pogonazh_surcharge_rule_без_владельца_отклоняется() {
+        assertThatThrownBy(() -> insertPogonazhSurchargeRule(null, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void pogonazh_surcharge_rule_с_двумя_владельцами_отклоняется() {
+        Long frameTypeId = insertFrameType("IT-POGONAZH-OWNERS-FRAME-1");
+        Long doorCasingTypeId = insertDoorCasingType("IT-POGONAZH-OWNERS-CASING-1");
+
+        assertThatThrownBy(() -> insertPogonazhSurchargeRule(
+                frameTypeId, doorCasingTypeId, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void pogonazh_surcharge_rule_повторное_значение_для_того_же_короба_отклоняется() {
+        Long frameTypeId = insertFrameType("IT-POGONAZH-DUP-FRAME-1");
+        insertPogonazhSurchargeRule(frameTypeId, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+
+        assertThatThrownBy(() -> insertPogonazhSurchargeRule(frameTypeId, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void pogonazh_surcharge_rule_одинаковое_значение_для_разных_владельцев_допустимо() {
+        Long frameTypeId = insertFrameType("IT-POGONAZH-SHARED-FRAME-1");
+        Long doorCasingTypeId = insertDoorCasingType("IT-POGONAZH-SHARED-CASING-1");
+        Long frameExtensionsTypeId = insertFrameExtensionsType("IT-POGONAZH-SHARED-EXT-1");
+
+        Long frameRuleId = insertPogonazhSurchargeRule(frameTypeId, null, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+        Long casingRuleId = insertPogonazhSurchargeRule(null, doorCasingTypeId, null, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+        Long extensionsRuleId =
+                insertPogonazhSurchargeRule(null, null, frameExtensionsTypeId, BigDecimal.valueOf(2400), BigDecimal.valueOf(30));
+
+        assertThat(frameRuleId).isNotNull();
+        assertThat(casingRuleId).isNotNull();
+        assertThat(extensionsRuleId).isNotNull();
+    }
 }
