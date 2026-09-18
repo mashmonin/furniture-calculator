@@ -1,23 +1,4 @@
-## Purpose
-
-Определяет справочник бизнес-правил фабрики о наценках за конкретные нестандартные значения размеров компонентов — отдельно от каталога допустимых конфигураций (door-configuration-catalog), который описывает лишь то, какие сочетания и стандартные размеры вообще существуют.
-
-## Requirements
-
-### Requirement: Структура dimension_surcharge_rule
-Dimension_surcharge_rule ДОЛЖЕН (SHALL) ссылаться ровно на один liner_dimension_type и хранить числовое значение размера (value) в миллиметрах и процент наценки (surcharge_percent); оба поля обязательны. Комбинация liner_dimension_type и value ДОЛЖНА (SHALL) быть уникальной.
-
-#### Scenario: Правило требует liner_dimension_type, value и surcharge_percent
-- **WHEN** строка dimension_surcharge_rule вставляется без ссылки на liner_dimension_type, без value или без surcharge_percent
-- **THEN** база данных отклоняет вставку
-
-#### Scenario: Значение не может повторяться для одного типа размера
-- **WHEN** для одного и того же liner_dimension_type вставляется вторая строка dimension_surcharge_rule с уже существующим value
-- **THEN** база данных отклоняет вставку
-
-#### Scenario: Для одного типа размера может быть несколько правил с разными значениями
-- **WHEN** для одного liner_dimension_type вставляются несколько строк dimension_surcharge_rule с разными value и разными surcharge_percent
-- **THEN** все строки сохраняются
+## MODIFIED Requirements
 
 ### Requirement: Независимость от каталога допустимых конфигураций
 Dimension_surcharge_rule НЕ ДОЛЖЕН (SHALL NOT) ссылаться на frame_type, edge_type, door_casing_type, frame_extensions_type или door_configuration — по этим осям правило одинаково для любого владельца. Ссылка на leaf_type ДОПУСКАЕТСЯ (MAY) и опциональна: `leaf_type_id` не задан (NULL) — правило общее, применимо к любой модели полотна для этого типа размера и значения, как и раньше; `leaf_type_id` задан — правило применимо только к этой конкретной модели полотна и имеет приоритет перед общим правилом с тем же значением, если оно тоже существует.
@@ -33,6 +14,8 @@ Dimension_surcharge_rule НЕ ДОЛЖЕН (SHALL NOT) ссылаться на f
 #### Scenario: Правило для конкретной модели имеет приоритет перед общим
 - **WHEN** для одного и того же liner_dimension_type и значения существуют одновременно общая строка dimension_surcharge_rule (leaf_type_id не задан) и строка, привязанная к leaf_type конкретного компонента
 - **THEN** для этого компонента применяется surcharge_percent строки, привязанной к его leaf_type, а не общей строки
+
+## ADDED Requirements
 
 ### Requirement: Наценка за высоту полотна 2800/2900 мм, кроме модели «СИБИРЬ 03»
 Для оси высоты (liner_dimension_type с кодом «ВЫСОТА») значения 2800 мм и 2900 мм ДОЛЖНЫ (SHALL) иметь dimension_surcharge_rule с surcharge_percent = 80, привязанную к каждой модели полотна (leaf_type) по отдельности, кроме модели «СИБИРЬ 03» — для неё строк с этими значениями НЕ ДОЛЖНО (SHALL NOT) быть, поэтому высота 2800/2900 мм для неё остаётся недопустимым значением (как и любое значение без применимого правила).

@@ -30,6 +30,7 @@ import type {
   ComponentCatalogDto,
   ComponentKey,
   ComponentSelectionDto,
+  DimensionSurchargeRuleDto,
   DoorConfigurationDto,
   FrameGroupPricingRequestDto,
   FrameGroupPricingResponseDto,
@@ -455,9 +456,28 @@ interface SurchargeBreakdownItem {
 
 // Проценты надбавок вычисляются локально из уже загруженных правил (см. design.md) — не из ответа calculate(),
 // эндпоинт расчёта стоимости не меняется и разбивку не возвращает.
+// Правило, привязанное к конкретному leaf_type, имеет приоритет перед общим (leafTypeId === null) —
+// см. change add-leaf-height-2800-2900-except-sibir-03, та же логика, что и на backend
+// (DoorConfigurationPricingService.resolveAxisSurchargeMultiplier).
+function findDimensionSurchargeRule(
+  pricingSurcharges: PricingSurchargesDto,
+  dimensionTypeCode: string,
+  value: number,
+  leafTypeId: number | undefined,
+): DimensionSurchargeRuleDto | undefined {
+  const rulesForValue = pricingSurcharges.dimensionSurchargeRules.filter(
+    (rule) => rule.dimensionType.code === dimensionTypeCode && rule.value === value,
+  )
+  return (
+    rulesForValue.find((rule) => rule.leafTypeId === leafTypeId) ??
+    rulesForValue.find((rule) => rule.leafTypeId === null)
+  )
+}
+
 function computeSurchargeBreakdown(
   pricingSurcharges: PricingSurchargesDto | null,
   leafSelection: ComponentSelectionDto,
+  leafTypeId: number | undefined,
   mirrorFinishTypeId: number | undefined,
   glazingTypeId: number | undefined,
   isReverse: boolean,
@@ -468,8 +488,8 @@ function computeSurchargeBreakdown(
   const items: SurchargeBreakdownItem[] = []
   const lengthRule =
     leafSelection.customLengthValueMm !== undefined
-      ? pricingSurcharges.dimensionSurchargeRules.find(
-          (rule) => rule.dimensionType.code === LENGTH_TYPE_CODE && rule.value === leafSelection.customLengthValueMm,
+      ? findDimensionSurchargeRule(
+          pricingSurcharges, LENGTH_TYPE_CODE, leafSelection.customLengthValueMm, leafTypeId,
         )
       : undefined
   if (lengthRule) {
@@ -477,8 +497,8 @@ function computeSurchargeBreakdown(
   }
   const heightRule =
     leafSelection.customHeightValueMm !== undefined
-      ? pricingSurcharges.dimensionSurchargeRules.find(
-          (rule) => rule.dimensionType.code === HEIGHT_TYPE_CODE && rule.value === leafSelection.customHeightValueMm,
+      ? findDimensionSurchargeRule(
+          pricingSurcharges, HEIGHT_TYPE_CODE, leafSelection.customHeightValueMm, leafTypeId,
         )
       : undefined
   if (heightRule) {
@@ -1251,6 +1271,7 @@ function App() {
   const surchargeBreakdown = computeSurchargeBreakdown(
     pricingSurcharges,
     selection.leaf,
+    leafTypeId,
     mirrorFinishTypeId,
     glazingTypeId,
     resolvedReverse,

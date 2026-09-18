@@ -29,6 +29,10 @@ public class DimensionSurchargeRule {
     @JoinColumn(name = "liner_dimension_type_id", nullable = false)
     private LinerDimensionType linerDimensionType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "leaf_type_id")
+    private LeafType leafType;
+
     @Column(nullable = false)
     private BigDecimal value;
 

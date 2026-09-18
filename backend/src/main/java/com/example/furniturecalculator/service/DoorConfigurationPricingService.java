@@ -731,8 +731,14 @@ public class DoorConfigurationPricingService {
 
         LinerDimensionType dimensionType = linerDimensionTypeRepository.findByCode(dimensionTypeCode)
                 .orElseThrow(() -> new IllegalStateException("liner_dimension_type с кодом " + dimensionTypeCode + " не найден"));
+        // Правило, привязанное к конкретной модели полотна (leaf_type), имеет приоритет перед общим —
+        // см. change add-leaf-height-2800-2900-except-sibir-03. Отсутствие строки для этой модели
+        // (в отличие от отсутствия строки вообще) означает, что значение для неё недопустимо, даже если
+        // общее правило с тем же value существует для других моделей.
         DimensionSurchargeRule rule = dimensionSurchargeRuleRepository
-                .findByLinerDimensionTypeIdAndValue(dimensionType.getId(), customValue)
+                .findByLinerDimensionTypeIdAndValueAndLeafTypeId(dimensionType.getId(), customValue, leafType.getId())
+                .or(() -> dimensionSurchargeRuleRepository
+                        .findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(dimensionType.getId(), customValue))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "фабрика не производит полотно с размером " + customValue + " мм для этой оси"));
         return BigDecimal.ONE.add(rule.getSurchargePercent().divide(BigDecimal.valueOf(100)));
