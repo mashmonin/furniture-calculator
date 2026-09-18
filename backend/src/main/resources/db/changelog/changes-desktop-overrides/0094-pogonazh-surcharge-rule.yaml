@@ -1,0 +1,184 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0094-pogonazh-surcharge-rule.yaml. Оригинальный файл не
+  # редактируется — он уже применён к PostgreSQL. Эта версия используется только для профиля
+  # desktop (см. context "desktop" на include в db.changelog-master.yaml). Структура таблицы,
+  # check-констрейнт и данные идентичны оригиналу; отличаются только unique-индексы —
+  # H2 не поддерживает partial unique-индексы (WHERE ... IS NOT NULL), поэтому используется
+  # тот же приём, что и в changes-desktop-overrides/0006-door-configuration-catalog.yaml:
+  # generated-колонка *_key, схлопывающая NULL в уникальное отрицательное значение (-id),
+  # поверх обычного (не partial) unique-индекса.
+  - changeSet:
+      id: 0094-1-create-pogonazh-surcharge-rule
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: pogonazh_surcharge_rule
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: frame_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_pogonazh_surcharge_rule_frame_type
+                    references: frame_type(id)
+              - column:
+                  name: door_casing_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_pogonazh_surcharge_rule_door_casing_type
+                    references: door_casing_type(id)
+              - column:
+                  name: frame_extensions_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_pogonazh_surcharge_rule_frame_extensions_type
+                    references: frame_extensions_type(id)
+              - column:
+                  name: value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: surcharge_percent
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0094-2-check-pogonazh-surcharge-rule-single-owner
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE pogonazh_surcharge_rule ADD CONSTRAINT chk_pogonazh_surcharge_rule_single_owner CHECK (
+                (CASE WHEN frame_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN door_casing_type_id IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN frame_extensions_type_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0094-3-unique-pogonazh-surcharge-rule-frame-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE pogonazh_surcharge_rule ADD COLUMN frame_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_type_id IS NOT NULL THEN frame_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_pogonazh_surcharge_rule_frame_type ON pogonazh_surcharge_rule (frame_type_key, value)
+
+  - changeSet:
+      id: 0094-4-unique-pogonazh-surcharge-rule-door-casing-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE pogonazh_surcharge_rule ADD COLUMN door_casing_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN door_casing_type_id IS NOT NULL THEN door_casing_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_pogonazh_surcharge_rule_door_casing_type ON pogonazh_surcharge_rule (door_casing_type_key, value)
+
+  - changeSet:
+      id: 0094-5-unique-pogonazh-surcharge-rule-frame-extensions-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE pogonazh_surcharge_rule ADD COLUMN frame_extensions_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN frame_extensions_type_id IS NOT NULL THEN frame_extensions_type_id ELSE -id END)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_pogonazh_surcharge_rule_frame_extensions_type ON pogonazh_surcharge_rule (frame_extensions_type_key, value)
+
+  # Короб «НЕО» (FT-003) / «Компланар» (FT-002): база 2170 мм, нестандарт — остальные каталожные высоты
+  # (см. миграции 0063/0064).
+  - changeSet:
+      id: 0094-6-insert-neo-komplanar-pogonazh-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_type_id, value, surcharge_percent)
+              SELECT ft.id, v.value, 30
+              FROM frame_type ft
+              CROSS JOIN (VALUES (2400::numeric), (2700::numeric)) AS v(value)
+              WHERE ft.code IN ('FT-002', 'FT-003')
+              UNION ALL
+              SELECT ft.id, 3000::numeric, 30
+              FROM frame_type ft
+              WHERE ft.code = 'FT-002'
+
+  # Наличник (все 9 door_casing_type): база 2250 мм, нестандарт — остальные каталожные длины
+  # (см. миграции 0070/0072).
+  - changeSet:
+      id: 0094-7-insert-door-casing-pogonazh-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (door_casing_type_id, value, surcharge_percent)
+              SELECT dct.id, 2400::numeric, 30
+              FROM door_casing_type dct
+              WHERE dct.code IN ('DCT-001', 'DCT-003', 'DCT-004')
+              UNION ALL
+              SELECT dct.id, 2700::numeric, 30
+              FROM door_casing_type dct
+              WHERE dct.code IN ('DCT-001', 'DCT-002', 'DCT-003', 'DCT-004', 'DCT-005', 'DCT-006', 'DCT-007', 'DCT-008', 'DCT-009')
+              UNION ALL
+              SELECT dct.id, 3000::numeric, 30
+              FROM door_casing_type dct
+              WHERE dct.code = 'DCT-001'
+
+  # Добор (все 10 frame_extensions_type): база 2170 мм, нестандарт — остальные каталожные длины
+  # (см. миграции 0066/0074).
+  - changeSet:
+      id: 0094-8-insert-frame-extensions-pogonazh-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_extensions_type_id, value, surcharge_percent)
+              SELECT fet.id, 2400::numeric, 30
+              FROM frame_extensions_type fet
+              WHERE fet.code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007', 'FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')
+              UNION ALL
+              SELECT fet.id, 2700::numeric, 30
+              FROM frame_extensions_type fet
+              WHERE fet.code IN ('FET-004', 'FET-005', 'FET-006', 'FET-007')
+              UNION ALL
+              SELECT fet.id, 3000::numeric, 30
+              FROM frame_extensions_type fet
+              WHERE fet.code IN ('FET-008', 'FET-009', 'FET-010')
+              UNION ALL
+              SELECT fet.id, 2950::numeric, 30
+              FROM frame_extensions_type fet
+              WHERE fet.code IN ('FET-011', 'FET-012', 'FET-013')
+
+  # Короб «Фантом» (FT-001): высота копирует высоту полотна произвольным значением, не из каталога —
+  # база 1900/1950/2000/2100 мм (строк не создаём, см. дизайн — «Отсутствие строки = базовое значение»),
+  # нестандарт — 2050/2150/2200/2250/2300 мм.
+  - changeSet:
+      id: 0094-9-insert-fantom-pogonazh-surcharge-rules
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_type_id, value, surcharge_percent)
+              SELECT ft.id, v.value, 30
+              FROM frame_type ft
+              CROSS JOIN (VALUES
+                (2050::numeric),
+                (2150::numeric),
+                (2200::numeric),
+                (2250::numeric),
+                (2300::numeric)
+              ) AS v(value)
+              WHERE ft.code = 'FT-001'
