@@ -311,3 +311,8 @@ databaseChangeLog:
   - include:
       file: changes/0094-pogonazh-surcharge-rule.yaml
       relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0094-pogonazh-surcharge-rule.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
