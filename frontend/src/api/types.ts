@@ -202,7 +202,9 @@ export interface GlazingSurchargeDto {
 export interface PogonazhSurchargeRuleDto {
   ownerType: string
   ownerId: number
-  value: number
+  value: number | null
+  minValueExclusive: number | null
+  maxValueInclusive: number | null
   surchargePercent: number
 }
 

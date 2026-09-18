@@ -1,0 +1,86 @@
+databaseChangeLog:
+  # Тиры 70%/100% (см. change add-pogonazh-surcharge-70-100-percent-tiers). Для короба «Фантом»
+  # (высота — свободное число, не выбор из каталога) точечная модель pogonazh_surcharge_rule не
+  # годится для "свыше 2400" — добавляем диапазонные правила (value NULL, заданы границы
+  # min_value_exclusive/max_value_inclusive) как альтернативу точечным (value задан, границы NULL).
+  - changeSet:
+      id: 0096-1-pogonazh-surcharge-rule-range-columns
+      author: furniture-calculator
+      changes:
+        - dropNotNullConstraint:
+            tableName: pogonazh_surcharge_rule
+            columnName: value
+            columnDataType: DECIMAL
+        - addColumn:
+            tableName: pogonazh_surcharge_rule
+            columns:
+              - column:
+                  name: min_value_exclusive
+                  type: DECIMAL
+                  constraints:
+                    nullable: true
+              - column:
+                  name: max_value_inclusive
+                  type: DECIMAL
+                  constraints:
+                    nullable: true
+
+  - changeSet:
+      id: 0096-2-check-pogonazh-surcharge-rule-point-or-range
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE pogonazh_surcharge_rule ADD CONSTRAINT chk_pogonazh_surcharge_rule_point_or_range CHECK (
+                (CASE WHEN value IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN min_value_exclusive IS NOT NULL OR max_value_inclusive IS NOT NULL THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0096-3-increase-komplanar-frame-3000-to-70-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE pogonazh_surcharge_rule SET surcharge_percent = 70
+              WHERE value = 3000 AND frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-002')
+
+  - changeSet:
+      id: 0096-4-increase-evo-casing-3000-to-70-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE pogonazh_surcharge_rule SET surcharge_percent = 70
+              WHERE value = 3000 AND door_casing_type_id = (SELECT id FROM door_casing_type WHERE code = 'DCT-001')
+
+  - changeSet:
+      id: 0096-5-increase-komplanar-dobor-2950-3000-to-70-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE pogonazh_surcharge_rule SET surcharge_percent = 70
+              WHERE (value = 3000 OR value = 2950)
+                AND frame_extensions_type_id IN (
+                  SELECT id FROM frame_extensions_type
+                  WHERE code IN ('FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013')
+                )
+
+  - changeSet:
+      id: 0096-6-insert-fantom-pogonazh-surcharge-range-70-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_type_id, min_value_exclusive, max_value_inclusive, surcharge_percent)
+              SELECT id, 2400, 2700, 70 FROM frame_type WHERE code = 'FT-001'
+
+  - changeSet:
+      id: 0096-7-insert-fantom-pogonazh-surcharge-range-100-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_type_id, min_value_exclusive, max_value_inclusive, surcharge_percent)
+              SELECT id, 2700, NULL, 100 FROM frame_type WHERE code = 'FT-001'

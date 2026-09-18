@@ -37,8 +37,13 @@ public class PogonazhSurchargeRule {
     @JoinColumn(name = "frame_extensions_type_id")
     private FrameExtensionsType frameExtensionsType;
 
-    @Column(nullable = false)
     private BigDecimal value;
+
+    @Column(name = "min_value_exclusive")
+    private BigDecimal minValueExclusive;
+
+    @Column(name = "max_value_inclusive")
+    private BigDecimal maxValueInclusive;
 
     @Column(name = "surcharge_percent", nullable = false)
     private BigDecimal surchargePercent;
