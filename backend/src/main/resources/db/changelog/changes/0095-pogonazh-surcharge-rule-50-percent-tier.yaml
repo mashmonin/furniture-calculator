@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # Наценка 30% на pogonazh_surcharge_rule (см. 0094) была временной оценкой фабрики.
+  # Уточнение: длины, требующие дополнительной закупки/распила погонажного материала,
+  # наценяются на 50%, а не 30% — см. change increase-pogonazh-surcharge-for-2700-and-fantom-2350-2400.
+  - changeSet:
+      id: 0095-1-increase-pogonazh-surcharge-rule-2700-to-50-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE pogonazh_surcharge_rule SET surcharge_percent = 50 WHERE value = 2700
+
+  # Короб «Фантом» (FT-001): высоты 2350/2400 мм ранее не были заведены как нестандартные
+  # (отсутствие строки = базовое значение, см. spec pogonazh-surcharge-rules) — теперь это
+  # нестандартные значения с наценкой 50%.
+  - changeSet:
+      id: 0095-2-insert-fantom-pogonazh-surcharge-rules-2350-2400
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO pogonazh_surcharge_rule (frame_type_id, value, surcharge_percent)
+              SELECT ft.id, v.value, 50
+              FROM frame_type ft
+              CROSS JOIN (VALUES (2350::numeric), (2400::numeric)) AS v(value)
+              WHERE ft.code = 'FT-001'
