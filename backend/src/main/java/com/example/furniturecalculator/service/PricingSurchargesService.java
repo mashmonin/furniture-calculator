@@ -49,13 +49,29 @@ public class PricingSurchargesService {
 
     private static PogonazhSurchargeRuleDto pogonazhSurchargeRuleDto(PogonazhSurchargeRule rule) {
         if (rule.getFrameType() != null) {
-            return new PogonazhSurchargeRuleDto("frame", rule.getFrameType().getId(), rule.getValue(), rule.getSurchargePercent());
+            return new PogonazhSurchargeRuleDto(
+                    "frame",
+                    rule.getFrameType().getId(),
+                    rule.getValue(),
+                    rule.getMinValueExclusive(),
+                    rule.getMaxValueInclusive(),
+                    rule.getSurchargePercent());
         }
         if (rule.getDoorCasingType() != null) {
             return new PogonazhSurchargeRuleDto(
-                    "doorCasing", rule.getDoorCasingType().getId(), rule.getValue(), rule.getSurchargePercent());
+                    "doorCasing",
+                    rule.getDoorCasingType().getId(),
+                    rule.getValue(),
+                    rule.getMinValueExclusive(),
+                    rule.getMaxValueInclusive(),
+                    rule.getSurchargePercent());
         }
         return new PogonazhSurchargeRuleDto(
-                "frameExtensions", rule.getFrameExtensionsType().getId(), rule.getValue(), rule.getSurchargePercent());
+                "frameExtensions",
+                rule.getFrameExtensionsType().getId(),
+                rule.getValue(),
+                rule.getMinValueExclusive(),
+                rule.getMaxValueInclusive(),
+                rule.getSurchargePercent());
     }
 }

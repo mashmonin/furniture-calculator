@@ -319,3 +319,6 @@ databaseChangeLog:
   - include:
       file: changes/0095-pogonazh-surcharge-rule-50-percent-tier.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0096-pogonazh-surcharge-rule-70-100-percent-tiers.yaml
+      relativeToChangelogFile: true

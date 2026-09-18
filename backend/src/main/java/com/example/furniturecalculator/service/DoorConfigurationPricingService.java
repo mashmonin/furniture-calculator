@@ -747,7 +747,21 @@ public class DoorConfigurationPricingService {
         if (heightValue == null) {
             return BigDecimal.ONE;
         }
-        return pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(frameType.getId(), heightValue)
+        Optional<PogonazhSurchargeRule> pointRule =
+                pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(frameType.getId(), heightValue);
+        if (pointRule.isPresent()) {
+            return pogonazhSurchargeMultiplier(pointRule.get());
+        }
+        // Диапазонные правила (value NULL, min_value_exclusive/max_value_inclusive) — см. change
+        // add-pogonazh-surcharge-70-100-percent-tiers; на практике встречаются только у короба
+        // «Фантом», чья высота — свободное число, а не выбор из каталога.
+        return pogonazhSurchargeRuleRepository.findByFrameTypeId(frameType.getId()).stream()
+                .filter(rule -> rule.getValue() == null)
+                .filter(rule -> rule.getMinValueExclusive() == null
+                        || heightValue.compareTo(rule.getMinValueExclusive()) > 0)
+                .filter(rule -> rule.getMaxValueInclusive() == null
+                        || heightValue.compareTo(rule.getMaxValueInclusive()) <= 0)
+                .findFirst()
                 .map(this::pogonazhSurchargeMultiplier)
                 .orElse(BigDecimal.ONE);
     }

@@ -520,8 +520,20 @@ function pogonazhSurchargePercent(
   if (!pricingSurcharges || ownerId === undefined || value === undefined) {
     return undefined
   }
-  return pricingSurcharges.pogonazhSurchargeRules.find(
-    (rule) => rule.ownerType === ownerType && rule.ownerId === ownerId && rule.value === value,
+  const ownerRules = pricingSurcharges.pogonazhSurchargeRules.filter(
+    (rule) => rule.ownerType === ownerType && rule.ownerId === ownerId,
+  )
+  const pointRule = ownerRules.find((rule) => rule.value === value)
+  if (pointRule) {
+    return pointRule.surchargePercent
+  }
+  // Диапазонные правила (value null, min_value_exclusive/max_value_inclusive) — см. change
+  // add-pogonazh-surcharge-70-100-percent-tiers; на практике встречаются только у короба «Фантом».
+  return ownerRules.find(
+    (rule) =>
+      rule.value === null &&
+      (rule.minValueExclusive === null || value > rule.minValueExclusive) &&
+      (rule.maxValueInclusive === null || value <= rule.maxValueInclusive),
   )?.surchargePercent
 }
 
