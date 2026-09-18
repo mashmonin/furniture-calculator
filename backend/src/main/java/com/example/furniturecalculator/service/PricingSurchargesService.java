@@ -33,7 +33,10 @@ public class PricingSurchargesService {
                 pricingService.reverseSurchargePercent(),
                 dimensionSurchargeRuleRepository.findAll().stream()
                         .map(rule -> new DimensionSurchargeRuleDto(
-                                ReferenceDto.from(rule.getLinerDimensionType()), rule.getValue(), rule.getSurchargePercent()))
+                                ReferenceDto.from(rule.getLinerDimensionType()),
+                                rule.getValue(),
+                                rule.getLeafType() != null ? rule.getLeafType().getId() : null,
+                                rule.getSurchargePercent()))
                         .toList(),
                 mirrorFinishTypeRepository.findAll().stream()
                         .map(type -> new MirrorFinishSurchargeDto(

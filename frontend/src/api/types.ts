@@ -182,6 +182,7 @@ export interface HardwareCategoryDto {
 export interface DimensionSurchargeRuleDto {
   dimensionType: ReferenceDto
   value: number
+  leafTypeId: number | null
   surchargePercent: number
 }
 

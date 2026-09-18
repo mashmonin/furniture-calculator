@@ -967,7 +967,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(300L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(300L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(rule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
@@ -1001,7 +1001,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(300L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(300L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(leafRule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
@@ -2448,7 +2448,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(950)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(101L, BigDecimal.valueOf(950)))
                 .thenReturn(Optional.of(rule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
@@ -2475,7 +2475,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(999)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(101L, BigDecimal.valueOf(999)))
                 .thenReturn(Optional.empty());
 
         PricingRequestDto request = new PricingRequestDto(
@@ -2532,7 +2532,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(rule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
@@ -2569,9 +2569,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-001")).thenReturn(Optional.of(leafLengthType));
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(101L, BigDecimal.valueOf(950)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(101L, BigDecimal.valueOf(950)))
                 .thenReturn(Optional.of(lengthRule));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(1900)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(1900)))
                 .thenReturn(Optional.of(heightRule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
@@ -2890,7 +2890,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(heightRule));
         when(mirrorFinishOptionRepository.findByMirrorFinishTypeIdAndLeafTypeId(1L, 1L))
                 .thenReturn(Optional.of(mirrorFinishOption));
@@ -2990,7 +2990,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(heightRule));
         when(glazingOptionRepository.findByGlazingTypeIdAndLeafTypeId(1L, 1L)).thenReturn(Optional.of(glazingOption));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
@@ -3259,7 +3259,7 @@ class DoorConfigurationPricingServiceTest {
         when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
         when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
         when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
-        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValue(102L, BigDecimal.valueOf(2200)))
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
                 .thenReturn(Optional.of(heightRule));
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 

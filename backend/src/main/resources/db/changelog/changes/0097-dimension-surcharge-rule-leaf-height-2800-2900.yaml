@@ -1,0 +1,56 @@
+databaseChangeLog:
+  # Высота полотна 2800/2900мм с наценкой 80% — для всех моделей, кроме «СИБИРЬ 03» (LT-041, угловая
+  # модель, конструктивно не может быть такой высоты). См. change add-leaf-height-2800-2900-except-sibir-03.
+  # dimension_surcharge_rule сознательно не зависел от leaf_type (см. spec dimension-surcharge-rules) —
+  # это единственное исключение, поэтому владелец добавляется опционально (NULL = как раньше, общее
+  # правило для всех моделей), а не переделывает существующие строки.
+  - changeSet:
+      id: 0097-1-dimension-surcharge-rule-leaf-type-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: dimension_surcharge_rule
+            columns:
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_dimension_surcharge_rule_leaf_type
+                    references: leaf_type(id)
+
+  - changeSet:
+      id: 0097-2-dimension-surcharge-rule-leaf-type-key
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE dimension_surcharge_rule ADD COLUMN leaf_type_key BIGINT GENERATED ALWAYS AS (CASE WHEN leaf_type_id IS NOT NULL THEN leaf_type_id ELSE -id END) STORED
+
+  - changeSet:
+      id: 0097-3-drop-dimension-surcharge-rule-type-value-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_dimension_surcharge_rule_type_value
+
+  - changeSet:
+      id: 0097-4-recreate-dimension-surcharge-rule-type-value-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_dimension_surcharge_rule_type_value ON dimension_surcharge_rule (liner_dimension_type_id, value, leaf_type_key)
+
+  - changeSet:
+      id: 0097-5-insert-leaf-height-2800-2900-except-sibir-03
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO dimension_surcharge_rule (liner_dimension_type_id, value, surcharge_percent, leaf_type_id)
+              SELECT dt.id, v.value, 80, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2800::numeric), (2900::numeric)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002' AND lt.code <> 'LT-041'
