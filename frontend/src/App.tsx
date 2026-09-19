@@ -134,6 +134,12 @@ const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
 const LENGTH_TYPE_CODE = 'DT-001'
 const HEIGHT_TYPE_CODE = 'DT-002'
 const THICKNESS_TYPE_CODE = 'DT-003'
+// Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
+// add-leaf-height-cascade-surcharge-50mm-grid) — дублирует ту же логику, что и
+// DoorConfigurationPricingService.resolveHeightCascadeSurchargePercent на backend.
+const HEIGHT_GRID_FLOOR = 1900
+const HEIGHT_GRID_STEP = 50
+const CASCADE_STEP_PERCENT = 20
 // Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар» и «НЕО»
 // (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
 const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
@@ -474,6 +480,32 @@ function findDimensionSurchargeRule(
   )
 }
 
+// Каскадный спуск по сетке 50мм высоты полотна от 1900мм — см. change
+// add-leaf-height-cascade-surcharge-50mm-grid. Блокирующие строки (unavailable) backend не отдаёт через
+// GET /api/pricing-surcharges (см. design.md), поэтому здесь их учитывать не нужно: этот блок рендерится
+// только после успешного расчёта, а высота, которую backend бы отклонил (в т.ч. через блокировку),
+// просто не доходит до этой точки.
+function findHeightCascadeSurchargePercent(
+  pricingSurcharges: PricingSurchargesDto,
+  leafTypeId: number | undefined,
+  value: number,
+): number | undefined {
+  if (value < HEIGHT_GRID_FLOOR || (value - HEIGHT_GRID_FLOOR) % HEIGHT_GRID_STEP !== 0) {
+    return undefined
+  }
+  let probe = value - HEIGHT_GRID_STEP
+  let steps = 1
+  while (probe >= HEIGHT_GRID_FLOOR) {
+    const found = findDimensionSurchargeRule(pricingSurcharges, HEIGHT_TYPE_CODE, probe, leafTypeId)
+    if (found) {
+      return found.surchargePercent + CASCADE_STEP_PERCENT * steps
+    }
+    probe -= HEIGHT_GRID_STEP
+    steps += 1
+  }
+  return undefined
+}
+
 function computeSurchargeBreakdown(
   pricingSurcharges: PricingSurchargesDto | null,
   leafSelection: ComponentSelectionDto,
@@ -501,8 +533,13 @@ function computeSurchargeBreakdown(
           pricingSurcharges, HEIGHT_TYPE_CODE, leafSelection.customHeightValueMm, leafTypeId,
         )
       : undefined
-  if (heightRule) {
-    items.push({ label: 'За нестандартную высоту', percent: heightRule.surchargePercent })
+  const heightPercent =
+    heightRule?.surchargePercent ??
+    (leafSelection.customHeightValueMm !== undefined
+      ? findHeightCascadeSurchargePercent(pricingSurcharges, leafTypeId, leafSelection.customHeightValueMm)
+      : undefined)
+  if (heightPercent !== undefined) {
+    items.push({ label: 'За нестандартную высоту', percent: heightPercent })
   }
   const mirrorFinishSurcharge =
     mirrorFinishTypeId !== undefined

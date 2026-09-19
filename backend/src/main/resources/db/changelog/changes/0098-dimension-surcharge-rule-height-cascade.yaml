@@ -1,0 +1,63 @@
+databaseChangeLog:
+  # Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
+  # add-leaf-height-cascade-surcharge-50mm-grid): вычисляется резолвером на лету, не хранится
+  # построчно. Отсутствие строки dimension_surcharge_rule теперь означает «попробовать каскад»,
+  # а не автоматический отказ — поэтому для «СИБИРЬ 03» (LT-041), которая физически не может иметь
+  # высоту 2800/2900мм (см. change add-leaf-height-2800-2900-except-sibir-03), нужна явная
+  # блокирующая строка (unavailable = true), иначе каскад открыл бы эти значения через 2750мм.
+  - changeSet:
+      id: 0098-1-dimension-surcharge-rule-unavailable-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: dimension_surcharge_rule
+            columns:
+              - column:
+                  name: unavailable
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0098-2-dimension-surcharge-rule-percent-nullable
+      author: furniture-calculator
+      changes:
+        - dropNotNullConstraint:
+            tableName: dimension_surcharge_rule
+            columnName: surcharge_percent
+            columnDataType: DECIMAL
+
+  - changeSet:
+      id: 0098-3-check-dimension-surcharge-rule-percent-or-unavailable
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE dimension_surcharge_rule ADD CONSTRAINT chk_dimension_surcharge_rule_percent_or_unavailable CHECK (
+                (CASE WHEN surcharge_percent IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN unavailable THEN 1 ELSE 0 END) = 1
+              )
+
+  - changeSet:
+      id: 0098-4-check-dimension-surcharge-rule-unavailable-requires-leaf-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE dimension_surcharge_rule ADD CONSTRAINT chk_dimension_surcharge_rule_unavailable_requires_leaf_type CHECK (
+                NOT unavailable OR leaf_type_id IS NOT NULL
+              )
+
+  - changeSet:
+      id: 0098-5-insert-sibir-03-height-2800-2900-unavailable
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO dimension_surcharge_rule (liner_dimension_type_id, value, unavailable, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2800::numeric), (2900::numeric)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002' AND lt.code = 'LT-041'

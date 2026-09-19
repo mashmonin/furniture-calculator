@@ -36,6 +36,9 @@ public class DimensionSurchargeRule {
     @Column(nullable = false)
     private BigDecimal value;
 
-    @Column(name = "surcharge_percent", nullable = false)
+    @Column(name = "surcharge_percent")
     private BigDecimal surchargePercent;
+
+    @Column(nullable = false)
+    private boolean unavailable;
 }

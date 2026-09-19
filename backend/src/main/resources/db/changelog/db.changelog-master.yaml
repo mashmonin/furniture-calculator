@@ -330,3 +330,6 @@ databaseChangeLog:
       file: changes-desktop-overrides/0097-dimension-surcharge-rule-leaf-height-2800-2900.yaml
       relativeToChangelogFile: true
       context: "desktop"
+  - include:
+      file: changes/0098-dimension-surcharge-rule-height-cascade.yaml
+      relativeToChangelogFile: true

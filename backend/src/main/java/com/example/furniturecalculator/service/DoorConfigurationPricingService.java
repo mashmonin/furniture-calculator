@@ -69,6 +69,15 @@ public class DoorConfigurationPricingService {
     private static final String LENGTH_TYPE_CODE = "DT-001";
     private static final String HEIGHT_TYPE_CODE = "DT-002";
 
+    // Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
+    // add-leaf-height-cascade-surcharge-50mm-grid) — 1900мм наименьшая заведённая точка, потолка нет;
+    // MAX_CASCADE_STEPS — не бизнес-ограничение, а защита от неограниченного цикла запросов к репозиторию
+    // при аномально большом клиентском значении (200 шагов ~ +10 метров от 1900мм).
+    private static final BigDecimal HEIGHT_GRID_FLOOR = BigDecimal.valueOf(1900);
+    private static final BigDecimal HEIGHT_GRID_STEP = BigDecimal.valueOf(50);
+    private static final BigDecimal CASCADE_STEP_PERCENT = BigDecimal.valueOf(20);
+    private static final int MAX_CASCADE_STEPS = 200;
+
     // Коды frame_type (см. db.changelog 0004), для которых высота короба ограничена диапазоном высоты
     // полотна: «НЕО» (см. change link-frame-neo-height-to-leaf-height) и «Компланар»
     // (см. change link-komplanar-height-to-leaf-height). Остальные типы короба (например, «Фантом»
@@ -735,13 +744,54 @@ public class DoorConfigurationPricingService {
         // см. change add-leaf-height-2800-2900-except-sibir-03. Отсутствие строки для этой модели
         // (в отличие от отсутствия строки вообще) означает, что значение для неё недопустимо, даже если
         // общее правило с тем же value существует для других моделей.
-        DimensionSurchargeRule rule = dimensionSurchargeRuleRepository
+        Optional<DimensionSurchargeRule> exactRule = dimensionSurchargeRuleRepository
                 .findByLinerDimensionTypeIdAndValueAndLeafTypeId(dimensionType.getId(), customValue, leafType.getId())
                 .or(() -> dimensionSurchargeRuleRepository
-                        .findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(dimensionType.getId(), customValue))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "фабрика не производит полотно с размером " + customValue + " мм для этой оси"));
-        return BigDecimal.ONE.add(rule.getSurchargePercent().divide(BigDecimal.valueOf(100)));
+                        .findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(dimensionType.getId(), customValue));
+        if (exactRule.isPresent() && !exactRule.get().isUnavailable()) {
+            return BigDecimal.ONE.add(exactRule.get().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        }
+        // Каскад (см. change add-leaf-height-cascade-surcharge-50mm-grid) — только для оси высоты, и только
+        // если для запрошенного значения нет вообще никакой строки (ни обычной, ни блокирующей): если строка
+        // есть, но она блокирующая (exactRule.isPresent() && unavailable), значение недопустимо напрямую,
+        // каскад не пробуется.
+        if (exactRule.isEmpty() && HEIGHT_TYPE_CODE.equals(dimensionTypeCode)) {
+            Optional<BigDecimal> cascadePercent = resolveHeightCascadeSurchargePercent(leafType, dimensionType, customValue);
+            if (cascadePercent.isPresent()) {
+                return BigDecimal.ONE.add(cascadePercent.get().divide(BigDecimal.valueOf(100)));
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "фабрика не производит полотно с размером " + customValue + " мм для этой оси");
+    }
+
+    // Каскадный спуск по сетке 50мм высоты полотна от 1900мм — см. change
+    // add-leaf-height-cascade-surcharge-50mm-grid. Возвращает пустой Optional, если значение вне сетки,
+    // ниже HEIGHT_GRID_FLOOR, спуск упёрся в блокирующую строку, либо сетка кончилась без находки.
+    private Optional<BigDecimal> resolveHeightCascadeSurchargePercent(
+            LeafType leafType, LinerDimensionType dimensionType, BigDecimal value) {
+        if (value.compareTo(HEIGHT_GRID_FLOOR) < 0
+                || value.subtract(HEIGHT_GRID_FLOOR).remainder(HEIGHT_GRID_STEP).compareTo(BigDecimal.ZERO) != 0) {
+            return Optional.empty();
+        }
+        BigDecimal probe = value.subtract(HEIGHT_GRID_STEP);
+        int steps = 1;
+        while (probe.compareTo(HEIGHT_GRID_FLOOR) >= 0 && steps <= MAX_CASCADE_STEPS) {
+            BigDecimal probeValue = probe;
+            Optional<DimensionSurchargeRule> found = dimensionSurchargeRuleRepository
+                    .findByLinerDimensionTypeIdAndValueAndLeafTypeId(dimensionType.getId(), probeValue, leafType.getId())
+                    .or(() -> dimensionSurchargeRuleRepository
+                            .findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(dimensionType.getId(), probeValue));
+            if (found.isPresent()) {
+                if (found.get().isUnavailable()) {
+                    return Optional.empty();
+                }
+                return Optional.of(found.get().getSurchargePercent().add(CASCADE_STEP_PERCENT.multiply(BigDecimal.valueOf(steps))));
+            }
+            probe = probe.subtract(HEIGHT_GRID_STEP);
+            steps++;
+        }
+        return Optional.empty();
     }
 
     // Наценка за нестандартную длину/высоту погонажа (короб/наличник/добор, см. change
