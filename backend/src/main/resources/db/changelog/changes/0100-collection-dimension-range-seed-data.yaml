@@ -1,0 +1,39 @@
+databaseChangeLog:
+  # Реальные пороги допустимой нестандартной длины/высоты полотна по сериям — получены от фабрики
+  # после того, как механизм (см. 0099-collection-dimension-range.yaml, change
+  # add-collection-dimension-range) уже был готов. Высота одинакова для всех коллекций (1900–2950мм);
+  # ширина (длина, DT-001) различается по коллекциям.
+  - changeSet:
+      id: 0100-1-insert-collection-dimension-range-height
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO collection_dimension_range (collection_id, liner_dimension_type_id, min_value, max_value)
+              SELECT c.id, dt.id, 1900, 2950
+              FROM collection c
+              CROSS JOIN liner_dimension_type dt
+              WHERE dt.code = 'DT-002'
+
+  - changeSet:
+      id: 0100-2-insert-collection-dimension-range-width
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO collection_dimension_range (collection_id, liner_dimension_type_id, min_value, max_value)
+              SELECT c.id, dt.id, v.min_value, v.max_value
+              FROM (VALUES
+                ('LC-001', 600::numeric, 1000::numeric),
+                ('LC-002', 600::numeric, 1000::numeric),
+                ('LC-003', 600::numeric, 1000::numeric),
+                ('LC-004', 400::numeric, 1000::numeric),
+                ('LC-005', 600::numeric, 1000::numeric),
+                ('LC-006', 400::numeric, 1000::numeric),
+                ('LC-007', 400::numeric, 1000::numeric),
+                ('LC-008', 400::numeric, 1000::numeric),
+                ('LC-009', 400::numeric, 1000::numeric)
+              ) AS v(collection_code, min_value, max_value)
+              JOIN collection c ON c.code = v.collection_code
+              CROSS JOIN liner_dimension_type dt
+              WHERE dt.code = 'DT-001'

@@ -333,3 +333,9 @@ databaseChangeLog:
   - include:
       file: changes/0098-dimension-surcharge-rule-height-cascade.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0099-collection-dimension-range.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0100-collection-dimension-range-seed-data.yaml
+      relativeToChangelogFile: true

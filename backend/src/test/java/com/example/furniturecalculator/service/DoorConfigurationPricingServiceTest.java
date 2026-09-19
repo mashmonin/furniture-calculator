@@ -57,6 +57,7 @@ import com.example.furniturecalculator.repository.FrameExtensionsTypeRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.FrameTypeRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
+import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
@@ -76,6 +77,8 @@ class DoorConfigurationPricingServiceTest {
     private LinerDimensionTypeRepository linerDimensionTypeRepository;
     @Mock
     private DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
+    @Mock
+    private CollectionDimensionRangeRepository collectionDimensionRangeRepository;
     @Mock
     private PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     @Mock

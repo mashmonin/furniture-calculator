@@ -18,5 +18,9 @@ public record ComponentCatalogDto(
         LeafPanelType panelType,
         // Допустимые виды остекления (glazing_option) — заполняется только для leaf-компонента
         // (см. change add-glazing-catalog-for-v-models); для остальных компонентов всегда пустой список.
-        List<ReferenceDto> glazingOptions) {
+        List<ReferenceDto> glazingOptions,
+        // Диапазоны допустимой нестандартной длины/высоты по коллекции (collection_dimension_range) —
+        // заполняется только для leaf-компонента (см. change add-collection-dimension-range); для
+        // остальных компонентов всегда пустой список.
+        List<DimensionRangeDto> dimensionRanges) {
 }

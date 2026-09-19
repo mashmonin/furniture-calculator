@@ -30,6 +30,7 @@ import type {
   ComponentCatalogDto,
   ComponentKey,
   ComponentSelectionDto,
+  DimensionRangeDto,
   DimensionSurchargeRuleDto,
   DoorConfigurationDto,
   FrameGroupPricingRequestDto,
@@ -458,6 +459,28 @@ function buildCascadeSteps(
 interface SurchargeBreakdownItem {
   label: string
   percent: number
+}
+
+// Диапазон допустимой нестандартной длины/высоты по коллекции полотна — см. change
+// add-collection-dimension-range. Данные уже загружены с каталогом компонентов (не константа в коде
+// фронтенда), отсутствие записи для оси означает, что диапазон для неё не задан — подсказка не
+// показывается (то же самое "отсутствие = проверка пропускается", что и на backend).
+function dimensionRangeHint(component: ComponentCatalogDto, dimensionTypeCode: string): DimensionRangeDto | undefined {
+  return component.dimensionRanges.find((r) => r.dimensionType.code === dimensionTypeCode)
+}
+
+// Тот же визуальный стиль бейджа, что и «Длина погонажа: X мм»/«для высоты полотна: Y мм» у кромки
+// (см. renderEdgeCard) — Tag с полужирным числовым значением.
+function dimensionRangeTag(component: ComponentCatalogDto, dimensionTypeCode: string) {
+  const range = dimensionRangeHint(component, dimensionTypeCode)
+  if (!range) {
+    return null
+  }
+  return (
+    <Tag>
+      Доступно: <strong>{range.minValue}–{range.maxValue}</strong> мм
+    </Tag>
+  )
 }
 
 // Проценты надбавок вычисляются локально из уже загруженных правил (см. design.md) — не из ответа calculate(),
@@ -1633,7 +1656,10 @@ function App() {
                 }}
               />
               <div>
-                <Typography.Text type="secondary">Нестандартное значение (мм)</Typography.Text>
+                <Space align="center">
+                  <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
+                  {dimensionRangeTag(component, LENGTH_TYPE_CODE)}
+                </Space>
                 <div style={{ marginTop: 4 }}>
                   <InputNumber
                     min={1}
@@ -1665,7 +1691,10 @@ function App() {
                 }}
               />
               <div>
-                <Typography.Text type="secondary">Нестандартное значение</Typography.Text>
+                <Space align="center">
+                  <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
+                  {dimensionRangeTag(component, HEIGHT_TYPE_CODE)}
+                </Space>
                 <div style={{ marginTop: 4 }}>
                   <InputNumber
                     min={1}

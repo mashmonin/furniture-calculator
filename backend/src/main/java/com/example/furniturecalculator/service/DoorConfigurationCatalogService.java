@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.furniturecalculator.domain.CatalogType;
+import com.example.furniturecalculator.domain.CollectionDimensionRange;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -23,11 +24,13 @@ import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.dto.ColourOptionDto;
 import com.example.furniturecalculator.dto.ComponentCatalogDto;
+import com.example.furniturecalculator.dto.DimensionRangeDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.dto.FramePostDto;
 import com.example.furniturecalculator.dto.LinerDimensionOptionDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
+import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
@@ -46,6 +49,7 @@ public class DoorConfigurationCatalogService {
     private final FramePostRepository framePostRepository;
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
     private final GlazingOptionRepository glazingOptionRepository;
+    private final CollectionDimensionRangeRepository collectionDimensionRangeRepository;
 
     // Каталог отдаёт до нескольких тысяч door_configuration, многие из которых ссылаются на одни и те же
     // leaf_type/frame_type/edge_type/door_casing_type/frame_extensions_type — buildXxxComponent(...) в 5-6 раз
@@ -115,6 +119,10 @@ public class DoorConfigurationCatalogService {
         List<ReferenceDto> glazingOptions = glazingOptionRepository.findByLeafTypeId(leafType.getId()).stream()
                 .map(this::toDto)
                 .toList();
+        List<DimensionRangeDto> dimensionRanges = collectionDimensionRangeRepository
+                .findByCollectionId(leafType.getCollection().getId()).stream()
+                .map(this::toDto)
+                .toList();
         return new ComponentCatalogDto(
                 component.type(),
                 ReferenceDto.from(leafType.getCollection()),
@@ -123,7 +131,8 @@ public class DoorConfigurationCatalogService {
                 component.posts(),
                 mirrorFinishOptions,
                 leafType.getPanelType(),
-                glazingOptions);
+                glazingOptions,
+                dimensionRanges);
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -136,7 +145,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
-                List.of(), null, List.of());
+                List.of(), null, List.of(), List.of());
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -149,7 +158,8 @@ public class DoorConfigurationCatalogService {
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()
                 .map(this::toDto)
                 .toList();
-        return new ComponentCatalogDto(ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of());
+        return new ComponentCatalogDto(
+                ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of(), List.of());
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
@@ -172,6 +182,10 @@ public class DoorConfigurationCatalogService {
             case FrameExtensionsType t -> colourOptionRepository.findByFrameExtensionsTypeId(t.getId());
             default -> throw new IllegalStateException("Неизвестный тип компонента: " + type.getClass());
         };
+    }
+
+    private DimensionRangeDto toDto(CollectionDimensionRange range) {
+        return new DimensionRangeDto(ReferenceDto.from(range.getLinerDimensionType()), range.getMinValue(), range.getMaxValue());
     }
 
     private LinerDimensionOptionDto toDto(LinerDimensionOption option) {
