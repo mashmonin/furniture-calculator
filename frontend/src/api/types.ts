@@ -206,6 +206,12 @@ export interface GlazingSurchargeDto {
   surchargePercent: number
 }
 
+export interface ColourSurchargeDto {
+  id: number
+  name: string
+  surchargePercent: number
+}
+
 // ownerType — тот же дискриминатор, что и ComponentPriceDto.component: "frame" | "doorCasing" | "frameExtensions".
 export interface PogonazhSurchargeRuleDto {
   ownerType: string
@@ -221,6 +227,7 @@ export interface PricingSurchargesDto {
   dimensionSurchargeRules: DimensionSurchargeRuleDto[]
   mirrorFinishSurcharges: MirrorFinishSurchargeDto[]
   glazingSurcharges: GlazingSurchargeDto[]
+  colourSurcharges: ColourSurchargeDto[]
   pogonazhSurchargeRules: PogonazhSurchargeRuleDto[]
 }
 

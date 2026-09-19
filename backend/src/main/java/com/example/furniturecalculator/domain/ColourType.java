@@ -1,5 +1,6 @@
 package com.example.furniturecalculator.domain;
 
+import java.math.BigDecimal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -28,4 +29,7 @@ public class ColourType implements CatalogType {
 
     @Column(name = "short_name")
     private String shortName;
+
+    @Column(name = "surcharge_percent", nullable = false)
+    private BigDecimal surchargePercent;
 }

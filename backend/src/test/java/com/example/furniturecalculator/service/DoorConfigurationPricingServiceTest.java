@@ -3079,6 +3079,100 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void наценка_за_выбранный_цвет_применяется_к_цене_полотна() {
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption otherColourOption = TestEntities.colourOption(2000L, otherColourType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(otherColourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1200");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1080");
+    }
+
+    @Test
+    void цвет_с_нулевой_наценкой_не_меняет_цену() {
+        ColourOption colourOption = TestEntities.colourOption(2000L, colourType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(colourOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1000");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("900");
+    }
+
+    @Test
+    void наценка_за_цвет_применяется_после_высоты_и_до_зеркала() {
+        LinerDimensionType leafHeightType = TestEntities.linerDimensionType(102L, "DT-002");
+        DimensionSurchargeRule heightRule = TestEntities.dimensionSurchargeRule(
+                1L, leafHeightType, BigDecimal.valueOf(2200), BigDecimal.valueOf(30));
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption otherColourOption = TestEntities.colourOption(2000L, otherColourType, leafType);
+        MirrorFinishType mirrorFinishType = TestEntities.mirrorFinishType(1L, BigDecimal.valueOf(40));
+        MirrorFinishOption mirrorFinishOption = TestEntities.mirrorFinishOption(500L, mirrorFinishType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1011), BigDecimal.valueOf(911), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
+                .thenReturn(Optional.of(heightRule));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(otherColourOption));
+        when(mirrorFinishOptionRepository.findByMirrorFinishTypeIdAndLeafTypeId(1L, 1L))
+                .thenReturn(Optional.of(mirrorFinishOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2200), null, 1L, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        // Порядок: высота (+30%) → цвет (+20%) → зеркало (+40%) → реверс (+10%), округление после каждого шага:
+        // retail: 1011 -> округление(1011*1.30)=1314 -> округление(1314*1.20)=1577
+        //   -> округление(1577*1.40)=2208 -> округление(2208*1.10)=2429.
+        // dealer:  911 -> округление(911*1.30)=1184 -> округление(1184*1.20)=1421
+        //   -> округление(1421*1.40)=1989 -> округление(1989*1.10)=2188.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("2429");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("2188");
+    }
+
+    @Test
     void одна_позиция_фурнитуры_добавляется_к_итогу() {
         DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
         HardwareCategory category = TestEntities.hardwareCategory(300L);

@@ -342,3 +342,9 @@ databaseChangeLog:
   - include:
       file: changes/0101-leaf-colour-options-for-missing-collections.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0102-colour-type-surcharge-percent.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0103-colour-type-ral-ncs-other.yaml
+      relativeToChangelogFile: true

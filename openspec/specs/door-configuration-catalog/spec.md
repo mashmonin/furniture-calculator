@@ -102,6 +102,23 @@ Liner_dimension_option ДОЛЖЕН (SHALL) ссылаться ровно на �
 - **Когда** для одного и того же frame_type и одного и того же liner_dimension_type вставляются две строки liner_dimension_option с одинаковым value, но разными парами (min_value, max_value), не пересекающимися между собой (например, [2150, 2250] и [2300, 2300])
 - **То** обе строки успешно сохраняются
 
+### Requirement: Структура colour_type
+Colour_type ДОЛЖЕН (SHALL) хранить наименование цвета (name), код (code) и процент наценки к цене полотна (surcharge_percent); все три поля обязательны. Colour_type МОЖЕТ (MAY) дополнительно хранить краткое наименование (short_name). Colour_type — глобальный справочник, не привязанный к конкретному компоненту или коллекции; принадлежность конкретному типу компонента задаётся строками colour_option (см. «Владение colour_option»).
+
+Для всех colour_type, существовавших до появления surcharge_percent (см. change add-leaf-ral-ncs-colour-surcharge), surcharge_percent ДОЛЖЕН (SHALL) быть равен 0.
+
+#### Scenario: Правило требует name, code и surcharge_percent
+- **WHEN** строка colour_type вставляется без name, без code или без surcharge_percent
+- **THEN** база данных отклоняет вставку
+
+#### Scenario: Существуют цвета с разными процентами наценки
+- **WHEN** в colour_type есть несколько строк с разными surcharge_percent
+- **THEN** все строки сохраняются и доступны независимо друг от друга
+
+#### Scenario: Ранее заведённые цвета не несут наценки
+- **WHEN** запрашивается colour_type, заведённый до появления surcharge_percent
+- **THEN** его surcharge_percent равен 0
+
 ### Requirement: Структура colour_option
 Colour_option ДОЛЖЕН (SHALL) ссылаться ровно на один colour_type и ровно на один справочник типа компонента среди leaf_type, frame_type, edge_type, door_casing_type, frame_extensions_type. Каждая строка описывает один допустимый цвет для этого типа компонента.
 
@@ -123,6 +140,21 @@ Colour_option ДОЛЖЕН (SHALL) ссылаться ровно на один c
 #### Scenario: Цвет не может повторяться для одного владельца
 - **Когда** для одного и того же leaf_type вставляется вторая строка colour_option с уже существующим colour_type
 - **То** база данных отклоняет вставку
+
+### Requirement: Цвет «Другой цвет из коллекции RAL и NCS»
+В colour_type ДОЛЖНА (SHALL) существовать ровно одна строка с наименованием «Другой цвет из коллекции RAL и NCS» и surcharge_percent = 20. Эта позиция ДОЛЖНА (SHALL) быть доступна (через colour_option) для leaf_type всех моделей коллекций Вертикаль, Атмосфера, Элегант, Гармония, Свобода, Геометрия и Сияние. Для leaf_type коллекций Сибирь и Фантом эта позиция недоступна.
+
+#### Scenario: Позиция заведена с наценкой 20%
+- **WHEN** запрашивается colour_type «Другой цвет из коллекции RAL и NCS»
+- **THEN** её surcharge_percent равен 20
+
+#### Scenario: Позиция доступна для полотна перечисленных коллекций
+- **WHEN** запрашивается список допустимых colour_option для leaf_type любой модели коллекций Вертикаль, Атмосфера, Элегант, Гармония, Свобода, Геометрия или Сияние
+- **THEN** в списке присутствует colour_option, ссылающийся на colour_type «Другой цвет из коллекции RAL и NCS»
+
+#### Scenario: Позиция недоступна для Сибири и Фантома
+- **WHEN** запрашивается список допустимых colour_option для leaf_type любой модели коллекций Сибирь или Фантом
+- **THEN** в списке нет colour_option, ссылающегося на colour_type «Другой цвет из коллекции RAL и NCS»
 
 ### Requirement: Структура mirror_finish_type
 Mirror_finish_type ДОЛЖЕН (SHALL) хранить наименование исполнения зеркала (name) и процент наценки к цене полотна (surcharge_percent); оба поля обязательны. Mirror_finish_type МОЖЕТ (MAY) дополнительно хранить краткое наименование (short_name) — необязательное человекочитаемое имя, короче name. Mirror_finish_type — глобальный справочник, не привязанный к конкретному leaf_type или коллекции.

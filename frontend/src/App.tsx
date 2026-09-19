@@ -581,6 +581,20 @@ function computeSurchargeBreakdown(
   if (heightPercent !== undefined) {
     items.push({ label: 'За нестандартную высоту', percent: heightPercent })
   }
+  // colourOptionId ссылается на строку colour_option (владение), а не на colour_type напрямую — в отличие
+  // от mirrorFinishTypeId/glazingTypeId, поэтому наценку ищем в два шага: colourOptionId -> colourType.id
+  // (из уже загруженного каталога leafComponent.colourOptions) -> процент в pricingSurcharges.colourSurcharges
+  // (см. change add-leaf-ral-ncs-colour-surcharge, design.md).
+  const selectedColourTypeId = leafComponent?.colourOptions.find(
+    (option) => option.id === leafSelection.colourOptionId,
+  )?.colourType.id
+  const colourSurcharge =
+    selectedColourTypeId !== undefined
+      ? pricingSurcharges.colourSurcharges.find((surcharge) => surcharge.id === selectedColourTypeId)
+      : undefined
+  if (colourSurcharge && colourSurcharge.surchargePercent !== 0) {
+    items.push({ label: 'За выбранный цвет', percent: colourSurcharge.surchargePercent })
+  }
   const mirrorFinishSurcharge =
     mirrorFinishTypeId !== undefined
       ? pricingSurcharges.mirrorFinishSurcharges.find((surcharge) => surcharge.id === mirrorFinishTypeId)

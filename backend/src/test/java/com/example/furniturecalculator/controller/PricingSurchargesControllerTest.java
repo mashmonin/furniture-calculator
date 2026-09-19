@@ -41,6 +41,11 @@ class PricingSurchargesControllerTest {
                 });
         assertThat(result.mirrorFinishSurcharges())
                 .anySatisfy(surcharge -> assertThat(surcharge.surchargePercent()).isEqualByComparingTo("30"));
+        assertThat(result.colourSurcharges())
+                .anySatisfy(surcharge -> {
+                    assertThat(surcharge.name()).isEqualTo("Другой цвет из коллекции RAL и NCS");
+                    assertThat(surcharge.surchargePercent()).isEqualByComparingTo("20");
+                });
         assertThat(result.pogonazhSurchargeRules())
                 .anySatisfy(rule -> {
                     assertThat(rule.ownerType()).isEqualTo("frame");
