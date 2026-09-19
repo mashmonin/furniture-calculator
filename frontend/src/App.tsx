@@ -529,9 +529,22 @@ function findHeightCascadeSurchargePercent(
   return undefined
 }
 
+// Значение, совпадающее со стандартной каталожной опцией этой оси, никогда не несёт наценку — та же
+// проверка, что и первым шагом на backend (DoorConfigurationPricingService.resolveAxisSurchargeMultiplier,
+// matchesStandardSize), обязательна и здесь: иначе, например, для 2000/2100мм (стандартные высоты,
+// но не входящие ни в одну строку dimension_surcharge_rule) каскад ошибочно унаследовал бы наценку от
+// соседнего меньшего значения 1950мм, хотя реальный расчёт наценку не применяет.
+function matchesStandardDimension(component: ComponentCatalogDto | undefined, dimensionTypeCode: string, value: number): boolean {
+  return (
+    component?.dimensionOptions.some((option) => option.dimensionType.code === dimensionTypeCode && option.value === value) ??
+    false
+  )
+}
+
 function computeSurchargeBreakdown(
   pricingSurcharges: PricingSurchargesDto | null,
   leafSelection: ComponentSelectionDto,
+  leafComponent: ComponentCatalogDto | undefined,
   leafTypeId: number | undefined,
   mirrorFinishTypeId: number | undefined,
   glazingTypeId: number | undefined,
@@ -542,7 +555,8 @@ function computeSurchargeBreakdown(
   }
   const items: SurchargeBreakdownItem[] = []
   const lengthRule =
-    leafSelection.customLengthValueMm !== undefined
+    leafSelection.customLengthValueMm !== undefined &&
+    !matchesStandardDimension(leafComponent, LENGTH_TYPE_CODE, leafSelection.customLengthValueMm)
       ? findDimensionSurchargeRule(
           pricingSurcharges, LENGTH_TYPE_CODE, leafSelection.customLengthValueMm, leafTypeId,
         )
@@ -550,15 +564,18 @@ function computeSurchargeBreakdown(
   if (lengthRule) {
     items.push({ label: 'За нестандартную ширину', percent: lengthRule.surchargePercent })
   }
+  const isCustomHeightStandard =
+    leafSelection.customHeightValueMm !== undefined &&
+    matchesStandardDimension(leafComponent, HEIGHT_TYPE_CODE, leafSelection.customHeightValueMm)
   const heightRule =
-    leafSelection.customHeightValueMm !== undefined
+    leafSelection.customHeightValueMm !== undefined && !isCustomHeightStandard
       ? findDimensionSurchargeRule(
           pricingSurcharges, HEIGHT_TYPE_CODE, leafSelection.customHeightValueMm, leafTypeId,
         )
       : undefined
   const heightPercent =
     heightRule?.surchargePercent ??
-    (leafSelection.customHeightValueMm !== undefined
+    (leafSelection.customHeightValueMm !== undefined && !isCustomHeightStandard
       ? findHeightCascadeSurchargePercent(pricingSurcharges, leafTypeId, leafSelection.customHeightValueMm)
       : undefined)
   if (heightPercent !== undefined) {
@@ -1331,6 +1348,7 @@ function App() {
   const surchargeBreakdown = computeSurchargeBreakdown(
     pricingSurcharges,
     selection.leaf,
+    leafComponent,
     leafTypeId,
     mirrorFinishTypeId,
     glazingTypeId,
