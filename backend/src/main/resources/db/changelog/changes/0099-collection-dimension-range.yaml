@@ -1,0 +1,59 @@
+databaseChangeLog:
+  # Каталожный справочник допустимой нестандартной длины/высоты полотна по коллекции (серии) —
+  # см. change add-collection-dimension-range. Отдельно от dimension_surcharge_rule/pogonazh_surcharge_rule
+  # (те — про наценку, эта таблица — про то, что фабрика физически может произвести). Без сид-данных —
+  # конкретные min/max по сериям фабрика ещё не передала, заводятся отдельным будущим change.
+  - changeSet:
+      id: 0099-1-create-collection-dimension-range
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: collection_dimension_range
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: collection_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collection_dimension_range_collection
+                    references: collection(id)
+              - column:
+                  name: liner_dimension_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collection_dimension_range_liner_dimension_type
+                    references: liner_dimension_type(id)
+              - column:
+                  name: min_value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: max_value
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0099-2-unique-collection-dimension-range-collection-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_collection_dimension_range_collection_type ON collection_dimension_range (collection_id, liner_dimension_type_id)
+
+  - changeSet:
+      id: 0099-3-check-collection-dimension-range-min-le-max
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE collection_dimension_range ADD CONSTRAINT chk_collection_dimension_range_min_le_max CHECK (min_value <= max_value)

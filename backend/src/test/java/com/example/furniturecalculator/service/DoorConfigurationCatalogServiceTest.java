@@ -23,6 +23,7 @@ import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
+import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
@@ -45,6 +46,8 @@ class DoorConfigurationCatalogServiceTest {
     private MirrorFinishOptionRepository mirrorFinishOptionRepository;
     @Mock
     private GlazingOptionRepository glazingOptionRepository;
+    @Mock
+    private CollectionDimensionRangeRepository collectionDimensionRangeRepository;
 
     @InjectMocks
     private DoorConfigurationCatalogService service;

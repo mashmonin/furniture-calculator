@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.furniturecalculator.domain.CatalogType;
+import com.example.furniturecalculator.domain.CollectionDimensionRange;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
@@ -43,6 +44,7 @@ import com.example.furniturecalculator.dto.PricingResponseDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
+import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorCasingTypeRepository;
@@ -120,6 +122,7 @@ public class DoorConfigurationPricingService {
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final LinerDimensionTypeRepository linerDimensionTypeRepository;
     private final DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
+    private final CollectionDimensionRangeRepository collectionDimensionRangeRepository;
     private final PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     private final ColourOptionRepository colourOptionRepository;
     private final ConfigurationPriceRepository configurationPriceRepository;
@@ -740,6 +743,19 @@ public class DoorConfigurationPricingService {
 
         LinerDimensionType dimensionType = linerDimensionTypeRepository.findByCode(dimensionTypeCode)
                 .orElseThrow(() -> new IllegalStateException("liner_dimension_type с кодом " + dimensionTypeCode + " не найден"));
+        // Диапазон допустимой нестандартной длины/высоты по коллекции (серии) полотна — см. change
+        // add-collection-dimension-range. Это каталожный факт («что физически можно произвести»), не
+        // связанный с наценкой: проверяется раньше и независимо от dimension_surcharge_rule/каскада, и если
+        // значение вне диапазона — к поиску наценки не переходим вообще. Отсутствие диапазона для этой
+        // (коллекции, оси) не считается ошибкой — проверка просто пропускается (см. design.md).
+        Optional<CollectionDimensionRange> dimensionRange = collectionDimensionRangeRepository
+                .findByCollectionIdAndLinerDimensionTypeId(leafType.getCollection().getId(), dimensionType.getId());
+        if (dimensionRange.isPresent()
+                && (customValue.compareTo(dimensionRange.get().getMinValue()) < 0
+                        || customValue.compareTo(dimensionRange.get().getMaxValue()) > 0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Данная нестандартная величина не поддерживается для данной модели");
+        }
         // Правило, привязанное к конкретной модели полотна (leaf_type), имеет приоритет перед общим —
         // см. change add-leaf-height-2800-2900-except-sibir-03. Отсутствие строки для этой модели
         // (в отличие от отсутствия строки вообще) означает, что значение для неё недопустимо, даже если
@@ -761,8 +777,7 @@ public class DoorConfigurationPricingService {
                 return BigDecimal.ONE.add(cascadePercent.get().divide(BigDecimal.valueOf(100)));
             }
         }
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "фабрика не производит полотно с размером " + customValue + " мм для этой оси");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Данная нестандартная величина не поддерживается для данной модели");
     }
 
     // Каскадный спуск по сетке 50мм высоты полотна от 1900мм — см. change

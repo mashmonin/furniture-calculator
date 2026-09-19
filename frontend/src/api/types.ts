@@ -30,6 +30,12 @@ export interface FramePostDto {
 
 export type LeafPanelType = 'BLIND' | 'GLAZED' | 'MIRRORED'
 
+export interface DimensionRangeDto {
+  dimensionType: ReferenceDto
+  minValue: number
+  maxValue: number
+}
+
 export interface ComponentCatalogDto {
   type: ReferenceDto
   collection: ReferenceDto | null
@@ -39,6 +45,7 @@ export interface ComponentCatalogDto {
   mirrorFinishOptions: ReferenceDto[]
   panelType: LeafPanelType | null
   glazingOptions: ReferenceDto[]
+  dimensionRanges: DimensionRangeDto[]
 }
 
 export interface DoorConfigurationDto {
