@@ -25,6 +25,9 @@ import com.example.furniturecalculator.dto.ComponentPriceDto;
 // значение высоты для компонентов, у которых оно не сопоставляется с каталожной опцией heightOption напрямую
 // (короб из HEIGHT_MIRROR_FRAME_TYPE_CODES — высота мирроритcя от leafHeightValue, а не выбирается из
 // каталога); для остальных компонентов — null, высота (если применима) берётся из heightOption.
+// colourOption — фронтальный (единственный вне двусторонней покраски) цвет; backColourOption — задний цвет
+// полотна при включённой двусторонней покраске (см. change add-leaf-double-sided-painting), для остальных
+// случаев (не leaf, либо leaf без двусторонней покраски) — всегда null.
 record ResolvedComponent(
         CatalogType type,
         ComponentPriceDto price,
@@ -32,6 +35,7 @@ record ResolvedComponent(
         LinerDimensionOption heightOption,
         LinerDimensionOption thicknessOption,
         ColourOption colourOption,
+        ColourOption backColourOption,
         List<FramePost> framePosts,
         int quantity,
         List<LeafPriceSurcharge> surcharges,

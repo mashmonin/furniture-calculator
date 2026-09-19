@@ -131,7 +131,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(frameLength));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null, null, null), null, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -155,7 +155,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(lessSpecific, moreSpecific));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null, null, null, null, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -181,7 +181,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(mismatched));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, 2000L, null, null, null, null, null, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -204,7 +204,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
+                new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null, null, null), ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -233,7 +233,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(priceA, priceB));
 
         PricingRequestDto request =
-                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null), null, null, null, null);
+                new PricingRequestDto(new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null, null, null), null, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -322,7 +322,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -352,7 +352,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of(framePost));
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -408,7 +408,7 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, null, null), null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -436,9 +436,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByEdgeTypeId(3L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -461,9 +461,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(edgeHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -485,7 +485,7 @@ class DoorConfigurationPricingServiceTest {
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
                 null,
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -509,8 +509,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -539,8 +539,8 @@ class DoorConfigurationPricingServiceTest {
         when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(3L, BigDecimal.valueOf(2400))).thenReturn(Optional.of(rule));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -576,8 +576,8 @@ class DoorConfigurationPricingServiceTest {
         // намеренно не застублен, Mockito по умолчанию возвращает Optional.empty().
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -606,8 +606,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -628,7 +628,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -652,8 +652,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -679,8 +679,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2001L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -717,7 +717,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY,
                 null, null, null);
 
@@ -762,8 +762,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -788,8 +788,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -812,8 +812,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -834,7 +834,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -876,8 +876,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -901,8 +901,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2001L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -925,8 +925,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(komplanarHeightRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -947,8 +947,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -975,8 +975,8 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1011,8 +1011,8 @@ class DoorConfigurationPricingServiceTest {
         when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(2L, BigDecimal.valueOf(2200))).thenReturn(Optional.of(frameRule));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
                 null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1040,8 +1040,8 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1058,7 +1058,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1097,7 +1097,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, 5000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 5000L, null, null, null, null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1114,7 +1114,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2100), null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1131,7 +1131,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY,
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(2100), null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(2100), null, null, null, null, null, null),
                 null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1162,12 +1162,12 @@ class DoorConfigurationPricingServiceTest {
         when(framePostRepository.findByFrameTypeId(2L)).thenReturn(List.of());
 
         PricingRequestDto requestA = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2100), null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2100), null, null, null, null, null),
                 null, null, null);
         PricingRequestDto requestB = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null),
-                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2000), null, null, null),
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2000), null, null, null, null, null),
                 null, null, null);
 
         ComponentPriceDto frameA = service.calculate(10L, requestA).components().stream()
@@ -1203,9 +1203,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(6L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1228,9 +1228,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborTsLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1250,7 +1250,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1274,9 +1274,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborTsLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1303,9 +1303,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(6L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1330,9 +1330,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1357,9 +1357,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1386,9 +1386,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1413,9 +1413,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1440,9 +1440,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1467,9 +1467,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(41L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -1495,9 +1495,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1521,9 +1521,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(doborKomplanarLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1543,7 +1543,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -1593,13 +1593,13 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(40L)).thenReturn(List.of(price));
 
         PricingRequestDto requestA = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
         PricingRequestDto requestB = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null));
 
         ComponentPriceDto frameExtensionsA = service.calculate(10L, requestA).components().stream()
                 .filter(c -> c.component().equals("frameExtensions"))
@@ -1634,9 +1634,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1660,9 +1660,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1683,7 +1683,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1708,9 +1708,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(modoLengthRange));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -1738,9 +1738,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1775,7 +1775,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
                 ComponentSelectionDto.EMPTY,
                 null);
@@ -1832,14 +1832,14 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(8L)).thenReturn(List.of(price));
 
         PricingRequestDto requestA = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
         PricingRequestDto requestB = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         ComponentPriceDto doorCasingA = service.calculate(10L, requestA).components().stream()
@@ -1875,9 +1875,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1903,9 +1903,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1934,9 +1934,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(21L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1962,9 +1962,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(25L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -1990,9 +1990,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(23L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2018,9 +2018,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(20L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2046,9 +2046,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueLength));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2074,9 +2074,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(evoLength));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2101,9 +2101,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueLength));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2124,7 +2124,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2166,9 +2166,9 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(22L)).thenReturn(List.of());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2193,9 +2193,9 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(avenueReverseLength));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2231,14 +2231,14 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByDoorCasingTypeId(25L)).thenReturn(List.of(price));
 
         PricingRequestDto requestA = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null),
                 null);
         PricingRequestDto requestB = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null, null, null),
                 null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null),
                 null);
 
         ComponentPriceDto doorCasingA = service.calculate(10L, requestA).components().stream()
@@ -2283,7 +2283,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(leafHeight));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
                 ComponentSelectionDto.EMPTY);
 
@@ -2425,7 +2425,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(600), null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(600), null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2456,7 +2456,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2482,7 +2482,7 @@ class DoorConfigurationPricingServiceTest {
                 .thenReturn(Optional.empty());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(999), null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(999), null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2497,7 +2497,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(1000L, null, null, null, BigDecimal.valueOf(950), null, null, null, null),
+                new ComponentSelectionDto(1000L, null, null, null, BigDecimal.valueOf(950), null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2515,7 +2515,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null,
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null, null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), null, null, null, null, null, null),
                 null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2540,7 +2540,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2579,7 +2579,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), BigDecimal.valueOf(1900), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, BigDecimal.valueOf(950), BigDecimal.valueOf(1900), null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2657,7 +2657,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, 3, null, null), null);
+                new ComponentSelectionDto(null, null, null, null, null, null, 3, null, null, null, null), null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -2684,7 +2684,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, 2, null, null));
+                new ComponentSelectionDto(null, null, null, null, null, null, 2, null, null, null, null));
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -2716,7 +2716,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, 3, null, null), null);
+                new ComponentSelectionDto(2000L, null, null, null, null, null, 3, null, null, null, null), null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -2750,7 +2750,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null), null);
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null), null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -2789,13 +2789,13 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByFrameExtensionsTypeId(6L)).thenReturn(List.of(price));
 
         PricingRequestDto requestA = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1000L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2000L, null, null, null, null, null, null, null, null, null, null));
         PricingRequestDto requestB = new PricingRequestDto(
-                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 1001L, null, null, null, null, null, null, null, null, null),
                 null, null, null,
-                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null));
+                new ComponentSelectionDto(2001L, null, null, null, null, null, null, null, null, null, null));
 
         ComponentPriceDto frameExtensionsA = service.calculate(10L, requestA).components().stream()
                 .filter(c -> c.component().equals("frameExtensions"))
@@ -2819,7 +2819,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, 1, null, null), null, null, null, null);
+                new ComponentSelectionDto(null, null, null, null, null, null, 1, null, null, null, null), null, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -2834,7 +2834,7 @@ class DoorConfigurationPricingServiceTest {
         when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
 
         PricingRequestDto request = new PricingRequestDto(
-                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, null, null, null, 1, null, null), null, null, null);
+                ComponentSelectionDto.EMPTY, new ComponentSelectionDto(null, null, null, null, null, null, 1, null, null, null, null), null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -2850,7 +2850,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, 0, null, null), null);
+                new ComponentSelectionDto(null, null, null, null, null, null, 0, null, null, null, null), null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -2868,7 +2868,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, 2, null, null), null);
+                new ComponentSelectionDto(null, null, null, null, null, null, 2, null, null, null, null), null);
 
         PricingResponseDto response = service.calculate(10L, request);
 
@@ -2900,7 +2900,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, 1L, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, 1L, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -2952,7 +2952,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null), null, null);
+                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null, null, null), null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -2971,7 +2971,7 @@ class DoorConfigurationPricingServiceTest {
         when(mirrorFinishOptionRepository.findByMirrorFinishTypeIdAndLeafTypeId(1L, 1L)).thenReturn(Optional.empty());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null),
+                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -2999,7 +2999,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, 1L),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, 1L, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -3029,7 +3029,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L),
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -3052,7 +3052,7 @@ class DoorConfigurationPricingServiceTest {
 
         PricingRequestDto request = new PricingRequestDto(
                 ComponentSelectionDto.EMPTY, null,
-                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L), null, null);
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L, null, null), null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -3070,7 +3070,7 @@ class DoorConfigurationPricingServiceTest {
         when(glazingOptionRepository.findByGlazingTypeIdAndLeafTypeId(1L, 1L)).thenReturn(Optional.empty());
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L),
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, 1L, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         assertThatThrownBy(() -> service.calculate(10L, request))
@@ -3091,7 +3091,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -3116,7 +3116,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null),
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -3153,7 +3153,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2200), null, 1L, null),
+                new ComponentSelectionDto(null, null, null, 2000L, null, BigDecimal.valueOf(2200), null, 1L, null, null, null),
                 ComponentSelectionDto.EMPTY, null, null, null);
 
         PricingResponseDto response = service.calculate(10L, request);
@@ -3170,6 +3170,146 @@ class DoorConfigurationPricingServiceTest {
         //   -> округление(1421*1.40)=1989 -> округление(1989*1.10)=2188.
         assertThat(leaf.retailPrice()).isEqualByComparingTo("2429");
         assertThat(leaf.dealerPrice()).isEqualByComparingTo("2188");
+    }
+
+    // Тесты на двустороннюю покраску полотна (см. change add-leaf-double-sided-painting): наценка за цвет
+    // при двух наценённых сторонах суммируется (не перемножается), надбавка 50% за саму двустороннюю
+    // покраску — отдельный шаг, не отменяемый и не заменяемый наценкой за цвет, валидация полей
+    // backColourOptionId/doubleSidedPainting.
+
+    @Test
+    void двусторонняя_покраска_суммирует_наценку_за_оба_цвета_а_не_перемножает() {
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption frontColour = TestEntities.colourOption(2000L, otherColourType, leafType);
+        ColourOption backColour = TestEntities.colourOption(2001L, otherColourType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(frontColour));
+        when(colourOptionRepository.findById(2001L)).thenReturn(Optional.of(backColour));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, 2001L, true),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        // Цвет: 20%+20%=40% (не 44%, как дало бы последовательное умножение 1.2*1.2), затем +50% за
+        // двустороннюю покраску: retail 1000 -> округление(1000*1.40)=1400 -> округление(1400*1.50)=2100;
+        // dealer 900 -> округление(900*1.40)=1260 -> округление(1260*1.50)=1890.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("2100");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1890");
+    }
+
+    @Test
+    void двусторонняя_покраска_без_выбранных_цветов_всё_равно_даёт_надбавку_50_процентов() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, null, null, true),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1500");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1350");
+    }
+
+    @Test
+    void двусторонняя_покраска_с_наценкой_только_на_одной_стороне_ведёт_себя_как_обычный_цвет_плюс_надбавка() {
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption frontColour = TestEntities.colourOption(2000L, otherColourType, leafType);
+        ColourOption backColour = TestEntities.colourOption(2001L, colourType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(frontColour));
+        when(colourOptionRepository.findById(2001L)).thenReturn(Optional.of(backColour));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, 2001L, true),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        // Цвет: 20%+0%=20%, затем +50%: 1000 -> 1200 -> 1800; 900 -> 1080 -> 1620.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1800");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1620");
+    }
+
+    @Test
+    void задний_цвет_без_включённой_двусторонней_покраски_отклоняется_400() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, null, 2001L, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void двусторонняя_покраска_для_компонента_отличного_от_leaf_отклоняется_400() {
+        FrameType frameType = TestEntities.frameType(2L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, frameType, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY,
+                new ComponentSelectionDto(null, null, null, null, null, null, null, null, null, null, true),
+                null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void задний_цвет_не_принадлежащий_полотну_конфигурации_отклоняется_400() {
+        LeafType otherLeafType = TestEntities.leafType(9L);
+        ColourOption foreignBackColour = TestEntities.colourOption(2001L, colourType, otherLeafType);
+        ColourOption frontColour = TestEntities.colourOption(2000L, colourType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(frontColour));
+        when(colourOptionRepository.findById(2001L)).thenReturn(Optional.of(foreignBackColour));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, 2001L, true),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
     }
 
     @Test
@@ -3361,7 +3501,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null),
+                new ComponentSelectionDto(null, null, null, null, null, BigDecimal.valueOf(2200), null, null, null, null, null),
                 null, null, null, null);
 
         PricingResponseDto response = service.calculateForLeaf(1L, request);
@@ -3369,6 +3509,32 @@ class DoorConfigurationPricingServiceTest {
         ComponentPriceDto leaf = response.components().get(0);
         assertThat(leaf.retailPrice()).isEqualByComparingTo("1300");
         assertThat(leaf.dealerPrice()).isEqualByComparingTo("1170");
+    }
+
+    @Test
+    void расчёт_отдельного_полотна_поддерживает_двустороннюю_покраску_так_же_как_расчёт_по_конфигурации() {
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption frontColour = TestEntities.colourOption(2000L, otherColourType, leafType);
+        ColourOption backColour = TestEntities.colourOption(2001L, otherColourType, leafType);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(frontColour));
+        when(colourOptionRepository.findById(2001L)).thenReturn(Optional.of(backColour));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, null, 2000L, null, null, null, null, null, 2001L, true),
+                null, null, null, null);
+
+        PricingResponseDto response = service.calculateForLeaf(1L, request);
+
+        ComponentPriceDto leaf = response.components().get(0);
+        // Та же формула, что и в расчёте по door_configuration: цвет 20%+20%=40%, затем +50%:
+        // 1000 -> 1400 -> 2100; 900 -> 1260 -> 1890.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("2100");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1890");
     }
 
     @Test
@@ -3384,7 +3550,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null),
+                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null, null, null),
                 null, null, null, null);
 
         PricingResponseDto response = service.calculateForLeaf(1L, request);
@@ -3409,7 +3575,7 @@ class DoorConfigurationPricingServiceTest {
         when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null),
+                new ComponentSelectionDto(null, null, null, null, null, null, null, 1L, null, null, null),
                 null, null, null, null, null, true, null);
 
         PricingResponseDto response = service.calculateForLeaf(1L, request);
@@ -3465,7 +3631,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(1000L)).thenReturn(Optional.of(frameLength));
 
         PricingRequestDto request = new PricingRequestDto(
-                new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(1000L, null, null, null, null, null, null, null, null, null, null),
                 null, null, null, null);
 
         assertThatThrownBy(() -> service.calculateForLeaf(1L, request))
@@ -3566,7 +3732,7 @@ class DoorConfigurationPricingServiceTest {
         when(pogonazhSurchargeRuleRepository.findByFrameTypeIdAndValue(3L, BigDecimal.valueOf(2400))).thenReturn(Optional.of(rule));
 
         FrameGroupPricingRequestDto request = new FrameGroupPricingRequestDto(
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null, null, BigDecimal.valueOf(2200));
 
         FrameGroupPricingResponseDto response = service.calculateForFrameGroup(3L, request);
@@ -3666,7 +3832,7 @@ class DoorConfigurationPricingServiceTest {
         when(linerDimensionOptionRepository.findById(2000L)).thenReturn(Optional.of(neoHeightRange));
 
         FrameGroupPricingRequestDto request = new FrameGroupPricingRequestDto(
-                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null),
+                new ComponentSelectionDto(null, 2000L, null, null, null, null, null, null, null, null, null),
                 null, null, null, null, BigDecimal.valueOf(2450));
 
         assertThatThrownBy(() -> service.calculateForFrameGroup(3L, request))

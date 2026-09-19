@@ -20,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.example.furniturecalculator.domain.ColourOption;
+import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.EdgeType;
 import com.example.furniturecalculator.domain.FrameExtensionsType;
@@ -50,10 +52,9 @@ class SpecificationExportServiceTest {
 
     @Test
     void минимальный_набор_содержит_только_раздел_полотна() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -66,9 +67,8 @@ class SpecificationExportServiceTest {
 
     @Test
     void ненайденная_цена_отображается_прочерком_а_не_пропуском_строки() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", false, null, null, null, null),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", false, null, null, null, null),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -88,10 +88,9 @@ class SpecificationExportServiceTest {
 
     @Test
     void заголовки_колонок_переименованы_и_переупорядочены() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -117,22 +116,18 @@ class SpecificationExportServiceTest {
         FrameExtensionsType frameExtensionsType = TestEntities.frameExtensionsType(6L);
         FramePost post = TestEntities.framePost(100L, BigDecimal.valueOf(300), BigDecimal.valueOf(200), frameType);
 
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
-        ResolvedComponent frame = new ResolvedComponent(
-                frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
                         BigDecimal.valueOf(3000), BigDecimal.valueOf(2000)),
-                null, null, null, null, List.of(post), 1, List.of(), List.of(), null);
-        ResolvedComponent doorCasing = new ResolvedComponent(
-                doorCasingType, new ComponentPriceDto("doorCasing", true, BigDecimal.valueOf(300), BigDecimal.valueOf(200),
+                null, null, null, null, null, List.of(post), 1, List.of(), List.of(), null);
+        ResolvedComponent doorCasing = new ResolvedComponent(doorCasingType, new ComponentPriceDto("doorCasing", true, BigDecimal.valueOf(300), BigDecimal.valueOf(200),
                         BigDecimal.valueOf(300), BigDecimal.valueOf(200)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
-        ResolvedComponent frameExtensions = new ResolvedComponent(
-                frameExtensionsType, new ComponentPriceDto("frameExtensions", true, BigDecimal.valueOf(150), BigDecimal.valueOf(100),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frameExtensions = new ResolvedComponent(frameExtensionsType, new ComponentPriceDto("frameExtensions", true, BigDecimal.valueOf(150), BigDecimal.valueOf(100),
                         BigDecimal.valueOf(150), BigDecimal.valueOf(100)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         HardwarePriceDto hardware = new HardwarePriceDto(
                 new ReferenceDto(300L, "HardwareCategory-300", "HardwareCategory 300", null),
                 new ReferenceDto(301L, "HardwareType-301", "HardwareType 301", null),
@@ -151,11 +146,9 @@ class SpecificationExportServiceTest {
 
     @Test
     void надбавки_к_цене_полотна_выгружаются_отдельным_разделом_под_таблицей() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1,
-                List.of(new LeafPriceSurcharge("За исполнение зеркала", BigDecimal.valueOf(40))), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(new LeafPriceSurcharge("За исполнение зеркала", BigDecimal.valueOf(40))), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -184,6 +177,74 @@ class SpecificationExportServiceTest {
     }
 
     @Test
+    void надбавка_за_двустороннюю_покраску_показана_в_разделе_надбавок() throws IOException {
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(2100), BigDecimal.valueOf(1890),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1,
+                List.of(new LeafPriceSurcharge("За выбранный цвет", BigDecimal.valueOf(40)),
+                        new LeafPriceSurcharge("За двустороннюю покраску", BigDecimal.valueOf(50))),
+                List.of(), null);
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, null, null, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        byte[] file = service.export(emptyRequest());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row colourSurchargeRow = sheet.getRow(9);
+            assertThat(colourSurchargeRow.getCell(0).getStringCellValue()).isEqualTo("  За выбранный цвет: +40%");
+            Row doubleSidedRow = sheet.getRow(10);
+            assertThat(doubleSidedRow.getCell(0).getStringCellValue()).isEqualTo("  За двустороннюю покраску: +50%");
+        }
+    }
+
+    @Test
+    void двусторонняя_покраска_показывает_оба_цвета_через_разделитель() throws IOException {
+        ColourType colourTypeFront = TestEntities.colourType(1L, BigDecimal.valueOf(0));
+        ColourOption front = TestEntities.colourOption(2000L, colourTypeFront, leafType);
+        ColourType colourTypeBack = TestEntities.colourType(2L, BigDecimal.valueOf(20));
+        ColourOption back = TestEntities.colourOption(2001L, colourTypeBack, leafType);
+
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, front, back, List.of(), 1, List.of(), List.of(), null);
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, null, null, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        byte[] file = service.export(emptyRequest());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row leafRow = sheet.getRow(2);
+            assertThat(leafRow.getCell(2).getStringCellValue())
+                    .isEqualTo(colourTypeFront.getName() + " / " + colourTypeBack.getName());
+        }
+    }
+
+    @Test
+    void единственный_выбранный_цвет_при_двусторонней_покраске_показан_один() throws IOException {
+        ColourType frontColourType = TestEntities.colourType(1L, BigDecimal.valueOf(0));
+        ColourOption front = TestEntities.colourOption(2000L, frontColourType, leafType);
+
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, front, null, List.of(), 1, List.of(), List.of(), null);
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, null, null, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        byte[] file = service.export(emptyRequest());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row leafRow = sheet.getRow(2);
+            assertThat(leafRow.getCell(2).getStringCellValue()).isEqualTo(frontColourType.getName());
+        }
+    }
+
+    @Test
     void измерения_объединяются_через_звёздочку_и_видна_базовая_и_итоговая_цена() throws IOException {
         LinerDimensionType lengthType = TestEntities.linerDimensionType(4L, "DT-001");
         LinerDimensionType thicknessType = TestEntities.linerDimensionType(6L, "DT-003");
@@ -192,10 +253,9 @@ class SpecificationExportServiceTest {
         LinerDimensionOption thicknessOption =
                 TestEntities.linerDimensionOption(11L, thicknessType, BigDecimal.valueOf(44), true, leafType);
 
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                lengthOption, null, thicknessOption, null, null, 1, List.of(), List.of(), null);
+                lengthOption, null, thicknessOption, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, BigDecimal.valueOf(2400), null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -221,10 +281,9 @@ class SpecificationExportServiceTest {
 
     @Test
     void без_реверса_строка_типа_открывания_не_добавляется() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -240,15 +299,12 @@ class SpecificationExportServiceTest {
     @Test
     void выбранные_опции_полотна_выгружаются_строками_между_полотном_и_кромкой() throws IOException {
         EdgeType edgeType = TestEntities.edgeType(3L);
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(),
-                List.of("Исполнение зеркала: С фацетом", "Вид остекления: Сатинированное"), null);
-        ResolvedComponent edge = new ResolvedComponent(
-                edgeType, new ComponentPriceDto("edge", true, BigDecimal.valueOf(500), BigDecimal.valueOf(400),
+                null, null, null, null, null, null, 1, List.of(), List.of("Исполнение зеркала: С фацетом", "Вид остекления: Сатинированное"), null);
+        ResolvedComponent edge = new ResolvedComponent(edgeType, new ComponentPriceDto("edge", true, BigDecimal.valueOf(500), BigDecimal.valueOf(400),
                         BigDecimal.valueOf(500), BigDecimal.valueOf(400)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, edge, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -270,14 +326,12 @@ class SpecificationExportServiceTest {
         LinerDimensionOption heightOption =
                 TestEntities.linerDimensionOption(20L, heightType, BigDecimal.valueOf(2100), true, frameType);
 
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
-        ResolvedComponent frame = new ResolvedComponent(
-                frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
                         BigDecimal.valueOf(3000), BigDecimal.valueOf(2000)),
-                null, heightOption, null, null, List.of(), 1, List.of(), List.of(), null);
+                null, heightOption, null, null, null, List.of(), 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, frame, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -298,14 +352,12 @@ class SpecificationExportServiceTest {
     void измерение_короба_с_мирроритcя_от_высоты_полотна() throws IOException {
         FrameType frameType = TestEntities.frameType(2L);
 
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
-        ResolvedComponent frame = new ResolvedComponent(
-                frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
                         BigDecimal.valueOf(3000), BigDecimal.valueOf(2000)),
-                null, null, null, null, List.of(), 1, List.of(), List.of(), BigDecimal.valueOf(2000));
+                null, null, null, null, null, List.of(), 1, List.of(), List.of(), BigDecimal.valueOf(2000));
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, frame, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -321,10 +373,9 @@ class SpecificationExportServiceTest {
 
     @Test
     void итоговая_сумма_выводится_после_полотна_с_двумя_колонками() throws IOException {
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
@@ -348,19 +399,16 @@ class SpecificationExportServiceTest {
         FramePost post = TestEntities.framePost(100L, BigDecimal.valueOf(300), BigDecimal.valueOf(200), frameType);
         EdgeType edgeType = TestEntities.edgeType(3L);
 
-        ResolvedComponent leaf = new ResolvedComponent(
-                leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
         // Цена не найдена — не должна попасть в итоговую сумму (тот же принцип, что и в
         // DoorConfigurationPricingService.sumRetail/sumDealer).
-        ResolvedComponent edge = new ResolvedComponent(
-                edgeType, new ComponentPriceDto("edge", false, null, null, null, null),
-                null, null, null, null, null, 1, List.of(), List.of(), null);
-        ResolvedComponent frame = new ResolvedComponent(
-                frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
+        ResolvedComponent edge = new ResolvedComponent(edgeType, new ComponentPriceDto("edge", false, null, null, null, null),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
                         BigDecimal.valueOf(3000), BigDecimal.valueOf(2000)),
-                null, null, null, null, List.of(post), 1, List.of(), List.of(), null);
+                null, null, null, null, null, List.of(post), 1, List.of(), List.of(), null);
 
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, edge, frame, null, null, List.of());

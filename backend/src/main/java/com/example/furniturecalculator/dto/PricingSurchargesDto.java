@@ -9,5 +9,7 @@ public record PricingSurchargesDto(
         List<MirrorFinishSurchargeDto> mirrorFinishSurcharges,
         List<GlazingSurchargeDto> glazingSurcharges,
         List<ColourSurchargeDto> colourSurcharges,
-        List<PogonazhSurchargeRuleDto> pogonazhSurchargeRules) {
+        List<PogonazhSurchargeRuleDto> pogonazhSurchargeRules,
+        // См. change add-leaf-double-sided-painting — фиксированный процент, как и reverseSurchargePercent.
+        BigDecimal doubleSidedPaintingSurchargePercent) {
 }

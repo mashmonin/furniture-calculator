@@ -584,16 +584,24 @@ function computeSurchargeBreakdown(
   // colourOptionId ссылается на строку colour_option (владение), а не на colour_type напрямую — в отличие
   // от mirrorFinishTypeId/glazingTypeId, поэтому наценку ищем в два шага: colourOptionId -> colourType.id
   // (из уже загруженного каталога leafComponent.colourOptions) -> процент в pricingSurcharges.colourSurcharges
-  // (см. change add-leaf-ral-ncs-colour-surcharge, design.md).
-  const selectedColourTypeId = leafComponent?.colourOptions.find(
-    (option) => option.id === leafSelection.colourOptionId,
-  )?.colourType.id
-  const colourSurcharge =
-    selectedColourTypeId !== undefined
-      ? pricingSurcharges.colourSurcharges.find((surcharge) => surcharge.id === selectedColourTypeId)
-      : undefined
-  if (colourSurcharge && colourSurcharge.surchargePercent !== 0) {
-    items.push({ label: 'За выбранный цвет', percent: colourSurcharge.surchargePercent })
+  // (см. change add-leaf-ral-ncs-colour-surcharge, design.md). При двусторонней покраске (см. change
+  // add-leaf-double-sided-painting) проценты фронтального и заднего цвета складываются в одну строку — той
+  // же суммой, что рассчитал backend, а не последовательным перемножением множителей каждой стороны.
+  const colourSurchargePercent = (colourOptionId: number | undefined): number =>
+    (colourOptionId !== undefined
+      ? pricingSurcharges.colourSurcharges.find(
+          (surcharge) => surcharge.id === leafComponent?.colourOptions.find((option) => option.id === colourOptionId)?.colourType.id,
+        )?.surchargePercent
+      : undefined) ?? 0
+  let colourPercent = colourSurchargePercent(leafSelection.colourOptionId)
+  if (leafSelection.doubleSidedPainting) {
+    colourPercent += colourSurchargePercent(leafSelection.backColourOptionId)
+  }
+  if (colourPercent !== 0) {
+    items.push({ label: 'За выбранный цвет', percent: colourPercent })
+  }
+  if (leafSelection.doubleSidedPainting) {
+    items.push({ label: 'За двустороннюю покраску', percent: pricingSurcharges.doubleSidedPaintingSurchargePercent })
   }
   const mirrorFinishSurcharge =
     mirrorFinishTypeId !== undefined
@@ -1746,16 +1754,49 @@ function App() {
                 selectedId={selection.leaf.thicknessOptionId}
                 onChange={(id) => updateSelection('leaf', { thicknessOptionId: id })}
               />
-              <OptionGroup
-                label="Цвет"
-                options={component.colourOptions.map((option) => ({
-                  id: option.id,
-                  label: option.colourType.name,
-                }))}
-                selectedId={selection.leaf.colourOptionId}
-                onChange={(id) => updateSelection('leaf', { colourOptionId: id })}
-                variant="select"
-              />
+              {component.colourOptions.length > 0 && (
+                <div>
+                  {selection.leaf.doubleSidedPainting ? (
+                    <div style={{ display: 'flex', gap: 16 }}>
+                      <div style={{ flex: 1 }}>
+                        <OptionGroup
+                          label="Цвет фронтальный"
+                          options={component.colourOptions.map((option) => ({
+                            id: option.id,
+                            label: option.colourType.name,
+                          }))}
+                          selectedId={selection.leaf.colourOptionId}
+                          onChange={(id) => updateSelection('leaf', { colourOptionId: id })}
+                          variant="select"
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <OptionGroup
+                          label="Цвет задний"
+                          options={component.colourOptions.map((option) => ({
+                            id: option.id,
+                            label: option.colourType.name,
+                          }))}
+                          selectedId={selection.leaf.backColourOptionId}
+                          onChange={(id) => updateSelection('leaf', { backColourOptionId: id })}
+                          variant="select"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <OptionGroup
+                      label="Цвет"
+                      options={component.colourOptions.map((option) => ({
+                        id: option.id,
+                        label: option.colourType.name,
+                      }))}
+                      selectedId={selection.leaf.colourOptionId}
+                      onChange={(id) => updateSelection('leaf', { colourOptionId: id })}
+                      variant="select"
+                    />
+                  )}
+                </div>
+              )}
             </Space>
           </Card>
         )}
@@ -1765,12 +1806,28 @@ function App() {
 
   const leafPanelContent = (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      {reverseStep?.visible && (
+      {(reverseStep?.visible || (leafComponent?.colourOptions.length ?? 0) > 0) && (
         <Space align="center" size="large">
-          <Space align="center">
-            <Typography.Text>Реверс</Typography.Text>
-            <Switch checked={reverseStep.value} onChange={handleReverseChange} />
-          </Space>
+          {reverseStep?.visible && (
+            <Space align="center">
+              <Typography.Text>Реверс</Typography.Text>
+              <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+            </Space>
+          )}
+          {(leafComponent?.colourOptions.length ?? 0) > 0 && (
+            <Space align="center">
+              <Typography.Text>Двустороннее</Typography.Text>
+              <Switch
+                checked={Boolean(selection.leaf.doubleSidedPainting)}
+                onChange={(checked) =>
+                  updateSelection('leaf', {
+                    doubleSidedPainting: checked,
+                    backColourOptionId: checked ? selection.leaf.backColourOptionId : undefined,
+                  })
+                }
+              />
+            </Space>
+          )}
         </Space>
       )}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
