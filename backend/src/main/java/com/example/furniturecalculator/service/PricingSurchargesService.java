@@ -32,6 +32,7 @@ public class PricingSurchargesService {
         return new PricingSurchargesDto(
                 pricingService.reverseSurchargePercent(),
                 dimensionSurchargeRuleRepository.findAll().stream()
+                        .filter(rule -> !rule.isUnavailable())
                         .map(rule -> new DimensionSurchargeRuleDto(
                                 ReferenceDto.from(rule.getLinerDimensionType()),
                                 rule.getValue(),
