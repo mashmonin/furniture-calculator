@@ -1,0 +1,20 @@
+databaseChangeLog:
+  # Для полотна коллекций «Атмосфера», «Элегант», «Гармония», «Свобода», «Геометрия», «Сияние» не было
+  # заведено ни одной строки colour_option (пробел в сид-данных, обнаружен пользователем как «нельзя
+  # выбрать цвет полотна» — не связан с недавними изменениями наценок/диапазонов). Фабрика подтвердила:
+  # для этих коллекций доступны те же цвета, что и у «Вертикаль» (LC-001). Коллекция «Фантом» (LC-009)
+  # сознательно не затрагивается — у полотна этой коллекции цветов нет по конструкции.
+  - changeSet:
+      id: 0101-1-insert-leaf-colour-options-from-vertikal
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, leaf_type_id)
+              SELECT DISTINCT co.colour_type_id, lt.id
+              FROM colour_option co
+              JOIN leaf_type source_lt ON source_lt.id = co.leaf_type_id
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE source_lt.code = 'LT-001'
+                AND c.code IN ('LC-002', 'LC-003', 'LC-004', 'LC-005', 'LC-006', 'LC-007')

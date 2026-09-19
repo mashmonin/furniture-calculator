@@ -339,3 +339,6 @@ databaseChangeLog:
   - include:
       file: changes/0100-collection-dimension-range-seed-data.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0101-leaf-colour-options-for-missing-collections.yaml
+      relativeToChangelogFile: true
