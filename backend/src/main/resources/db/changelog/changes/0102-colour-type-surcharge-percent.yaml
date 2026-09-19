@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0102-1-add-colour-type-surcharge-percent-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: colour_type
+            columns:
+              - column:
+                  name: surcharge_percent
+                  type: DECIMAL
+
+  - changeSet:
+      id: 0102-2-backfill-colour-type-surcharge-percent
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE colour_type SET surcharge_percent = 0
+
+  - changeSet:
+      id: 0102-3-colour-type-surcharge-percent-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: colour_type
+            columnName: surcharge_percent
+            columnDataType: DECIMAL

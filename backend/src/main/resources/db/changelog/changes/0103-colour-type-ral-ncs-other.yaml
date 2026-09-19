@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # Новая позиция справочника цветов: «Другой цвет из коллекции RAL и NCS», доступная для полотна
+  # коллекций Вертикаль/Атмосфера/Элегант/Гармония/Свобода/Геометрия/Сияние (LC-001..LC-007).
+  # Коллекции Сибирь (LC-008) и Фантом (LC-009) не затрагиваются. Наценка к цене полотна — 20%.
+  - changeSet:
+      id: 0103-1-insert-colour-type-ral-ncs-other
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_type (name, code, surcharge_percent)
+              VALUES ('Другой цвет из коллекции RAL и NCS', 'CT-029', 20)
+
+  - changeSet:
+      id: 0103-2-insert-leaf-colour-options-ral-ncs-other
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, leaf_type_id)
+              SELECT ct.id, lt.id
+              FROM colour_type ct
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE ct.code = 'CT-029'
+                AND c.code IN ('LC-001', 'LC-002', 'LC-003', 'LC-004', 'LC-005', 'LC-006', 'LC-007')

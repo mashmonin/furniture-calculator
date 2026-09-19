@@ -12,12 +12,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.FrameType;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.domain.MirrorFinishType;
 import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.PricingSurchargesDto;
+import com.example.furniturecalculator.repository.ColourTypeRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.GlazingTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishTypeRepository;
@@ -33,6 +35,8 @@ class PricingSurchargesServiceTest {
     private MirrorFinishTypeRepository mirrorFinishTypeRepository;
     @Mock
     private GlazingTypeRepository glazingTypeRepository;
+    @Mock
+    private ColourTypeRepository colourTypeRepository;
     @Mock
     private PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     @Mock
@@ -83,6 +87,21 @@ class PricingSurchargesServiceTest {
         assertThat(result.mirrorFinishSurcharges()).hasSize(1);
         assertThat(result.mirrorFinishSurcharges().get(0).id()).isEqualTo(1L);
         assertThat(result.mirrorFinishSurcharges().get(0).surchargePercent()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void непустой_справочник_цветов_возвращает_все_строки_с_правильными_полями() {
+        ColourType colourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        when(dimensionSurchargeRuleRepository.findAll()).thenReturn(List.of());
+        when(mirrorFinishTypeRepository.findAll()).thenReturn(List.of());
+        when(colourTypeRepository.findAll()).thenReturn(List.of(colourType));
+        when(pricingService.reverseSurchargePercent()).thenReturn(BigDecimal.TEN);
+
+        PricingSurchargesDto result = service.getPricingSurcharges();
+
+        assertThat(result.colourSurcharges()).hasSize(1);
+        assertThat(result.colourSurcharges().get(0).id()).isEqualTo(1L);
+        assertThat(result.colourSurcharges().get(0).surchargePercent()).isEqualByComparingTo("20");
     }
 
     @Test

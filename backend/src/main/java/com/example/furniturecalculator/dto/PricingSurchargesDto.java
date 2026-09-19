@@ -8,5 +8,6 @@ public record PricingSurchargesDto(
         List<DimensionSurchargeRuleDto> dimensionSurchargeRules,
         List<MirrorFinishSurchargeDto> mirrorFinishSurcharges,
         List<GlazingSurchargeDto> glazingSurcharges,
+        List<ColourSurchargeDto> colourSurcharges,
         List<PogonazhSurchargeRuleDto> pogonazhSurchargeRules) {
 }

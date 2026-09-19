@@ -94,7 +94,13 @@ public final class TestEntities {
     }
 
     public static ColourType colourType(long id) {
-        return referenceType(ColourType.class, id);
+        return colourType(id, BigDecimal.ZERO);
+    }
+
+    public static ColourType colourType(long id, BigDecimal surchargePercent) {
+        ColourType type = referenceType(ColourType.class, id);
+        ReflectionTestUtils.setField(type, "surchargePercent", surchargePercent);
+        return type;
     }
 
     public static PostType postType(long id) {

@@ -4,12 +4,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
+import com.example.furniturecalculator.dto.ColourSurchargeDto;
 import com.example.furniturecalculator.dto.DimensionSurchargeRuleDto;
 import com.example.furniturecalculator.dto.GlazingSurchargeDto;
 import com.example.furniturecalculator.dto.MirrorFinishSurchargeDto;
 import com.example.furniturecalculator.dto.PogonazhSurchargeRuleDto;
 import com.example.furniturecalculator.dto.PricingSurchargesDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
+import com.example.furniturecalculator.repository.ColourTypeRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.GlazingTypeRepository;
 import com.example.furniturecalculator.repository.MirrorFinishTypeRepository;
@@ -24,6 +26,7 @@ public class PricingSurchargesService {
     private final DimensionSurchargeRuleRepository dimensionSurchargeRuleRepository;
     private final MirrorFinishTypeRepository mirrorFinishTypeRepository;
     private final GlazingTypeRepository glazingTypeRepository;
+    private final ColourTypeRepository colourTypeRepository;
     private final PogonazhSurchargeRuleRepository pogonazhSurchargeRuleRepository;
     private final DoorConfigurationPricingService pricingService;
 
@@ -45,6 +48,9 @@ public class PricingSurchargesService {
                         .toList(),
                 glazingTypeRepository.findAll().stream()
                         .map(type -> new GlazingSurchargeDto(type.getId(), type.getName(), type.getSurchargePercent()))
+                        .toList(),
+                colourTypeRepository.findAll().stream()
+                        .map(type -> new ColourSurchargeDto(type.getId(), type.getName(), type.getSurchargePercent()))
                         .toList(),
                 pogonazhSurchargeRuleRepository.findAll().stream()
                         .map(PricingSurchargesService::pogonazhSurchargeRuleDto)
