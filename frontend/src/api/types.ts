@@ -64,12 +64,20 @@ export interface ComponentSelectionDto {
   lengthOptionId?: number
   heightOptionId?: number
   thicknessOptionId?: number
+  // Для leaf при doubleSidedPainting = true — цвет фронтальной стороны (см. change
+  // add-leaf-double-sided-painting); иначе — единственный цвет, как и раньше.
   colourOptionId?: number
   customLengthValueMm?: number
   customHeightValueMm?: number
   quantity?: number
   mirrorFinishTypeId?: number
   glazingTypeId?: number
+  // Цвет задней стороны полотна — допустим только для leaf и только при doubleSidedPainting = true
+  // (см. change add-leaf-double-sided-painting).
+  backColourOptionId?: number
+  // Признак двусторонней покраски полотна — допустим только для leaf (см. change
+  // add-leaf-double-sided-painting).
+  doubleSidedPainting?: boolean
 }
 
 export interface HardwareSelectionDto {
@@ -229,6 +237,8 @@ export interface PricingSurchargesDto {
   glazingSurcharges: GlazingSurchargeDto[]
   colourSurcharges: ColourSurchargeDto[]
   pogonazhSurchargeRules: PogonazhSurchargeRuleDto[]
+  // См. change add-leaf-double-sided-painting — фиксированный процент, как и reverseSurchargePercent.
+  doubleSidedPaintingSurchargePercent: number
 }
 
 export interface UpdateCheckDto {

@@ -336,11 +336,24 @@ public class SpecificationExportService {
                 : (component.heightOption() != null ? component.heightOption().getValue() : component.heightMmOverride());
         BigDecimal thicknessMm = component.thicknessOption() != null ? component.thicknessOption().getValue() : null;
         String dimensions = formatDimensions(lengthMm, heightMm, thicknessMm);
-        String colour = component.colourOption() != null ? component.colourOption().getColourType().getName() : null;
+        String colour = formatColour(component);
         Integer quantity = includeQuantity ? component.quantity() : null;
         ComponentPriceDto price = component.price();
         return new SpecRow(name, dimensions, colour, quantity,
                 price.priced(), price.retailPrice(), price.baseRetailPrice(), price.dealerPrice(), price.baseDealerPrice(), true);
+    }
+
+    // Оба цвета полотна при двусторонней покраске — через « / » (фронтальный/задний, см. change
+    // add-leaf-double-sided-painting); если выбран только один из двух (либо двусторонняя покраска не
+    // применима — короб/кромка/наличник/добор, у которых backColourOption всегда null), поведение не
+    // отличается от прежнего единственного цвета.
+    private String formatColour(ResolvedComponent component) {
+        String front = component.colourOption() != null ? component.colourOption().getColourType().getName() : null;
+        String back = component.backColourOption() != null ? component.backColourOption().getColourType().getName() : null;
+        if (front != null && back != null) {
+            return front + " / " + back;
+        }
+        return front != null ? front : back;
     }
 
     // Объединяет применимые измерения в одну колонку через «*» в порядке длина-высота-толщина (например,

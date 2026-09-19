@@ -118,6 +118,11 @@ public class DoorConfigurationPricingService {
     // вместо жёстко заданного множителя.
     private static final BigDecimal REVERSE_SURCHARGE_MULTIPLIER = new BigDecimal("1.10");
 
+    // Надбавка за двустороннюю покраску полотна (см. change add-leaf-double-sided-painting) — фиксированный
+    // процент, как и надбавка за реверс, не строка в БД. Не отменяет и не заменяет наценку за цвет —
+    // применяется отдельным шагом (см. applySequentialSurcharges).
+    private static final BigDecimal DOUBLE_SIDED_PAINTING_SURCHARGE_MULTIPLIER = new BigDecimal("1.50");
+
     private final DoorConfigurationRepository doorConfigurationRepository;
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final LinerDimensionTypeRepository linerDimensionTypeRepository;
@@ -140,6 +145,12 @@ public class DoorConfigurationPricingService {
     // (см. change redesign-door-configurator-flow) — не используется и не меняет calculate().
     public BigDecimal reverseSurchargePercent() {
         return REVERSE_SURCHARGE_MULTIPLIER.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
+    }
+
+    // Читается PricingSurchargesController для отображения процента надбавки фронтенду, тем же принципом,
+    // что и reverseSurchargePercent() (см. change add-leaf-double-sided-painting).
+    public BigDecimal doubleSidedPaintingSurchargePercent() {
+        return DOUBLE_SIDED_PAINTING_SURCHARGE_MULTIPLIER.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
     }
 
     @Transactional(readOnly = true)
@@ -443,6 +454,7 @@ public class DoorConfigurationPricingService {
         int quantity = resolveQuantity(componentName, type, selection.quantity());
         OptionSurcharge mirrorFinish = resolveMirrorFinishMultiplier(componentName, type, selection.mirrorFinishTypeId());
         OptionSurcharge glazing = resolveGlazingMultiplier(componentName, type, selection.glazingTypeId());
+        boolean doubleSidedPainting = resolveDoubleSidedPainting(componentName, type, selection);
 
         if (type instanceof FrameType frameType) {
             ColourOption colourOption = validatedColourOption(componentName, frameType, selection.colourOptionId());
@@ -477,7 +489,7 @@ public class DoorConfigurationPricingService {
                     framePostPrice(componentName, frameType, colourOption), pogonazhMultiplier);
             components.add(framePrice);
             List<FramePost> framePosts = framePostRepository.findByFrameTypeId(frameType.getId());
-            return new ResolvedComponent(type, framePrice, null, frameHeightOption, null, colourOption, framePosts, 1,
+            return new ResolvedComponent(type, framePrice, null, frameHeightOption, null, colourOption, null, framePosts, 1,
                     List.of(), List.of(), frameHeightMmOverride);
         }
 
@@ -493,7 +505,12 @@ public class DoorConfigurationPricingService {
                 : validatedDimensionOption(componentName, type, selection.heightOptionId());
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
         ColourOption colourOption = validatedColourOption(componentName, type, selection.colourOptionId());
-        BigDecimal colourMultiplier = colourSurchargeMultiplier(type, colourOption);
+        ColourOption backColourOption = doubleSidedPainting
+                ? validatedColourOption(componentName, type, selection.backColourOptionId())
+                : null;
+        BigDecimal colourMultiplier = colourSurchargeMultiplier(type, colourOption, backColourOption);
+        BigDecimal doubleSidedPaintingMultiplier =
+                doubleSidedPainting ? DOUBLE_SIDED_PAINTING_SURCHARGE_MULTIPLIER : BigDecimal.ONE;
 
         if (type instanceof EdgeType && heightOption != null) {
             validateHeightWithinLeafRange(componentName, HEIGHT_TYPE_CODE, heightOption, leafHeightValue);
@@ -523,17 +540,19 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         ComponentPriceDto price = matched
-                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, colourMultiplier, mirrorFinish.multiplier(),
-                        glazing.multiplier(), applyReverseSurcharge, pogonazhMultiplier, quantity))
+                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, colourMultiplier,
+                        doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge,
+                        pogonazhMultiplier, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
         components.add(price);
         List<LeafPriceSurcharge> surcharges = type instanceof LeafType
-                ? leafPriceSurcharges(leafDimensionSurcharge, colourMultiplier, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
+                ? leafPriceSurcharges(leafDimensionSurcharge, colourMultiplier, doubleSidedPaintingMultiplier,
+                        mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
                 : List.of();
         List<String> selectedOptions = type instanceof LeafType ? leafSelectedOptions(mirrorFinish, glazing) : List.of();
         return new ResolvedComponent(
-                type, price, lengthOption, heightOption, thicknessOption, colourOption, null, quantity, surcharges,
-                selectedOptions, null);
+                type, price, lengthOption, heightOption, thicknessOption, colourOption, backColourOption, null, quantity,
+                surcharges, selectedOptions, null);
     }
 
     // Наименования выбранных опций полотна (исполнение зеркала/вид остекления) для строки «выбранные опции»
@@ -558,12 +577,13 @@ public class DoorConfigurationPricingService {
     // отдельная проверка на этот случай не нужна — как и на совпадение произвольного размера со стандартным
     // (resolveAxisSurchargeMultiplier уже возвращает ONE и в этом случае).
     private List<LeafPriceSurcharge> leafPriceSurcharges(
-            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal colourMultiplier, BigDecimal mirrorFinishMultiplier,
-            BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
+            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier,
+            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
         List<LeafPriceSurcharge> surcharges = new ArrayList<>();
         addSurchargeIfApplied(surcharges, "За нестандартную ширину", leafDimensionSurcharge.lengthMultiplier());
         addSurchargeIfApplied(surcharges, "За нестандартную высоту", leafDimensionSurcharge.heightMultiplier());
         addSurchargeIfApplied(surcharges, "За выбранный цвет", colourMultiplier);
+        addSurchargeIfApplied(surcharges, "За двустороннюю покраску", doubleSidedPaintingMultiplier);
         addSurchargeIfApplied(surcharges, "За исполнение зеркала", mirrorFinishMultiplier);
         addSurchargeIfApplied(surcharges, "За вид остекления", glazingMultiplier);
         if (applyReverseSurcharge) {
@@ -651,18 +671,55 @@ public class DoorConfigurationPricingService {
         static final OptionSurcharge NONE = new OptionSurcharge(BigDecimal.ONE, null);
     }
 
-    // Наценка за выбранный цвет полотна (см. change add-leaf-ral-ncs-colour-surcharge) — в отличие от
-    // зеркала/остекления, цвет не вводит отдельное поле запроса: colourOptionId уже ссылается на colour_option
-    // (владение), которое validatedColourOption резолвит для leaf/edge/doorCasing/frameExtensions generically.
-    // Здесь только читаем surcharge_percent уже полученного colourOption.getColourType() — без повторного
-    // запроса к репозиторию. Наценка применяется только к leaf (см. specs, «Наценка за выбранный цвет
-    // полотна») — для прочих компонентов surcharge_percent игнорируется, даже если он не равен нулю (на
-    // практике этот change не связывает новый colour_type ни с одним non-leaf владельцем).
-    private BigDecimal colourSurchargeMultiplier(CatalogType type, ColourOption colourOption) {
-        if (!(type instanceof LeafType) || colourOption == null) {
+    // Двусторонняя покраска и второй (задний) цвет допустимы только для leaf (см. change
+    // add-leaf-double-sided-painting) — по тому же принципу, что и mirrorFinishTypeId/glazingTypeId:
+    // недопустимое сочетание отклоняется здесь же, до резолва самого заднего цвета. Второй цвет без
+    // включённой двусторонней покраски — отдельная ошибка, не покрытая generic-резолвом validatedColourOption
+    // (та проверяет только принадлежность компоненту, а не эту связь двух полей друг с другом).
+    private boolean resolveDoubleSidedPainting(String componentName, CatalogType type, ComponentSelectionDto selection) {
+        boolean doubleSidedPainting = Boolean.TRUE.equals(selection.doubleSidedPainting());
+        if (doubleSidedPainting && !(type instanceof LeafType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "двусторонняя покраска допустима только для компонента leaf, а не для " + componentName);
+        }
+        if (selection.backColourOptionId() != null) {
+            if (!(type instanceof LeafType)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "второй цвет полотна допустим только для компонента leaf, а не для " + componentName);
+            }
+            if (!doubleSidedPainting) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "второй цвет полотна допустим только при включённой двусторонней покраске");
+            }
+        }
+        return doubleSidedPainting;
+    }
+
+    // Наценка за выбранный цвет полотна (см. change add-leaf-ral-ncs-colour-surcharge, расширено
+    // add-leaf-double-sided-painting) — в отличие от зеркала/остекления, цвет не вводит отдельное поле
+    // запроса: colourOptionId (фронтальный цвет) уже ссылается на colour_option (владение), которое
+    // validatedColourOption резолвит для leaf/edge/doorCasing/frameExtensions generically; backColourOption —
+    // тем же способом, но только когда включена двусторонняя покраска. При двусторонней покраске процент
+    // складывается (а не перемножаются готовые множители каждой стороны) — так что для двух цветов по 20%
+    // итог 40%, а не 44% (см. proposal.md, design.md Decision 2). Наценка применяется только к leaf (см.
+    // specs, «Наценка за выбранный цвет полотна») — для прочих компонентов surcharge_percent игнорируется,
+    // даже если он не равен нулю (на практике ни один non-leaf владелец не связан с colour_type с ненулевым
+    // процентом).
+    private BigDecimal colourSurchargeMultiplier(CatalogType type, ColourOption frontColourOption, ColourOption backColourOption) {
+        if (!(type instanceof LeafType)) {
             return BigDecimal.ONE;
         }
-        return BigDecimal.ONE.add(colourOption.getColourType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+        BigDecimal percent = BigDecimal.ZERO;
+        if (frontColourOption != null) {
+            percent = percent.add(frontColourOption.getColourType().getSurchargePercent());
+        }
+        if (backColourOption != null) {
+            percent = percent.add(backColourOption.getColourType().getSurchargePercent());
+        }
+        if (percent.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ONE;
+        }
+        return BigDecimal.ONE.add(percent.divide(BigDecimal.valueOf(100)));
     }
 
     // Надбавки применяются строго последовательно, с округлением после каждого шага (длина → высота → зеркало →
@@ -676,34 +733,39 @@ public class DoorConfigurationPricingService {
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            BigDecimal colourMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
-            boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier, int quantity) {
+            BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier,
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
         BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge,
-                colourMultiplier, mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
+                colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
+                applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge,
-                colourMultiplier, mirrorFinishMultiplier, glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
+                colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
+                applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
         BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
         return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
-    // Порядок шагов: длина → высота → цвет → исполнение зеркала → вид остекления → реверс (см. change
-    // add-mirror-finish-leaf-option, add-glazing-price-surcharge, add-leaf-ral-ncs-colour-surcharge) — цвет
-    // встаёт сразу после высоты, до зеркала и остекления (более базовый атрибут полотна, чем опциональные
-    // исполнения), остекление — строго между зеркалом и реверсом, тем же принципом округления после каждого
-    // шага. Зеркало и остекление физически взаимоисключающи для одного и того же leaf_type (см. миграция
-    // 0090-5-remove-mirror-finish-for-glazed-models), поэтому на практике не применяются одновременно — порядок
-    // между ними фиксирован на будущее, для предсказуемости.
+    // Порядок шагов: длина → высота → цвет → двусторонняя покраска → исполнение зеркала → вид остекления →
+    // реверс (см. change add-mirror-finish-leaf-option, add-glazing-price-surcharge,
+    // add-leaf-ral-ncs-colour-surcharge, add-leaf-double-sided-painting) — цвет встаёт сразу после высоты, до
+    // зеркала и остекления (более базовый атрибут полотна, чем опциональные исполнения), двусторонняя
+    // покраска — сразу после цвета (обе надбавки описывают покраску полотна), остекление — строго между
+    // зеркалом и реверсом, тем же принципом округления после каждого шага. Зеркало и остекление физически
+    // взаимоисключающи для одного и того же leaf_type (см. миграция 0090-5-remove-mirror-finish-for-glazed-models),
+    // поэтому на практике не применяются одновременно — порядок между ними фиксирован на будущее, для
+    // предсказуемости.
     private BigDecimal applySequentialSurcharges(
             BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal colourMultiplier,
-            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge,
-            BigDecimal pogonazhSurchargeMultiplier) {
+            BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
+            boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
         result = applyPercentMultiplier(result, colourMultiplier);
+        result = applyPercentMultiplier(result, doubleSidedPaintingMultiplier);
         result = applyPercentMultiplier(result, mirrorFinishMultiplier);
         result = applyPercentMultiplier(result, glazingMultiplier);
         if (applyReverseSurcharge) {
