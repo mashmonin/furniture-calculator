@@ -581,6 +581,23 @@ function computeSurchargeBreakdown(
   if (heightPercent !== undefined) {
     items.push({ label: 'За нестандартную высоту', percent: heightPercent })
   }
+  // В отличие от длины/высоты, у толщины нет режима произвольного значения — клиент выбирает только id
+  // каталожной опции (см. change add-leaf-thickness-59mm-option), поэтому значение резолвится через сам
+  // выбранный dimensionOptions.id (а не через customLengthValueMm/customHeightValueMm), а дальше та же
+  // наценка ищется тем же findDimensionSurchargeRule, что и для длины/высоты.
+  const thicknessValue =
+    leafSelection.thicknessOptionId !== undefined
+      ? leafComponent?.dimensionOptions.find(
+          (option) => option.dimensionType.code === THICKNESS_TYPE_CODE && option.id === leafSelection.thicknessOptionId,
+        )?.value
+      : undefined
+  const thicknessRule =
+    thicknessValue !== undefined
+      ? findDimensionSurchargeRule(pricingSurcharges, THICKNESS_TYPE_CODE, thicknessValue, leafTypeId)
+      : undefined
+  if (thicknessRule) {
+    items.push({ label: 'За нестандартную толщину', percent: thicknessRule.surchargePercent })
+  }
   // colourOptionId ссылается на строку colour_option (владение), а не на colour_type напрямую — в отличие
   // от mirrorFinishTypeId/glazingTypeId, поэтому наценку ищем в два шага: colourOptionId -> colourType.id
   // (из уже загруженного каталога leafComponent.colourOptions) -> процент в pricingSurcharges.colourSurcharges

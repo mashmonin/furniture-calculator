@@ -70,6 +70,7 @@ public class DoorConfigurationPricingService {
     // Коды типов размера из справочника liner_dimension_type (см. db.changelog 0004) — стабильные бизнес-ключи.
     private static final String LENGTH_TYPE_CODE = "DT-001";
     private static final String HEIGHT_TYPE_CODE = "DT-002";
+    private static final String THICKNESS_TYPE_CODE = "DT-003";
 
     // Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
     // add-leaf-height-cascade-surcharge-50mm-grid) — 1900мм наименьшая заведённая точка, потолка нет;
@@ -504,6 +505,7 @@ public class DoorConfigurationPricingService {
                 ? null
                 : validatedDimensionOption(componentName, type, selection.heightOptionId());
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
+        BigDecimal thicknessMultiplier = resolveThicknessSurchargeMultiplier(type, thicknessOption);
         ColourOption colourOption = validatedColourOption(componentName, type, selection.colourOptionId());
         ColourOption backColourOption = doubleSidedPainting
                 ? validatedColourOption(componentName, type, selection.backColourOptionId())
@@ -540,13 +542,13 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         ComponentPriceDto price = matched
-                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, colourMultiplier,
+                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, thicknessMultiplier, colourMultiplier,
                         doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge,
                         pogonazhMultiplier, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
         components.add(price);
         List<LeafPriceSurcharge> surcharges = type instanceof LeafType
-                ? leafPriceSurcharges(leafDimensionSurcharge, colourMultiplier, doubleSidedPaintingMultiplier,
+                ? leafPriceSurcharges(leafDimensionSurcharge, thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier,
                         mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
                 : List.of();
         List<String> selectedOptions = type instanceof LeafType ? leafSelectedOptions(mirrorFinish, glazing) : List.of();
@@ -577,11 +579,13 @@ public class DoorConfigurationPricingService {
     // отдельная проверка на этот случай не нужна — как и на совпадение произвольного размера со стандартным
     // (resolveAxisSurchargeMultiplier уже возвращает ONE и в этом случае).
     private List<LeafPriceSurcharge> leafPriceSurcharges(
-            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier,
-            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
+            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal thicknessMultiplier, BigDecimal colourMultiplier,
+            BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
+            boolean applyReverseSurcharge) {
         List<LeafPriceSurcharge> surcharges = new ArrayList<>();
         addSurchargeIfApplied(surcharges, "За нестандартную ширину", leafDimensionSurcharge.lengthMultiplier());
         addSurchargeIfApplied(surcharges, "За нестандартную высоту", leafDimensionSurcharge.heightMultiplier());
+        addSurchargeIfApplied(surcharges, "За нестандартную толщину", thicknessMultiplier);
         addSurchargeIfApplied(surcharges, "За выбранный цвет", colourMultiplier);
         addSurchargeIfApplied(surcharges, "За двустороннюю покраску", doubleSidedPaintingMultiplier);
         addSurchargeIfApplied(surcharges, "За исполнение зеркала", mirrorFinishMultiplier);
@@ -733,15 +737,16 @@ public class DoorConfigurationPricingService {
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier,
-            BigDecimal glazingMultiplier, boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier, int quantity) {
+            BigDecimal thicknessMultiplier, BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier,
+            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge,
+            BigDecimal pogonazhSurchargeMultiplier, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
         BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge,
-                colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
+                thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
                 applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge,
-                colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
+                thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
                 applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
@@ -749,21 +754,23 @@ public class DoorConfigurationPricingService {
         return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
-    // Порядок шагов: длина → высота → цвет → двусторонняя покраска → исполнение зеркала → вид остекления →
-    // реверс (см. change add-mirror-finish-leaf-option, add-glazing-price-surcharge,
-    // add-leaf-ral-ncs-colour-surcharge, add-leaf-double-sided-painting) — цвет встаёт сразу после высоты, до
-    // зеркала и остекления (более базовый атрибут полотна, чем опциональные исполнения), двусторонняя
-    // покраска — сразу после цвета (обе надбавки описывают покраску полотна), остекление — строго между
-    // зеркалом и реверсом, тем же принципом округления после каждого шага. Зеркало и остекление физически
-    // взаимоисключающи для одного и того же leaf_type (см. миграция 0090-5-remove-mirror-finish-for-glazed-models),
-    // поэтому на практике не применяются одновременно — порядок между ними фиксирован на будущее, для
-    // предсказуемости.
+    // Порядок шагов: длина → высота → толщина → цвет → двусторонняя покраска → исполнение зеркала → вид
+    // остекления → реверс (см. change add-mirror-finish-leaf-option, add-glazing-price-surcharge,
+    // add-leaf-ral-ncs-colour-surcharge, add-leaf-double-sided-painting, add-leaf-thickness-59mm-option) —
+    // толщина встаёт сразу после высоты (та же «размерная» ось, тот же механизм dimension_surcharge_rule),
+    // до цвета; цвет — до зеркала и остекления (более базовый атрибут полотна, чем опциональные исполнения),
+    // двусторонняя покраска — сразу после цвета (обе надбавки описывают покраску полотна), остекление —
+    // строго между зеркалом и реверсом, тем же принципом округления после каждого шага. Зеркало и остекление
+    // физически взаимоисключающи для одного и того же leaf_type (см. миграция
+    // 0090-5-remove-mirror-finish-for-glazed-models), поэтому на практике не применяются одновременно —
+    // порядок между ними фиксирован на будущее, для предсказуемости.
     private BigDecimal applySequentialSurcharges(
-            BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal colourMultiplier,
-            BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
-            boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier) {
+            BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal thicknessMultiplier,
+            BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier,
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
+        result = applyPercentMultiplier(result, thicknessMultiplier);
         result = applyPercentMultiplier(result, colourMultiplier);
         result = applyPercentMultiplier(result, doubleSidedPaintingMultiplier);
         result = applyPercentMultiplier(result, mirrorFinishMultiplier);
@@ -860,6 +867,33 @@ public class DoorConfigurationPricingService {
             }
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Данная нестандартная величина не поддерживается для данной модели");
+    }
+
+    // Наценка за выбранную толщину полотна (см. change add-leaf-thickness-59mm-option) — в отличие от длины/
+    // высоты, у толщины нет режима произвольного значения: клиент выбирает только id существующей каталожной
+    // liner_dimension_option, поэтому наценка резолвится напрямую по значению уже полученной опции, а не через
+    // resolveAxisSurchargeMultiplier (тот дополнительно обрабатывает произвольный ввод и диапазон коллекции —
+    // здесь не нужно ни то, ни другое: опция валидна по построению). Отсутствие правила для этого значения
+    // (типичный случай для стандартной толщины 44мм, для которой правила не заводится) означает просто
+    // «наценки нет», а не «недопустимая величина» — в отличие от длины/высоты. Наценка применяется только к
+    // leaf (как и цвет/зеркало/остекление) — для прочих типов компонентов множитель всегда ONE.
+    private BigDecimal resolveThicknessSurchargeMultiplier(CatalogType type, LinerDimensionOption thicknessOption) {
+        if (!(type instanceof LeafType leafType) || thicknessOption == null) {
+            return BigDecimal.ONE;
+        }
+        LinerDimensionType dimensionType = thicknessOption.getLinerDimensionType();
+        if (!THICKNESS_TYPE_CODE.equals(dimensionType.getCode())) {
+            return BigDecimal.ONE;
+        }
+        BigDecimal value = thicknessOption.getValue();
+        Optional<DimensionSurchargeRule> rule = dimensionSurchargeRuleRepository
+                .findByLinerDimensionTypeIdAndValueAndLeafTypeId(dimensionType.getId(), value, leafType.getId())
+                .or(() -> dimensionSurchargeRuleRepository
+                        .findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(dimensionType.getId(), value));
+        if (rule.isEmpty() || rule.get().isUnavailable()) {
+            return BigDecimal.ONE;
+        }
+        return BigDecimal.ONE.add(rule.get().getSurchargePercent().divide(BigDecimal.valueOf(100)));
     }
 
     // Каскадный спуск по сетке 50мм высоты полотна от 1900мм — см. change

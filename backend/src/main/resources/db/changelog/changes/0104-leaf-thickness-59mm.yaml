@@ -1,0 +1,33 @@
+databaseChangeLog:
+  # Толщина полотна 59мм как опция наравне со стандартной толщиной 44мм (см. change
+  # add-leaf-thickness-59mm-option) — для не остеклённых (panel_type <> 'GLAZED') моделей коллекций
+  # Вертикаль/Атмосфера/Элегант/Гармония/Свобода/Геометрия/Сияние/Сибирь/Фантом (LC-001..LC-009).
+  # Остеклённые модели этих же коллекций (…01V/02V/021V/01G) опцию не получают — толщина 59мм для них
+  # не производится. Наценка 20% — одна общая (не привязанная к leaf_type) строка dimension_surcharge_rule:
+  # выбрать значение 59 можно только через id этой же каталожной опции, которая заводится только для
+  # подходящих leaf_type, поэтому общее правило безопасно (см. design.md, «Общее правило...»).
+  - changeSet:
+      id: 0104-1-insert-leaf-thickness-59mm-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, 59, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE dt.code = 'DT-003'
+                AND c.code IN ('LC-001', 'LC-002', 'LC-003', 'LC-004', 'LC-005', 'LC-006', 'LC-007', 'LC-008', 'LC-009')
+                AND lt.panel_type <> 'GLAZED'
+
+  - changeSet:
+      id: 0104-2-insert-leaf-thickness-59mm-surcharge-rule
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO dimension_surcharge_rule (liner_dimension_type_id, value, surcharge_percent)
+              SELECT id, 59, 20
+              FROM liner_dimension_type
+              WHERE code = 'DT-003'
