@@ -7,5 +7,6 @@ public record DoorConfigurationDto(
         ComponentCatalogDto edge,
         ComponentCatalogDto doorCasing,
         ComponentCatalogDto frameExtensions,
-        boolean reverse) {
+        boolean reverse,
+        boolean hasQuarter) {
 }

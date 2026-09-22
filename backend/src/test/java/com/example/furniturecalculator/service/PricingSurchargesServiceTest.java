@@ -117,6 +117,18 @@ class PricingSurchargesServiceTest {
     }
 
     @Test
+    void процент_наценки_за_четверть_совпадает_со_значением_из_pricing_service() {
+        when(dimensionSurchargeRuleRepository.findAll()).thenReturn(List.of());
+        when(mirrorFinishTypeRepository.findAll()).thenReturn(List.of());
+        when(pricingService.reverseSurchargePercent()).thenReturn(BigDecimal.TEN);
+        when(pricingService.quarterSurchargePercent()).thenReturn(BigDecimal.TEN);
+
+        PricingSurchargesDto result = service.getPricingSurcharges();
+
+        assertThat(result.quarterSurchargePercent()).isEqualByComparingTo("10");
+    }
+
+    @Test
     void непустой_справочник_наценок_за_погонаж_возвращает_все_строки_с_правильными_полями() {
         FrameType frameType = TestEntities.frameType(3L, "FT-003");
         PogonazhSurchargeRule rule =

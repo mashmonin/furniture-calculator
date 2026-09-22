@@ -1,0 +1,203 @@
+databaseChangeLog:
+  # Отменяет прежнюю жёсткую связку кромки и is_reverse (см. change refine-catalog-and-edge-reverse-rule) и
+  # вводит вместо неё самостоятельный атрибут has_quarter — четверть по периметру полотна, независимая от
+  # направления открывания (см. change add-leaf-quarter-attribute). Заполняется для существующих строк:
+  # is_reverse=true → true; leaf_type с опцией толщины 59мм → true (независимо от is_reverse); остальные →
+  # false, с материализацией их копии с has_quarter=true (кромка ET-001→ET-002 в копии, NULL остаётся NULL).
+  # Отдельно убирает короб «Нео» (FT-003) из каталога моделей с толщиной 59мм.
+  - changeSet:
+      id: 0105-1-add-door-configuration-has-quarter-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: door_configuration
+            columns:
+              - column:
+                  name: has_quarter
+                  type: BOOLEAN
+                  # default false — как у is_reverse (см. change add-leaf-quarter-attribute): защищает
+                  # существующие raw-SQL INSERT'ы (в т.ч. в тестах), не указывающие эту колонку явно, от
+                  # последующего NOT NULL constraint (шаг 3). Историческим строкам значение переопределяется
+                  # явным backfill (шаг 2) независимо от этого default.
+                  defaultValueBoolean: false
+
+  - changeSet:
+      id: 0105-2-backfill-door-configuration-has-quarter
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = true WHERE is_reverse = true
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = true
+              WHERE has_quarter IS NOT TRUE AND leaf_type_id IN (
+                SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                WHERE t.code = 'DT-003' AND o.value = 59
+              )
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = false WHERE has_quarter IS NULL
+
+  - changeSet:
+      id: 0105-3-door-configuration-has-quarter-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: door_configuration
+            columnName: has_quarter
+            columnDataType: BOOLEAN
+
+  - changeSet:
+      id: 0105-4-rebuild-door-configuration-unique-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_door_configuration_combination
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_door_configuration_combination ON door_configuration (
+                leaf_type_id,
+                COALESCE(frame_type_id, 0),
+                COALESCE(edge_type_id, 0),
+                COALESCE(door_casing_type_id, 0),
+                COALESCE(frame_extensions_type_id, 0),
+                is_reverse,
+                has_quarter
+              )
+
+  - changeSet:
+      id: 0105-5-copy-has-quarter-false-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT
+                leaf_type_id, frame_type_id,
+                CASE WHEN edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-001')
+                     THEN (SELECT id FROM edge_type WHERE code = 'ET-002')
+                     ELSE edge_type_id END,
+                door_casing_type_id, frame_extensions_type_id,
+                is_reverse, true
+              FROM door_configuration
+              WHERE has_quarter = false
+
+  - changeSet:
+      id: 0105-6-remove-neo-frame-for-59mm-thickness-models
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-003')
+                AND leaf_type_id IN (
+                  SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                  JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                  WHERE t.code = 'DT-003' AND o.value = 59
+                )
+
+  - changeSet:
+      id: 0105-7-fix-edge-type-for-existing-quarter-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Строки, чей has_quarter стал true по правилу «leaf_type с толщиной 59мм» (шаг 2), но которые
+            # уже существовали до этого change с edge_type=ET-001 (унаследовано от прежнего инварианта
+            # ET-001<->is_reverse=false), не были переведены на ET-002 шагом копирования (0105-5) — тот
+            # переносит кромку только у НОВЫХ копий строк, ранее имевших has_quarter=false. Без этого шага
+            # такие строки нарушали бы новое соответствие кромки и has_quarter (см. specs,
+            # door-configuration-catalog, «Соответствие вида кромки и атрибута «Четверть»»). Строк с
+            # has_quarter=false и edge_type=ET-002 после 0105-2..0105-5 не бывает (старый инвариант это
+            # исключал), поэтому симметричный фикс в обратную сторону не требуется.
+            sql: >-
+              UPDATE door_configuration SET edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-002')
+              WHERE has_quarter = true
+                AND edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-001')
+
+  - changeSet:
+      id: 0105-8-restore-choice-for-59mm-thickness-models-without-reverse
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Правило шага 2 «leaf_type с опцией толщины 59мм → has_quarter=true независимо от is_reverse»
+            # оказалось неверным по факту (обратная связь после первичной реализации): толщина полотна
+            # (нестандартная опция, выбираемая клиентом отдельно при расчёте, не хранимая в самой строке
+            # door_configuration) и четверть по периметру — независимые друг от друга опции, как и было
+            # изначально заявлено в proposal.md («полотно можно сделать с четвертью или без вне зависимости
+            # от способа открывания... например для лучшей шумоизоляции»); наличие у модели каталожной
+            # опции толщины 59мм не должно жёстко исключать вариант «без четверти» при обычном (не
+            # реверсивном) открывании. Это привязывало ВСЕ модели без остекления (включая всю коллекцию
+            # Вертикаль, где остеклённых моделей нет вовсе) только к «Четверть=true», без альтернативы.
+            # Единственное, что по-прежнему обязано требовать четверть — реверсивное открывание (is_reverse
+            # = true, механическое ограничение конструкции короба/полотна), не толщина.
+            # Восстанавливает симметрию: для строк, у которых has_quarter=true оказался только из-за этого
+            # правила (is_reverse=false, leaf_type из 33 моделей с толщиной 59мм), добавляет отсутствующую
+            # копию с has_quarter=false (кромка ET-002→ET-001 в копии, NULL остаётся NULL) — той же формой,
+            # что и 0105-5, но в обратную сторону и только для этого предиката. Короб «Нео» этим шагом не
+            # восстанавливается: его исключение для этих моделей (0105-6) — самостоятельное решение фабрики,
+            # не связанное с этой ошибкой.
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT
+                leaf_type_id, frame_type_id,
+                CASE WHEN edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-002')
+                     THEN (SELECT id FROM edge_type WHERE code = 'ET-001')
+                     ELSE edge_type_id END,
+                door_casing_type_id, frame_extensions_type_id,
+                is_reverse, false
+              FROM door_configuration
+              WHERE is_reverse = false
+                AND has_quarter = true
+                AND leaf_type_id IN (
+                  SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                  JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                  WHERE t.code = 'DT-003' AND o.value = 59
+                )
+
+  - changeSet:
+      id: 0105-9-restore-neo-frame-for-59mm-thickness-models-without-quarter
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Шаг 0105-6 удалил короб «Нео» (FT-003) для всех строк 33 моделей с толщиной 59мм безусловно —
+            # на тот момент (до отмены правила «толщина ⇒ Четверть=true» в 0105-8) у этих моделей вообще не
+            # было строк has_quarter=false, поэтому вопрос «а что с Нео при Четверть=false» не возникал.
+            # После 0105-8 (восстановление варианта «без четверти») выяснилось (обратная связь: «для
+            # Четверть=false невозможно выбрать короб Нео»), что фабрика допускает короб «Нео» именно при
+            # «Четверть»=false — несовместимость короба «Нео», таким образом, с исполнением «с четвертью»
+            # (has_quarter=true), а не с самой толщиной 59мм как таковой. Восстанавливает удалённые строки
+            # только для has_quarter=false (is_reverse=false — has_quarter=true при is_reverse=true не
+            # трогается, что сохраняет прежнее решение фабрики про «Нео» и реверс/четверть).
+            # Точных исходных строк уже нет (удалены 0105-6) — восстанавливаются по шаблону сочетаний
+            # короба «Нео» с наличником/добором/кромкой, который одинаков у всех моделей, где короб «Нео»
+            # уже сохранился (не входящих в список 33) — 15 сочетаний (наличник × добор) × 2 кромки (ET-001
+            # и без кромки), проверено на реальных данных перед реализацией.
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT lt33.leaf_type_id, neo.id, tmpl.edge_type_id, tmpl.door_casing_type_id, tmpl.frame_extensions_type_id,
+                     false, false
+              FROM frame_type neo
+              CROSS JOIN (
+                SELECT DISTINCT o.leaf_type_id AS leaf_type_id
+                FROM liner_dimension_option o
+                JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                WHERE t.code = 'DT-003' AND o.value = 59
+              ) lt33
+              CROSS JOIN (
+                SELECT DISTINCT dc.edge_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id
+                FROM door_configuration dc
+                JOIN frame_type ft2 ON ft2.id = dc.frame_type_id
+                WHERE ft2.code = 'FT-003' AND dc.has_quarter = false
+              ) tmpl
+              WHERE neo.code = 'FT-003'

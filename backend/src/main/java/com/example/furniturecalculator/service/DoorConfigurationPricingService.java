@@ -71,6 +71,12 @@ public class DoorConfigurationPricingService {
     private static final String LENGTH_TYPE_CODE = "DT-001";
     private static final String HEIGHT_TYPE_CODE = "DT-002";
     private static final String THICKNESS_TYPE_CODE = "DT-003";
+    // Код edge_type «КРОМКА ДЛЯ ПОЛОТНА С ЧЕТВЕРТЬЮ ПО ПЕРИМЕТРУ» — используется только для резолвинга
+    // атрибута «Четверть» из явно переданного edgeTypeId там, где нет прямого door_configuration.hasQuarter
+    // (см. change add-leaf-quarter-attribute, validateThicknessRequiresQuarter). Единственное место в
+    // коде, завязанное на конкретный код edge_type — остальная логика кромки код-агностична.
+    private static final String EDGE_TYPE_QUARTER_CODE = "ET-002";
+    private static final BigDecimal THICKNESS_REQUIRING_QUARTER_MM = BigDecimal.valueOf(59);
 
     // Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
     // add-leaf-height-cascade-surcharge-50mm-grid) — 1900мм наименьшая заведённая точка, потолка нет;
@@ -124,6 +130,13 @@ public class DoorConfigurationPricingService {
     // применяется отдельным шагом (см. applySequentialSurcharges).
     private static final BigDecimal DOUBLE_SIDED_PAINTING_SURCHARGE_MULTIPLIER = new BigDecimal("1.50");
 
+    // Наценка за атрибут «Четверть» самого полотна (см. change add-leaf-quarter-attribute) — фиксированный
+    // процент, как и надбавка за реверс/двустороннюю покраску, не строка в БД. Применяется только когда
+    // «Четверть» для этого leaf-компонента истинна САМА ПО СЕБЕ, а не как следствие уже применённой другой
+    // наценки, которая её и так подразумевает (реверс, толщина 59мм) — иначе клиент платил бы за одно и то
+    // же дважды (см. resolveQuarterSurchargeMultiplier).
+    private static final BigDecimal QUARTER_SURCHARGE_MULTIPLIER = new BigDecimal("1.10");
+
     private final DoorConfigurationRepository doorConfigurationRepository;
     private final LinerDimensionOptionRepository linerDimensionOptionRepository;
     private final LinerDimensionTypeRepository linerDimensionTypeRepository;
@@ -154,6 +167,13 @@ public class DoorConfigurationPricingService {
         return DOUBLE_SIDED_PAINTING_SURCHARGE_MULTIPLIER.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
     }
 
+    // Читается PricingSurchargesController для отображения процента надбавки фронтенду, тем же принципом,
+    // что и reverseSurchargePercent()/doubleSidedPaintingSurchargePercent() (см. change
+    // add-leaf-quarter-attribute).
+    public BigDecimal quarterSurchargePercent() {
+        return QUARTER_SURCHARGE_MULTIPLIER.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100));
+    }
+
     @Transactional(readOnly = true)
     public PricingResponseDto calculate(Long doorConfigurationId, PricingRequestDto request) {
         DoorConfiguration configuration = doorConfigurationRepository.findById(doorConfigurationId)
@@ -167,13 +187,14 @@ public class DoorConfigurationPricingService {
         // каталожная опция или введено произвольное значение (см. change add-dimension-surcharge-rules).
         BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
         boolean reverseFrameSelected = configuration.isReverse();
+        validateThicknessRequiresQuarter(leafSelection, configuration.isHasQuarter());
 
         List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightValue, reverseFrameSelected);
-        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame), leafHeightValue, false);
-        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge), leafHeightValue, false);
-        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightValue, false);
-        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightValue, false);
+        addComponentIfPresent(components, "leaf", configuration.getLeafType(), leafSelection, leafHeightValue, reverseFrameSelected, configuration.isHasQuarter());
+        addComponentIfPresent(components, "frame", configuration.getFrameType(), selectionOf(request, PricingRequestDto::frame), leafHeightValue, false, null);
+        addComponentIfPresent(components, "edge", configuration.getEdgeType(), selectionOf(request, PricingRequestDto::edge), leafHeightValue, false, null);
+        addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightValue, false, null);
+        addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightValue, false, null);
 
         return finalizeResponse(components, request);
     }
@@ -199,10 +220,12 @@ public class DoorConfigurationPricingService {
         // У отдельного полотна нет door_configuration.is_reverse — клиент передаёт признак реверса
         // явно (см. change add-standalone-leaf-pricing); отсутствие поля равносильно false.
         boolean applyReverseSurcharge = request != null && Boolean.TRUE.equals(request.isReverse());
-        List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge);
-
         Long edgeTypeId = request != null ? request.edgeTypeId() : null;
+        Boolean hasQuarter = hasQuarterFromEdgeTypeId(edgeTypeId);
+        validateThicknessRequiresQuarter(leafSelection, hasQuarter);
+        List<ComponentPriceDto> components = new ArrayList<>();
+        addComponentIfPresent(components, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge, hasQuarter);
+
         if (edgeTypeId != null) {
             // Как и у mirror_finish_type/glazing_type, «id не существует» и «существует, но недопустим для
             // этого полотна» не различаются — единая проверка существования пары даёт единый ответ 400
@@ -212,7 +235,7 @@ public class DoorConfigurationPricingService {
                         "вид кромки с id=" + edgeTypeId + " недопустим для этого полотна");
             }
             EdgeType edgeType = edgeTypeRepository.findById(edgeTypeId).orElseThrow();
-            addComponentIfPresent(components, "edge", edgeType, selectionOf(request, PricingRequestDto::edge), leafHeightValue, false);
+            addComponentIfPresent(components, "edge", edgeType, selectionOf(request, PricingRequestDto::edge), leafHeightValue, false, null);
         }
 
         return finalizeResponse(components, request);
@@ -233,7 +256,7 @@ public class DoorConfigurationPricingService {
                 request != null && request.frame() != null ? request.frame() : ComponentSelectionDto.EMPTY;
 
         List<ComponentPriceDto> components = new ArrayList<>();
-        addComponentIfPresent(components, "frame", frameType, frameSelection, leafHeightValue, false);
+        addComponentIfPresent(components, "frame", frameType, frameSelection, leafHeightValue, false, null);
 
         Long doorCasingTypeId = request != null ? request.doorCasingTypeId() : null;
         if (doorCasingTypeId != null) {
@@ -246,7 +269,7 @@ public class DoorConfigurationPricingService {
             DoorCasingType doorCasingType = doorCasingTypeRepository.findById(doorCasingTypeId).orElseThrow();
             ComponentSelectionDto doorCasingSelection =
                     request.doorCasing() != null ? request.doorCasing() : ComponentSelectionDto.EMPTY;
-            addComponentIfPresent(components, "doorCasing", doorCasingType, doorCasingSelection, leafHeightValue, false);
+            addComponentIfPresent(components, "doorCasing", doorCasingType, doorCasingSelection, leafHeightValue, false, null);
         }
 
         Long frameExtensionsTypeId = request != null ? request.frameExtensionsTypeId() : null;
@@ -258,7 +281,7 @@ public class DoorConfigurationPricingService {
             FrameExtensionsType frameExtensionsType = frameExtensionsTypeRepository.findById(frameExtensionsTypeId).orElseThrow();
             ComponentSelectionDto frameExtensionsSelection =
                     request.frameExtensions() != null ? request.frameExtensions() : ComponentSelectionDto.EMPTY;
-            addComponentIfPresent(components, "frameExtensions", frameExtensionsType, frameExtensionsSelection, leafHeightValue, false);
+            addComponentIfPresent(components, "frameExtensions", frameExtensionsType, frameExtensionsSelection, leafHeightValue, false, null);
         }
 
         return new FrameGroupPricingResponseDto(sumRetail(components), sumDealer(components), components);
@@ -296,12 +319,14 @@ public class DoorConfigurationPricingService {
         LinerDimensionOption leafHeightOption = validatedDimensionOption("leaf", leafType, leafSelection.heightOptionId());
         BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
         boolean applyReverseSurcharge = Boolean.TRUE.equals(request.isReverse());
+        Long edgeTypeId = request.edgeTypeId();
+        Boolean hasQuarter = hasQuarterFromEdgeTypeId(edgeTypeId);
+        validateThicknessRequiresQuarter(leafSelection, hasQuarter);
 
         List<ComponentPriceDto> scratch = new ArrayList<>();
-        ResolvedComponent leafResolved = addComponentIfPresent(scratch, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge);
+        ResolvedComponent leafResolved = addComponentIfPresent(scratch, "leaf", leafType, leafSelection, leafHeightValue, applyReverseSurcharge, hasQuarter);
 
         ResolvedComponent edgeResolved = null;
-        Long edgeTypeId = request.edgeTypeId();
         if (edgeTypeId != null) {
             if (!doorConfigurationRepository.existsByLeafTypeIdAndEdgeTypeId(leafTypeId, edgeTypeId)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -309,7 +334,7 @@ public class DoorConfigurationPricingService {
             }
             EdgeType edgeType = edgeTypeRepository.findById(edgeTypeId).orElseThrow();
             ComponentSelectionDto edgeSelection = request.edge() != null ? request.edge() : ComponentSelectionDto.EMPTY;
-            edgeResolved = addComponentIfPresent(scratch, "edge", edgeType, edgeSelection, leafHeightValue, false);
+            edgeResolved = addComponentIfPresent(scratch, "edge", edgeType, edgeSelection, leafHeightValue, false, null);
         }
 
         ResolvedComponent frameResolved = null;
@@ -319,7 +344,7 @@ public class DoorConfigurationPricingService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                             "frame_type с id=" + frameTypeId + " не найден"));
             ComponentSelectionDto frameSelection = request.frame() != null ? request.frame() : ComponentSelectionDto.EMPTY;
-            frameResolved = addComponentIfPresent(scratch, "frame", frameType, frameSelection, request.leafHeightValue(), false);
+            frameResolved = addComponentIfPresent(scratch, "frame", frameType, frameSelection, request.leafHeightValue(), false, null);
         }
 
         ResolvedComponent doorCasingResolved = null;
@@ -331,7 +356,7 @@ public class DoorConfigurationPricingService {
             }
             DoorCasingType doorCasingType = doorCasingTypeRepository.findById(doorCasingTypeId).orElseThrow();
             ComponentSelectionDto doorCasingSelection = request.doorCasing() != null ? request.doorCasing() : ComponentSelectionDto.EMPTY;
-            doorCasingResolved = addComponentIfPresent(scratch, "doorCasing", doorCasingType, doorCasingSelection, request.leafHeightValue(), false);
+            doorCasingResolved = addComponentIfPresent(scratch, "doorCasing", doorCasingType, doorCasingSelection, request.leafHeightValue(), false, null);
         }
 
         ResolvedComponent frameExtensionsResolved = null;
@@ -346,7 +371,7 @@ public class DoorConfigurationPricingService {
             ComponentSelectionDto frameExtensionsSelection =
                     request.frameExtensions() != null ? request.frameExtensions() : ComponentSelectionDto.EMPTY;
             frameExtensionsResolved =
-                    addComponentIfPresent(scratch, "frameExtensions", frameExtensionsType, frameExtensionsSelection, request.leafHeightValue(), false);
+                    addComponentIfPresent(scratch, "frameExtensions", frameExtensionsType, frameExtensionsSelection, request.leafHeightValue(), false, null);
         }
 
         List<HardwarePriceDto> hardware = priceHardwareSelections(request.hardware() != null ? request.hardware() : List.of());
@@ -434,7 +459,7 @@ public class DoorConfigurationPricingService {
     // выражение-оператор, не читая возврат, — их поведение не меняется.
     private ResolvedComponent addComponentIfPresent(
             List<ComponentPriceDto> components, String componentName, CatalogType type, ComponentSelectionDto selection,
-            BigDecimal leafHeightValue, boolean applyReverseSurcharge) {
+            BigDecimal leafHeightValue, boolean applyReverseSurcharge, Boolean hasQuarter) {
         if (type == null) {
             return null;
         }
@@ -506,6 +531,7 @@ public class DoorConfigurationPricingService {
                 : validatedDimensionOption(componentName, type, selection.heightOptionId());
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
         BigDecimal thicknessMultiplier = resolveThicknessSurchargeMultiplier(type, thicknessOption);
+        BigDecimal quarterMultiplier = resolveQuarterSurchargeMultiplier(type, hasQuarter, applyReverseSurcharge, thicknessMultiplier);
         ColourOption colourOption = validatedColourOption(componentName, type, selection.colourOptionId());
         ColourOption backColourOption = doubleSidedPainting
                 ? validatedColourOption(componentName, type, selection.backColourOptionId())
@@ -542,14 +568,14 @@ public class DoorConfigurationPricingService {
 
         Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
         ComponentPriceDto price = matched
-                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, thicknessMultiplier, colourMultiplier,
-                        doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge,
-                        pogonazhMultiplier, quantity))
+                .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, thicknessMultiplier, quarterMultiplier,
+                        colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(),
+                        applyReverseSurcharge, pogonazhMultiplier, quantity))
                 .orElseGet(() -> new ComponentPriceDto(componentName, false, null, null, null, null));
         components.add(price);
         List<LeafPriceSurcharge> surcharges = type instanceof LeafType
-                ? leafPriceSurcharges(leafDimensionSurcharge, thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier,
-                        mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
+                ? leafPriceSurcharges(leafDimensionSurcharge, thicknessMultiplier, quarterMultiplier, colourMultiplier,
+                        doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(), applyReverseSurcharge)
                 : List.of();
         List<String> selectedOptions = type instanceof LeafType ? leafSelectedOptions(mirrorFinish, glazing) : List.of();
         return new ResolvedComponent(
@@ -579,13 +605,14 @@ public class DoorConfigurationPricingService {
     // отдельная проверка на этот случай не нужна — как и на совпадение произвольного размера со стандартным
     // (resolveAxisSurchargeMultiplier уже возвращает ONE и в этом случае).
     private List<LeafPriceSurcharge> leafPriceSurcharges(
-            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal thicknessMultiplier, BigDecimal colourMultiplier,
-            BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
-            boolean applyReverseSurcharge) {
+            LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal thicknessMultiplier, BigDecimal quarterMultiplier,
+            BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier,
+            BigDecimal glazingMultiplier, boolean applyReverseSurcharge) {
         List<LeafPriceSurcharge> surcharges = new ArrayList<>();
         addSurchargeIfApplied(surcharges, "За нестандартную ширину", leafDimensionSurcharge.lengthMultiplier());
         addSurchargeIfApplied(surcharges, "За нестандартную высоту", leafDimensionSurcharge.heightMultiplier());
         addSurchargeIfApplied(surcharges, "За нестандартную толщину", thicknessMultiplier);
+        addSurchargeIfApplied(surcharges, "За исполнение с четвертью", quarterMultiplier);
         addSurchargeIfApplied(surcharges, "За выбранный цвет", colourMultiplier);
         addSurchargeIfApplied(surcharges, "За двустороннюю покраску", doubleSidedPaintingMultiplier);
         addSurchargeIfApplied(surcharges, "За исполнение зеркала", mirrorFinishMultiplier);
@@ -737,40 +764,44 @@ public class DoorConfigurationPricingService {
     // redesign-door-configurator-flow), чтобы фронтенд мог показать её рядом с итоговой ценой компонента.
     private ComponentPriceDto componentPriceFrom(
             String componentName, ConfigurationPrice price, LeafDimensionSurcharge leafDimensionSurcharge,
-            BigDecimal thicknessMultiplier, BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier,
-            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge,
-            BigDecimal pogonazhSurchargeMultiplier, int quantity) {
+            BigDecimal thicknessMultiplier, BigDecimal quarterMultiplier, BigDecimal colourMultiplier,
+            BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier,
+            boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier, int quantity) {
         BigDecimal quantityMultiplier = BigDecimal.valueOf(quantity);
         BigDecimal retailPrice = applySequentialSurcharges(price.getRetailPrice(), leafDimensionSurcharge,
-                thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
-                applyReverseSurcharge, pogonazhSurchargeMultiplier)
+                thicknessMultiplier, quarterMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier,
+                glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal dealerPrice = applySequentialSurcharges(price.getDealerPrice(), leafDimensionSurcharge,
-                thicknessMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier, glazingMultiplier,
-                applyReverseSurcharge, pogonazhSurchargeMultiplier)
+                thicknessMultiplier, quarterMultiplier, colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinishMultiplier,
+                glazingMultiplier, applyReverseSurcharge, pogonazhSurchargeMultiplier)
                 .multiply(quantityMultiplier);
         BigDecimal baseRetailPrice = price.getRetailPrice().multiply(quantityMultiplier);
         BigDecimal baseDealerPrice = price.getDealerPrice().multiply(quantityMultiplier);
         return new ComponentPriceDto(componentName, true, retailPrice, dealerPrice, baseRetailPrice, baseDealerPrice);
     }
 
-    // Порядок шагов: длина → высота → толщина → цвет → двусторонняя покраска → исполнение зеркала → вид
-    // остекления → реверс (см. change add-mirror-finish-leaf-option, add-glazing-price-surcharge,
-    // add-leaf-ral-ncs-colour-surcharge, add-leaf-double-sided-painting, add-leaf-thickness-59mm-option) —
-    // толщина встаёт сразу после высоты (та же «размерная» ось, тот же механизм dimension_surcharge_rule),
-    // до цвета; цвет — до зеркала и остекления (более базовый атрибут полотна, чем опциональные исполнения),
-    // двусторонняя покраска — сразу после цвета (обе надбавки описывают покраску полотна), остекление —
-    // строго между зеркалом и реверсом, тем же принципом округления после каждого шага. Зеркало и остекление
-    // физически взаимоисключающи для одного и того же leaf_type (см. миграция
+    // Порядок шагов: длина → высота → толщина → четверть → цвет → двусторонняя покраска → исполнение
+    // зеркала → вид остекления → реверс (см. change add-mirror-finish-leaf-option,
+    // add-glazing-price-surcharge, add-leaf-ral-ncs-colour-surcharge, add-leaf-double-sided-painting,
+    // add-leaf-thickness-59mm-option, add-leaf-quarter-attribute) — толщина встаёт сразу после высоты (та же
+    // «размерная» ось, тот же механизм dimension_surcharge_rule); четверть — сразу после толщины, тем же
+    // принципом (обе — «структурные» наценки самого полотна, а не его отделки), до цвета; цвет — до зеркала
+    // и остекления (более базовый атрибут полотна, чем опциональные исполнения), двусторонняя покраска —
+    // сразу после цвета (обе надбавки описывают покраску полотна), остекление — строго между зеркалом и
+    // реверсом, тем же принципом округления после каждого шага. Зеркало и остекление физически
+    // взаимоисключающи для одного и того же leaf_type (см. миграция
     // 0090-5-remove-mirror-finish-for-glazed-models), поэтому на практике не применяются одновременно —
     // порядок между ними фиксирован на будущее, для предсказуемости.
     private BigDecimal applySequentialSurcharges(
             BigDecimal price, LeafDimensionSurcharge leafDimensionSurcharge, BigDecimal thicknessMultiplier,
-            BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier, BigDecimal mirrorFinishMultiplier,
-            BigDecimal glazingMultiplier, boolean applyReverseSurcharge, BigDecimal pogonazhSurchargeMultiplier) {
+            BigDecimal quarterMultiplier, BigDecimal colourMultiplier, BigDecimal doubleSidedPaintingMultiplier,
+            BigDecimal mirrorFinishMultiplier, BigDecimal glazingMultiplier, boolean applyReverseSurcharge,
+            BigDecimal pogonazhSurchargeMultiplier) {
         BigDecimal result = applyPercentMultiplier(price, leafDimensionSurcharge.lengthMultiplier());
         result = applyPercentMultiplier(result, leafDimensionSurcharge.heightMultiplier());
         result = applyPercentMultiplier(result, thicknessMultiplier);
+        result = applyPercentMultiplier(result, quarterMultiplier);
         result = applyPercentMultiplier(result, colourMultiplier);
         result = applyPercentMultiplier(result, doubleSidedPaintingMultiplier);
         result = applyPercentMultiplier(result, mirrorFinishMultiplier);
@@ -894,6 +925,60 @@ public class DoorConfigurationPricingService {
             return BigDecimal.ONE;
         }
         return BigDecimal.ONE.add(rule.get().getSurchargePercent().divide(BigDecimal.valueOf(100)));
+    }
+
+    // Наценка за атрибут «Четверть» самого полотна (см. change add-leaf-quarter-attribute) — применяется
+    // только когда «Четверть» истинна САМА ПО СЕБЕ для этого leaf-компонента, а не как следствие уже
+    // применённой другой наценки, которая её и так подразумевает: реверс (applyReverseSurcharge — реверс
+    // механически требует четверть, см. specs) или толщина 59мм (thicknessMultiplier != ONE — выбор такой
+    // толщины тоже требует четверть, см. validateThicknessRequiresQuarter). Без этого условия клиент платил
+    // бы за одно и то же дважды. hasQuarter == null (неизвестно для этого запроса, см.
+    // hasQuarterFromEdgeTypeId) трактуется как «не применять» — наценка не может быть подтверждена, а не
+    // блокирует расчёт (тот же принцип, что и у validateThicknessRequiresQuarter).
+    private BigDecimal resolveQuarterSurchargeMultiplier(
+            CatalogType type, Boolean hasQuarter, boolean applyReverseSurcharge, BigDecimal thicknessMultiplier) {
+        if (!(type instanceof LeafType) || hasQuarter == null || !hasQuarter) {
+            return BigDecimal.ONE;
+        }
+        if (applyReverseSurcharge || thicknessMultiplier.compareTo(BigDecimal.ONE) != 0) {
+            return BigDecimal.ONE;
+        }
+        return QUARTER_SURCHARGE_MULTIPLIER;
+    }
+
+    // Толщина 59мм физически изготавливается только с четвертью по периметру полотна (см. change
+    // add-leaf-thickness-59mm-option) — это ограничение резолвится на уровне запроса, а не каталога
+    // (см. change add-leaf-quarter-attribute, отменившее прежнюю жёсткую связку толщины и «Четверть» на
+    // уровне door_configuration): фронтенд уже фильтрует список толщин по текущему значению «Четверть» и
+    // автоматически включает его при выборе 59мм, но backend всё равно перепроверяет комбинацию независимо
+    // от фронтенда. hasQuarter == null означает «неизвестно для этого запроса» (например, расчёт отдельного
+    // полотна без указанной кромки, см. calculateForLeaf/resolveSpecificationComponents) — в этом случае
+    // проверка пропускается, а не блокирует запрос: без кромки нет способа определить «Четверть» точно.
+    private void validateThicknessRequiresQuarter(ComponentSelectionDto leafSelection, Boolean hasQuarter) {
+        Long thicknessOptionId = leafSelection.thicknessOptionId();
+        if (thicknessOptionId == null || hasQuarter == null || hasQuarter) {
+            return;
+        }
+        LinerDimensionOption thicknessOption = linerDimensionOptionRepository.findById(thicknessOptionId).orElse(null);
+        if (thicknessOption != null
+                && THICKNESS_TYPE_CODE.equals(thicknessOption.getLinerDimensionType().getCode())
+                && thicknessOption.getValue().compareTo(THICKNESS_REQUIRING_QUARTER_MM) == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "толщина 59 мм доступна только для полотна с исполнением «с четвертью»");
+        }
+    }
+
+    // Резолвит «Четверть» из явно переданного id вида кромки — используется там, где нет прямого
+    // door_configuration.hasQuarter (расчёт отдельного полотна/выгрузка спецификации, см.
+    // validateThicknessRequiresQuarter). Возвращает null, если кромка не передана вовсе — не потому, что
+    // «Четверть» false, а потому, что она в этом случае неизвестна.
+    private Boolean hasQuarterFromEdgeTypeId(Long edgeTypeId) {
+        if (edgeTypeId == null) {
+            return null;
+        }
+        return edgeTypeRepository.findById(edgeTypeId)
+                .map(edgeType -> EDGE_TYPE_QUARTER_CODE.equals(edgeType.getCode()))
+                .orElse(null);
     }
 
     // Каскадный спуск по сетке 50мм высоты полотна от 1900мм — см. change

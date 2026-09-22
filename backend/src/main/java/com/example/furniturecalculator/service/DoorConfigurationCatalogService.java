@@ -104,7 +104,8 @@ public class DoorConfigurationCatalogService {
                 componentOrNull(configuration.getEdgeType(), edgeComponents),
                 componentOrNull(configuration.getDoorCasingType(), doorCasingComponents),
                 componentOrNull(configuration.getFrameExtensionsType(), frameExtensionsComponents),
-                configuration.isReverse());
+                configuration.isReverse(),
+                configuration.isHasQuarter());
     }
 
     private static ComponentCatalogDto componentOrNull(CatalogType type, Map<Long, ComponentCatalogDto> componentsById) {

@@ -1,0 +1,161 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0105-leaf-quarter-attribute.yaml. Оригинал не редактируется. Используется
+  # только для профиля desktop (context "desktop" на include в db.changelog-master.yaml). Изменён только
+  # changeset 0105-4 (пересборка unique-индекса) — вместо COALESCE(...) в выражении индекса используются уже
+  # существующие generated-колонки *_norm (см. changes-desktop-overrides/0006-door-configuration-catalog.yaml),
+  # H2 не поддерживает expression-индексы с COALESCE так же, как PostgreSQL (см. прецедент
+  # changes-desktop-overrides/0054-rework-reverse-mechanism.yaml). Остальные changeset'ы идентичны оригиналу.
+  - changeSet:
+      id: 0105-1-add-door-configuration-has-quarter-column
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: door_configuration
+            columns:
+              - column:
+                  name: has_quarter
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+
+  - changeSet:
+      id: 0105-2-backfill-door-configuration-has-quarter
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = true WHERE is_reverse = true
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = true
+              WHERE has_quarter IS NOT TRUE AND leaf_type_id IN (
+                SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                WHERE t.code = 'DT-003' AND o.value = 59
+              )
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET has_quarter = false WHERE has_quarter IS NULL
+
+  - changeSet:
+      id: 0105-3-door-configuration-has-quarter-not-null
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: door_configuration
+            columnName: has_quarter
+            columnDataType: BOOLEAN
+
+  - changeSet:
+      id: 0105-4-rebuild-door-configuration-unique-index
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: DROP INDEX uk_door_configuration_combination
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_door_configuration_combination ON door_configuration (
+                leaf_type_id,
+                frame_type_norm,
+                edge_type_norm,
+                door_casing_type_norm,
+                frame_extensions_type_norm,
+                is_reverse,
+                has_quarter
+              )
+
+  - changeSet:
+      id: 0105-5-copy-has-quarter-false-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT
+                leaf_type_id, frame_type_id,
+                CASE WHEN edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-001')
+                     THEN (SELECT id FROM edge_type WHERE code = 'ET-002')
+                     ELSE edge_type_id END,
+                door_casing_type_id, frame_extensions_type_id,
+                is_reverse, true
+              FROM door_configuration
+              WHERE has_quarter = false
+
+  - changeSet:
+      id: 0105-6-remove-neo-frame-for-59mm-thickness-models
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-003')
+                AND leaf_type_id IN (
+                  SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                  JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                  WHERE t.code = 'DT-003' AND o.value = 59
+                )
+
+  - changeSet:
+      id: 0105-7-fix-edge-type-for-existing-quarter-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE door_configuration SET edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-002')
+              WHERE has_quarter = true
+                AND edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-001')
+
+  - changeSet:
+      id: 0105-8-restore-choice-for-59mm-thickness-models-without-reverse
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT
+                leaf_type_id, frame_type_id,
+                CASE WHEN edge_type_id = (SELECT id FROM edge_type WHERE code = 'ET-002')
+                     THEN (SELECT id FROM edge_type WHERE code = 'ET-001')
+                     ELSE edge_type_id END,
+                door_casing_type_id, frame_extensions_type_id,
+                is_reverse, false
+              FROM door_configuration
+              WHERE is_reverse = false
+                AND has_quarter = true
+                AND leaf_type_id IN (
+                  SELECT DISTINCT o.leaf_type_id FROM liner_dimension_option o
+                  JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                  WHERE t.code = 'DT-003' AND o.value = 59
+                )
+
+  - changeSet:
+      id: 0105-9-restore-neo-frame-for-59mm-thickness-models-without-quarter
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (
+                leaf_type_id, frame_type_id, edge_type_id, door_casing_type_id, frame_extensions_type_id,
+                is_reverse, has_quarter
+              )
+              SELECT lt33.leaf_type_id, neo.id, tmpl.edge_type_id, tmpl.door_casing_type_id, tmpl.frame_extensions_type_id,
+                     false, false
+              FROM frame_type neo
+              CROSS JOIN (
+                SELECT DISTINCT o.leaf_type_id AS leaf_type_id
+                FROM liner_dimension_option o
+                JOIN liner_dimension_type t ON t.id = o.liner_dimension_type_id
+                WHERE t.code = 'DT-003' AND o.value = 59
+              ) lt33
+              CROSS JOIN (
+                SELECT DISTINCT dc.edge_type_id, dc.door_casing_type_id, dc.frame_extensions_type_id
+                FROM door_configuration dc
+                JOIN frame_type ft2 ON ft2.id = dc.frame_type_id
+                WHERE ft2.code = 'FT-003' AND dc.has_quarter = false
+              ) tmpl
+              WHERE neo.code = 'FT-003'

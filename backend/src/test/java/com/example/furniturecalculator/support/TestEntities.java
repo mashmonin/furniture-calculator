@@ -63,6 +63,12 @@ public final class TestEntities {
         return referenceType(EdgeType.class, id);
     }
 
+    public static EdgeType edgeType(long id, String code) {
+        EdgeType type = edgeType(id);
+        ReflectionTestUtils.setField(type, "code", code);
+        return type;
+    }
+
     public static DoorCasingType doorCasingType(long id) {
         return referenceType(DoorCasingType.class, id);
     }
@@ -128,6 +134,17 @@ public final class TestEntities {
             long id, LeafType leafType, FrameType frameType, EdgeType edgeType,
             DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType) {
         return doorConfiguration(id, leafType, frameType, edgeType, doorCasingType, frameExtensionsType, true);
+    }
+
+    // «Четверть» независим от is_reverse (см. change add-leaf-quarter-attribute) — перегрузка для тестов,
+    // которым явно нужно задать оба значения независимо друг от друга. Существующие вызовы без hasQuarter
+    // (в т.ч. doorConfiguration/doorConfigurationReverse выше) продолжают получать hasQuarter = false.
+    public static DoorConfiguration doorConfiguration(
+            long id, LeafType leafType, FrameType frameType, EdgeType edgeType,
+            DoorCasingType doorCasingType, FrameExtensionsType frameExtensionsType, boolean isReverse, boolean hasQuarter) {
+        DoorConfiguration configuration = doorConfiguration(id, leafType, frameType, edgeType, doorCasingType, frameExtensionsType, isReverse);
+        ReflectionTestUtils.setField(configuration, "hasQuarter", hasQuarter);
+        return configuration;
     }
 
     private static DoorConfiguration doorConfiguration(
