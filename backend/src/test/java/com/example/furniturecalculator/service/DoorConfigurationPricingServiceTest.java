@@ -3172,6 +3172,168 @@ class DoorConfigurationPricingServiceTest {
         assertThat(leaf.dealerPrice()).isEqualByComparingTo("2188");
     }
 
+    // Тесты на наценку за толщину полотна (см. change add-leaf-thickness-59mm-option): в отличие от
+    // длины/высоты, толщина выбирается только через id каталожной опции (никогда — произвольным значением),
+    // поэтому наценка резолвится напрямую по значению этой опции; отсутствие правила (типично для стандартной
+    // толщины 44мм) означает просто «без наценки», а не ошибку.
+    @Test
+    void наценка_за_толщину_59мм_применяется_к_цене_полотна() {
+        LinerDimensionType thicknessType = TestEntities.linerDimensionType(103L, "DT-003");
+        LinerDimensionOption thicknessOption =
+                TestEntities.linerDimensionOption(3000L, thicknessType, BigDecimal.valueOf(59), true, leafType);
+        DimensionSurchargeRule thicknessRule = TestEntities.dimensionSurchargeRule(
+                1L, thicknessType, BigDecimal.valueOf(59), BigDecimal.valueOf(20));
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(3000L)).thenReturn(Optional.of(thicknessOption));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(103L, BigDecimal.valueOf(59)))
+                .thenReturn(Optional.of(thicknessRule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, 3000L, null, null, null, null, null, null, null, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1200");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1080");
+    }
+
+    @Test
+    void толщина_44мм_без_правила_наценки_не_меняет_цену() {
+        LinerDimensionType thicknessType = TestEntities.linerDimensionType(103L, "DT-003");
+        LinerDimensionOption thicknessOption =
+                TestEntities.linerDimensionOption(3001L, thicknessType, BigDecimal.valueOf(44), true, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findById(3001L)).thenReturn(Optional.of(thicknessOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, 3001L, null, null, null, null, null, null, null, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1000");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("900");
+    }
+
+    @Test
+    void толщина_не_выбрана_наценка_не_применяется() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1000");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("900");
+    }
+
+    @Test
+    void наценка_за_толщину_применяется_после_высоты_и_до_цвета() {
+        LinerDimensionType leafHeightType = TestEntities.linerDimensionType(102L, "DT-002");
+        LinerDimensionType thicknessType = TestEntities.linerDimensionType(103L, "DT-003");
+        DimensionSurchargeRule heightRule = TestEntities.dimensionSurchargeRule(
+                1L, leafHeightType, BigDecimal.valueOf(2200), BigDecimal.valueOf(30));
+        LinerDimensionOption thicknessOption =
+                TestEntities.linerDimensionOption(3000L, thicknessType, BigDecimal.valueOf(59), true, leafType);
+        DimensionSurchargeRule thicknessRule = TestEntities.dimensionSurchargeRule(
+                2L, thicknessType, BigDecimal.valueOf(59), BigDecimal.valueOf(20));
+        ColourType otherColourType = TestEntities.colourType(1L, BigDecimal.valueOf(20));
+        ColourOption otherColourOption = TestEntities.colourOption(2000L, otherColourType, leafType);
+        MirrorFinishType mirrorFinishType = TestEntities.mirrorFinishType(1L, BigDecimal.valueOf(40));
+        MirrorFinishOption mirrorFinishOption = TestEntities.mirrorFinishOption(500L, mirrorFinishType, leafType);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, null, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1011), BigDecimal.valueOf(911), leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(linerDimensionTypeRepository.findByCode("DT-002")).thenReturn(Optional.of(leafHeightType));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(102L, BigDecimal.valueOf(2200)))
+                .thenReturn(Optional.of(heightRule));
+        when(linerDimensionOptionRepository.findById(3000L)).thenReturn(Optional.of(thicknessOption));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(103L, BigDecimal.valueOf(59)))
+                .thenReturn(Optional.of(thicknessRule));
+        when(colourOptionRepository.findById(2000L)).thenReturn(Optional.of(otherColourOption));
+        when(mirrorFinishOptionRepository.findByMirrorFinishTypeIdAndLeafTypeId(1L, 1L))
+                .thenReturn(Optional.of(mirrorFinishOption));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, 3000L, 2000L, null, BigDecimal.valueOf(2200), null, 1L, null, null, null),
+                ComponentSelectionDto.EMPTY, null, null, null);
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaf.priced()).isTrue();
+        // Порядок: высота (+30%) → толщина (+20%) → цвет (+20%) → зеркало (+40%) → реверс (+10%), округление
+        // после каждого шага:
+        // retail: 1011 -> округление(1011*1.30)=1314 -> округление(1314*1.20)=1577 -> округление(1577*1.20)=1892
+        //   -> округление(1892*1.40)=2649 -> округление(2649*1.10)=2914.
+        // dealer:  911 -> округление(911*1.30)=1184 -> округление(1184*1.20)=1421 -> округление(1421*1.20)=1705
+        //   -> округление(1705*1.40)=2387 -> округление(2387*1.10)=2626.
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("2914");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("2626");
+    }
+
+    @Test
+    void расчёт_отдельного_полотна_применяет_наценку_за_толщину_так_же_как_по_конфигурации() {
+        LinerDimensionType thicknessType = TestEntities.linerDimensionType(103L, "DT-003");
+        LinerDimensionOption thicknessOption =
+                TestEntities.linerDimensionOption(3000L, thicknessType, BigDecimal.valueOf(59), true, leafType);
+        DimensionSurchargeRule thicknessRule = TestEntities.dimensionSurchargeRule(
+                1L, thicknessType, BigDecimal.valueOf(59), BigDecimal.valueOf(20));
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(linerDimensionOptionRepository.findById(3000L)).thenReturn(Optional.of(thicknessOption));
+        when(dimensionSurchargeRuleRepository.findByLinerDimensionTypeIdAndValueAndLeafTypeIsNull(103L, BigDecimal.valueOf(59)))
+                .thenReturn(Optional.of(thicknessRule));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+
+        PricingRequestDto request = new PricingRequestDto(
+                new ComponentSelectionDto(null, null, 3000L, null, null, null, null, null, null, null, null),
+                null, null, null, null);
+
+        PricingResponseDto response = service.calculateForLeaf(1L, request);
+
+        ComponentPriceDto leaf = response.components().get(0);
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1200");
+        assertThat(leaf.dealerPrice()).isEqualByComparingTo("1080");
+    }
+
     // Тесты на двустороннюю покраску полотна (см. change add-leaf-double-sided-painting): наценка за цвет
     // при двух наценённых сторонах суммируется (не перемножается), надбавка 50% за саму двустороннюю
     // покраску — отдельный шаг, не отменяемый и не заменяемый наценкой за цвет, валидация полей

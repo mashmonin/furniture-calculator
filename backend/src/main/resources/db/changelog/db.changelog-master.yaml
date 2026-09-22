@@ -348,3 +348,6 @@ databaseChangeLog:
   - include:
       file: changes/0103-colour-type-ral-ncs-other.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0104-leaf-thickness-59mm.yaml
+      relativeToChangelogFile: true
