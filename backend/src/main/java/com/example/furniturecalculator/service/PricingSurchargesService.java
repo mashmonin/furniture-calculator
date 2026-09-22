@@ -55,7 +55,8 @@ public class PricingSurchargesService {
                 pogonazhSurchargeRuleRepository.findAll().stream()
                         .map(PricingSurchargesService::pogonazhSurchargeRuleDto)
                         .toList(),
-                pricingService.doubleSidedPaintingSurchargePercent());
+                pricingService.doubleSidedPaintingSurchargePercent(),
+                pricingService.quarterSurchargePercent());
     }
 
     private static PogonazhSurchargeRuleDto pogonazhSurchargeRuleDto(PogonazhSurchargeRule rule) {

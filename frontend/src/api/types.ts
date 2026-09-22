@@ -56,6 +56,9 @@ export interface DoorConfigurationDto {
   doorCasing: ComponentCatalogDto | null
   frameExtensions: ComponentCatalogDto | null
   reverse: boolean
+  // Четверть по периметру полотна — самостоятельная опция, независимая от reverse (см. change
+  // add-leaf-quarter-attribute). До этого change кромка жёстко соответствовала reverse; теперь — этому полю.
+  hasQuarter: boolean
 }
 
 export type ComponentKey = 'leaf' | 'frame' | 'edge' | 'doorCasing' | 'frameExtensions'
@@ -239,6 +242,10 @@ export interface PricingSurchargesDto {
   pogonazhSurchargeRules: PogonazhSurchargeRuleDto[]
   // См. change add-leaf-double-sided-painting — фиксированный процент, как и reverseSurchargePercent.
   doubleSidedPaintingSurchargePercent: number
+  // См. change add-leaf-quarter-attribute — фиксированный процент, как и reverseSurchargePercent; сам факт,
+  // применяется ли он (has_quarter истинна сама по себе, а не как следствие реверса/толщины 59мм), решает
+  // backend при расчёте — на фронте нужно лишь то же значение для показа в разбивке.
+  quarterSurchargePercent: number
 }
 
 export interface UpdateCheckDto {

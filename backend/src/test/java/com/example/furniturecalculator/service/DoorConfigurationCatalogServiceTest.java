@@ -86,6 +86,32 @@ class DoorConfigurationCatalogServiceTest {
         assertThat(dto.frameExtensions()).isNull();
     }
 
+    // Тесты на атрибут «Четверть» (см. change add-leaf-quarter-attribute) — независим от is_reverse,
+    // в отличие от прежнего жёсткого соответствия кромки и is_reverse.
+    @Test
+    void атрибут_четверть_отдаётся_независимо_от_is_reverse() {
+        LeafType leafType = TestEntities.leafType(1L);
+        DoorConfiguration reverseWithoutQuarter =
+                TestEntities.doorConfiguration(10L, leafType, null, null, null, null, true, false);
+        DoorConfiguration notReverseWithQuarter =
+                TestEntities.doorConfiguration(11L, leafType, null, null, null, null, false, true);
+
+        when(doorConfigurationRepository.findAllWithTypes()).thenReturn(List.of(reverseWithoutQuarter, notReverseWithQuarter));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+
+        List<DoorConfigurationDto> result = service.getAllConfigurations();
+
+        DoorConfigurationDto reverseDto = result.stream().filter(dto -> dto.id().equals(10L)).findFirst().orElseThrow();
+        DoorConfigurationDto notReverseDto = result.stream().filter(dto -> dto.id().equals(11L)).findFirst().orElseThrow();
+        assertThat(reverseDto.reverse()).isTrue();
+        assertThat(reverseDto.hasQuarter()).isFalse();
+        assertThat(notReverseDto.reverse()).isFalse();
+        assertThat(notReverseDto.hasQuarter()).isTrue();
+    }
+
     @Test
     void конфигурация_со_всеми_компонентами_содержит_все_типы() {
         LeafType leafType = TestEntities.leafType(1L);

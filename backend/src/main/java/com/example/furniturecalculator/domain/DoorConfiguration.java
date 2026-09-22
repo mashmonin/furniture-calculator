@@ -45,4 +45,10 @@ public class DoorConfiguration {
 
     @Column(name = "is_reverse", nullable = false)
     private boolean reverse;
+
+    // Четверть по периметру полотна — самостоятельная конструктивная опция, независимая от is_reverse
+    // (см. change add-leaf-quarter-attribute). До этого change вид кромки жёстко соответствовал is_reverse;
+    // теперь он соответствует этому атрибуту (см. DoorConfigurationCatalogService).
+    @Column(name = "has_quarter", nullable = false)
+    private boolean hasQuarter;
 }

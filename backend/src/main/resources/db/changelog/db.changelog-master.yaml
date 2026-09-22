@@ -351,3 +351,11 @@ databaseChangeLog:
   - include:
       file: changes/0104-leaf-thickness-59mm.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0105-leaf-quarter-attribute.yaml
+      relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0105-leaf-quarter-attribute.yaml
+      relativeToChangelogFile: true
+      context: "desktop"

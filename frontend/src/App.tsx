@@ -135,6 +135,9 @@ const NONE_OPTION_LABELS: Record<ComponentKey, string> = {
 const LENGTH_TYPE_CODE = 'DT-001'
 const HEIGHT_TYPE_CODE = 'DT-002'
 const THICKNESS_TYPE_CODE = 'DT-003'
+// Толщина, доступная только с исполнением «с четвертью» (см. change add-leaf-quarter-attribute) — то же
+// значение, что и backend-константа THICKNESS_REQUIRING_QUARTER_MM в DoorConfigurationPricingService.
+const THICKNESS_REQUIRING_QUARTER_MM = 59
 // Каскадная наценка за промежуточные значения сетки 50мм высоты полотна (см. change
 // add-leaf-height-cascade-surcharge-50mm-grid) — дублирует ту же логику, что и
 // DoorConfigurationPricingService.resolveHeightCascadeSurchargePercent на backend.
@@ -308,6 +311,26 @@ function resolveReverseStep(
     return { reverseStep: { visible: true, value: resolvedReverse }, resolvedReverse }
   }
   return { resolvedReverse: configurations.length > 0 ? configurations[0].reverse : false }
+}
+
+interface HasQuarterStep {
+  visible: boolean
+  value: boolean
+}
+
+// «Четверть» — независимый от «Реверс» переключатель того же уровня (см. change add-leaf-quarter-attribute):
+// сужает каталог тем же принципом, что и resolveReverseStep выше, но по атрибуту has_quarter, а не
+// is_reverse — оба атрибута независимы друг от друга (см. specs, door-configuration-catalog).
+function resolveHasQuarterStep(
+  configurations: DoorConfigurationDto[],
+  hasQuarterSelection: boolean | undefined,
+): { hasQuarterStep?: HasQuarterStep; resolvedHasQuarter: boolean } {
+  const hasQuarterValues = new Set(configurations.map((configuration) => configuration.hasQuarter))
+  if (hasQuarterValues.size > 1) {
+    const resolvedHasQuarter = hasQuarterSelection ?? false
+    return { hasQuarterStep: { visible: true, value: resolvedHasQuarter }, resolvedHasQuarter }
+  }
+  return { resolvedHasQuarter: configurations.length > 0 ? configurations[0].hasQuarter : false }
 }
 
 interface PanelTypeStep {
@@ -549,6 +572,7 @@ function computeSurchargeBreakdown(
   mirrorFinishTypeId: number | undefined,
   glazingTypeId: number | undefined,
   isReverse: boolean,
+  hasQuarter: boolean,
 ): SurchargeBreakdownItem[] {
   if (!pricingSurcharges) {
     return []
@@ -597,6 +621,12 @@ function computeSurchargeBreakdown(
       : undefined
   if (thicknessRule) {
     items.push({ label: 'За нестандартную толщину', percent: thicknessRule.surchargePercent })
+  }
+  // «Четверть» — только когда она истинна САМА ПО СЕБЕ, а не как следствие уже показанной наценки за
+  // реверс или за толщину 59мм (см. change add-leaf-quarter-attribute, тот же принцип, что и на backend в
+  // resolveQuarterSurchargeMultiplier) — иначе клиент увидел бы задвоенную наценку за одно и то же.
+  if (hasQuarter && !isReverse && !thicknessRule) {
+    items.push({ label: 'За исполнение с четвертью', percent: pricingSurcharges.quarterSurchargePercent })
   }
   // colourOptionId ссылается на строку colour_option (владение), а не на colour_type напрямую — в отличие
   // от mirrorFinishTypeId/glazingTypeId, поэтому наценку ищем в два шага: colourOptionId -> colourType.id
@@ -696,6 +726,7 @@ function App() {
   const [nextHardwareLineKey, setNextHardwareLineKey] = useState(1)
 
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
+  const [hasQuarterSelection, setHasQuarterSelection] = useState<boolean | undefined>(undefined)
   const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
   const [glazingTypeId, setGlazingTypeId] = useState<number | undefined>(undefined)
@@ -819,18 +850,30 @@ function App() {
     }
   }, [])
 
+  // «Реверс» и «Четверть» — независимые переключатели одного уровня, оба оцениваются по ПОЛНОМУ
+  // (нефильтрованному) каталогу — так же, как «Реверс» всегда оценивался сам по себе. Раньше «Четверть»
+  // оценивалась по уже суженному reverseFilteredConfigurations, из-за чего при is_reverse=true (где
+  // has_quarter всегда true) переключатель пропадал — так как выбора внутри уже суженного набора не
+  // оставалось. По обратной связи это исправлено: «Четверть» видна и активна всегда, когда в каталоге
+  // в принципе есть оба значения, независимо от текущего положения «Реверс»; согласованность двух
+  // переключателей (is_reverse=true возможен только с has_quarter=true) обеспечивается в
+  // handleReverseChange/handleHasQuarterChange — переключение одного при конфликте автоматически
+  // подстраивает другой, а не прячет/блокирует виджет.
   const { reverseStep, resolvedReverse } = resolveReverseStep(configurations, reverseSelection)
-  const reverseFilteredConfigurations = configurations.filter((configuration) => configuration.reverse === resolvedReverse)
+  const { hasQuarterStep, resolvedHasQuarter } = resolveHasQuarterStep(configurations, hasQuarterSelection)
+  const hasQuarterFilteredConfigurations = configurations.filter(
+    (configuration) => configuration.reverse === resolvedReverse && configuration.hasQuarter === resolvedHasQuarter,
+  )
 
-  const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(reverseFilteredConfigurations, panelTypeSelection)
+  const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(hasQuarterFilteredConfigurations, panelTypeSelection)
   // «Глухое» — не отдельная непересекающаяся категория моделей, а базовое исполнение, доступное любому
   // полотну (в том числе тем, что дополнительно поддерживают зеркало/остекление) — поэтому оно не сужает
   // каталог, в отличие от «Зеркальное»/«С остеклением», которые сужают точным совпадением panelType до
   // моделей, дополнительно это поддерживающих (см. обратную связь после первой реализации, design.md).
   const panelTypeFilteredConfigurations =
     resolvedPanelType === 'BLIND'
-      ? reverseFilteredConfigurations
-      : reverseFilteredConfigurations.filter((configuration) => configuration.leaf.panelType === resolvedPanelType)
+      ? hasQuarterFilteredConfigurations
+      : hasQuarterFilteredConfigurations.filter((configuration) => configuration.leaf.panelType === resolvedPanelType)
   const mirrorFinishStep =
     resolvedPanelType === 'MIRRORED' ? resolveMirrorFinishStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
   const glazingStep =
@@ -1237,8 +1280,31 @@ function App() {
       })
   }
 
+  // Реверс возможен только вместе с четвертью (is_reverse=true всегда подразумевает has_quarter=true,
+  // см. specs, door-configuration-catalog) — включение реверса принудительно включает и «Четверть», чтобы
+  // пара переключателей никогда не оказывалась в несуществующей комбинации (is_reverse=true,
+  // has_quarter=false). Выключение реверса не трогает «Четверть» — is_reverse=false совместимо с любым
+  // её значением.
   function handleReverseChange(value: boolean) {
     setReverseSelection(value)
+    if (value) {
+      setHasQuarterSelection(true)
+    }
+    setSelectedCollectionId(undefined)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
+  }
+
+  // Симметрично handleReverseChange: выключение «Четверть» при включённом «Реверс» принудительно
+  // выключает и реверс — той же причине (несуществующая комбинация is_reverse=true, has_quarter=false).
+  // Включение «Четверть» не трогает «Реверс» — обе его позиции совместимы с has_quarter=true.
+  function handleHasQuarterChange(value: boolean) {
+    setHasQuarterSelection(value)
+    if (!value && resolvedReverse) {
+      setReverseSelection(false)
+    }
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
@@ -1392,6 +1458,7 @@ function App() {
     mirrorFinishTypeId,
     glazingTypeId,
     resolvedReverse,
+    resolvedHasQuarter,
   )
 
   // Наценка за нестандартный погонаж показывается в общем блоке «Надбавки к цене за нестандарт» вместе
@@ -1765,11 +1832,24 @@ function App() {
               </div>
               <OptionGroup
                 label="Толщина"
+                // Толщина 59мм физически изготавливается только с четвертью (см. change
+                // add-leaf-quarter-attribute) — скрыта, когда «Четверть» точно выключена; выбор её сам
+                // включает «Четверть» автоматически, тем же принципом, что и выбор реверса, но без сброса
+                // остальных уже сделанных шагов (это не отдельный шаг каскада, а следствие толщины).
                 options={component.dimensionOptions
                   .filter((option) => option.dimensionType.code === THICKNESS_TYPE_CODE)
+                  .filter((option) => option.value !== THICKNESS_REQUIRING_QUARTER_MM || resolvedHasQuarter !== false)
                   .map((option) => ({ id: option.id, label: String(option.value) }))}
                 selectedId={selection.leaf.thicknessOptionId}
-                onChange={(id) => updateSelection('leaf', { thicknessOptionId: id })}
+                onChange={(id) => {
+                  const chosen = component.dimensionOptions.find(
+                    (option) => option.dimensionType.code === THICKNESS_TYPE_CODE && option.id === id,
+                  )
+                  if (chosen?.value === THICKNESS_REQUIRING_QUARTER_MM && resolvedHasQuarter !== true) {
+                    setHasQuarterSelection(true)
+                  }
+                  updateSelection('leaf', { thicknessOptionId: id })
+                }}
               />
               {component.colourOptions.length > 0 && (
                 <div>
@@ -1823,12 +1903,22 @@ function App() {
 
   const leafPanelContent = (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      {(reverseStep?.visible || (leafComponent?.colourOptions.length ?? 0) > 0) && (
+      {(reverseStep?.visible || hasQuarterStep?.visible || (leafComponent?.colourOptions.length ?? 0) > 0) && (
         <Space align="center" size="large">
           {reverseStep?.visible && (
             <Space align="center">
               <Typography.Text>Реверс</Typography.Text>
               <Switch checked={reverseStep.value} onChange={handleReverseChange} />
+            </Space>
+          )}
+          {hasQuarterStep?.visible && (
+            // Четверть — переключатель того же уровня, что и «Реверс» (см. change add-leaf-quarter-attribute):
+            // самостоятельно сужает каталог по has_quarter, до выбора коллекции/полотна. Кромка для уже
+            // суженного набора автоматически предлагает только вариант, соответствующий текущему значению
+            // (см. specs, door-configuration-catalog, «Соответствие вида кромки и атрибута «Четверть»»).
+            <Space align="center">
+              <Typography.Text>Четверть</Typography.Text>
+              <Switch checked={hasQuarterStep.value} onChange={handleHasQuarterChange} />
             </Space>
           )}
           {(leafComponent?.colourOptions.length ?? 0) > 0 && (
