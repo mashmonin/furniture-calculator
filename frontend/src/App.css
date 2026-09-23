@@ -74,3 +74,38 @@
   border-radius: 6px;
   padding: 8px;
 }
+
+/* Визуальный эффект «полёта» добавленной конфигурации к пункту «Корзина заказа» (см. App.tsx, flight) —
+   фиксированно спозиционированный кружок с position: fixed; top: 0; left: 0, так что transform: translate(x,
+   y) ставит его центр ровно в точку (x, y) страницы. Координаты старта/финиша и длительность анимации
+   передаются через CSS-переменные и animation-duration инлайновым style (App.tsx — единственный источник
+   правды для длительности, чтобы не дублировать число здесь). */
+@keyframes cart-fly-particle-move {
+  0% {
+    transform: translate(var(--cart-fly-from-x), var(--cart-fly-from-y)) translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--cart-fly-to-x), var(--cart-fly-to-y)) translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.cart-fly-particle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1677ff;
+  box-shadow: 0 0 8px rgba(22, 119, 255, 0.6);
+  pointer-events: none;
+  z-index: 2000;
+  animation-name: cart-fly-particle-move;
+  animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+}
