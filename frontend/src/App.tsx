@@ -703,7 +703,7 @@ function pogonazhSurchargePercent(
   )?.surchargePercent
 }
 
-const SERVICE_MENU_ITEMS = [{ key: 'door-configurator', label: 'Межкомнатные двери' }]
+const SERVICE_MENU_ITEMS = [{ key: 'door-configurator', label: 'Эмаль и шпон' }]
 
 // Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения») — статичный текст, без
 // отдельного API: подпись прайс-листа задаётся здесь же и правится однострочно при смене прайс-листа
@@ -1430,6 +1430,7 @@ function App() {
 
   function handleClearAll() {
     setReverseSelection(undefined)
+    setHasQuarterSelection(undefined)
     setPanelTypeSelection(undefined)
     setMirrorFinishTypeId(undefined)
     setGlazingTypeId(undefined)
@@ -1945,7 +1946,11 @@ function App() {
               options={LEAF_PANEL_TYPE_OPTIONS.filter((option) => panelTypeStep.options.includes(option.code)).map(
                 ({ id, label }) => ({ id, label }),
               )}
-              selectedId={LEAF_PANEL_TYPE_OPTIONS.find((option) => option.code === panelTypeStep.value)?.id}
+              selectedId={
+                panelTypeSelection !== undefined && panelTypeStep.options.includes(panelTypeSelection)
+                  ? LEAF_PANEL_TYPE_OPTIONS.find((option) => option.code === panelTypeSelection)?.id
+                  : undefined
+              }
               onChange={(id) => {
                 const option = LEAF_PANEL_TYPE_OPTIONS.find((candidate) => candidate.id === id)
                 if (option) {
