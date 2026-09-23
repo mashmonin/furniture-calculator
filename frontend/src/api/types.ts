@@ -167,6 +167,14 @@ export interface SpecificationExportRequestDto {
   hardware?: HardwareSelectionDto[]
 }
 
+// Одна позиция запроса выгрузки всего заказа (см. change add-order-cart-screen, order-export-api) —
+// зеркально backend OrderLineExportRequestDto.
+export interface OrderLineExportRequestDto {
+  displayName: string
+  quantity: number
+  specification: SpecificationExportRequestDto
+}
+
 // Расчёт этапа «Фурнитура» независимо от door_configuration и её компонентов (см. change
 // add-staged-pricing-endpoints, frontend-staged-pricing).
 export interface HardwarePricingRequestDto {

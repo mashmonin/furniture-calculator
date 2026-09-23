@@ -5,6 +5,7 @@ import type {
   HardwareCategoryDto,
   HardwarePricingRequestDto,
   HardwarePricingResponseDto,
+  OrderLineExportRequestDto,
   PricingRequestDto,
   PricingResponseDto,
   PricingSurchargesDto,
@@ -118,6 +119,22 @@ export async function exportSpecification(
   })
   if (!response.ok) {
     throw new Error(`Не удалось сформировать спецификацию (HTTP ${response.status})`)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'))
+  return { blob, filename }
+}
+
+// Выгрузка всего заказа (корзины) одним .xlsx (см. change add-order-cart-screen, order-export-api) — тот же
+// принцип, что и exportSpecification, но список позиций вместо одной конфигурации.
+export async function exportOrder(lines: OrderLineExportRequestDto[]): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch('/api/specification/export-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lines),
+  })
+  if (!response.ok) {
+    throw new Error(`Не удалось сформировать файл заказа (HTTP ${response.status})`)
   }
   const blob = await response.blob()
   const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'))

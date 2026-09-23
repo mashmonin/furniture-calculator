@@ -57,54 +57,68 @@ public class SpecificationExportService {
     // вызов resolveSpecificationComponents, продлевая сессию на всё время сборки .xlsx.
     @Transactional(readOnly = true)
     public byte[] export(SpecificationExportRequestDto request) {
-        SpecificationComponents components = pricingService.resolveSpecificationComponents(request);
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Спецификация");
-            CellStyle sectionStyle = sectionStyle(workbook);
-            CellStyle headerStyle = headerStyle(workbook);
-
-            int rowIndex = writeSection(sheet, 0, "Полотно и опции полотна", headerStyle, sectionStyle,
-                    leafSectionRows(components, request), true);
-
-            if (components.frame() != null) {
-                rowIndex = writeSection(sheet, rowIndex, "Короб и обрамление", headerStyle, sectionStyle,
-                        frameSectionRows(components), true);
-            }
-
-            List<SpecRow> casingRows = casingSectionRows(components, request);
-            if (!casingRows.isEmpty()) {
-                rowIndex = writeSection(sheet, rowIndex, "Наличники и доборы", headerStyle, sectionStyle, casingRows, true);
-            }
-
-            if (!components.hardware().isEmpty()) {
-                rowIndex = writeSection(sheet, rowIndex, "Фурнитура", headerStyle, sectionStyle,
-                        hardwareSectionRows(components.hardware()), true);
-            }
-
-            // Итоговая сумма — после всех разделов с компонентами, но до надбавок (см. change
-            // add-specification-export): отдельный блок с двумя колонками вместо общей 8-колоночной раскладки,
-            // поскольку у итога нет ни наименования, ни размеров — только сумма по всем ценам файла.
-            rowIndex = writeTotalsSection(sheet, rowIndex, totals(components), sectionStyle, headerStyle);
-
-            // Надбавки к цене полотна — отдельным разделом под всей таблицей расчётов, а не строками внутри
-            // «Полотно и опции полотна» (там теперь — строки выбранных опций, см. leafSectionRows). Без
-            // строки заголовков колонок (includeColumnHeaders=false) — колонки размеров/цвета/количества/цены
-            // не имеют смысла для этих строк (только наименование и процент).
-            List<LeafPriceSurcharge> surcharges = components.leaf().surcharges();
-            if (!surcharges.isEmpty()) {
-                List<SpecRow> surchargeRows = surcharges.stream().map(this::surchargeRow).collect(Collectors.toList());
-                writeSection(sheet, rowIndex, SURCHARGES_SECTION_TITLE, headerStyle, sectionStyle, surchargeRows, false);
-            }
-
-            for (int i = 0; i < COLUMNS.length; i++) {
-                sheet.autoSizeColumn(i);
-            }
-
+            writeConfigurationSheet(workbook, sheet, request);
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("Не удалось сформировать файл спецификации", e);
         }
+    }
+
+    // Пишет полную спецификацию одной конфигурации (все разделы компонентов, итоговую сумму, надбавки) в
+    // уже созданный лист workbook — выделено из export() (см. change add-order-cart-screen, design.md,
+    // «Backend: выгрузка всего заказа одним файлом»), чтобы OrderExportService мог переиспользовать ровно ту
+    // же логику построчно для каждой позиции заказа, не дублируя её. @Transactional — по той же причине, что
+    // и у export(): ленивые связи компонентов должны резолвиться в той же транзакции, где выполнялся
+    // resolveSpecificationComponents. Package-private, а не private — вызывается из OrderExportService
+    // (тот же пакет service) через инжектированный бин, а не self-invocation, поэтому проходит через
+    // Spring-прокси и получает собственную транзакцию на каждый вызов (на каждую позицию заказа).
+    @Transactional(readOnly = true)
+    Totals writeConfigurationSheet(XSSFWorkbook workbook, Sheet sheet, SpecificationExportRequestDto request) {
+        SpecificationComponents components = pricingService.resolveSpecificationComponents(request);
+        CellStyle sectionStyle = sectionStyle(workbook);
+        CellStyle headerStyle = headerStyle(workbook);
+
+        int rowIndex = writeSection(sheet, 0, "Полотно и опции полотна", headerStyle, sectionStyle,
+                leafSectionRows(components, request), true);
+
+        if (components.frame() != null) {
+            rowIndex = writeSection(sheet, rowIndex, "Короб и обрамление", headerStyle, sectionStyle,
+                    frameSectionRows(components), true);
+        }
+
+        List<SpecRow> casingRows = casingSectionRows(components, request);
+        if (!casingRows.isEmpty()) {
+            rowIndex = writeSection(sheet, rowIndex, "Наличники и доборы", headerStyle, sectionStyle, casingRows, true);
+        }
+
+        if (!components.hardware().isEmpty()) {
+            rowIndex = writeSection(sheet, rowIndex, "Фурнитура", headerStyle, sectionStyle,
+                    hardwareSectionRows(components.hardware()), true);
+        }
+
+        // Итоговая сумма — после всех разделов с компонентами, но до надбавок (см. change
+        // add-specification-export): отдельный блок с двумя колонками вместо общей 8-колоночной раскладки,
+        // поскольку у итога нет ни наименования, ни размеров — только сумма по всем ценам файла.
+        Totals totals = totals(components);
+        rowIndex = writeTotalsSection(sheet, rowIndex, totals, sectionStyle, headerStyle);
+
+        // Надбавки к цене полотна — отдельным разделом под всей таблицей расчётов, а не строками внутри
+        // «Полотно и опции полотна» (там теперь — строки выбранных опций, см. leafSectionRows). Без
+        // строки заголовков колонок (includeColumnHeaders=false) — колонки размеров/цвета/количества/цены
+        // не имеют смысла для этих строк (только наименование и процент).
+        List<LeafPriceSurcharge> surcharges = components.leaf().surcharges();
+        if (!surcharges.isEmpty()) {
+            List<SpecRow> surchargeRows = surcharges.stream().map(this::surchargeRow).collect(Collectors.toList());
+            writeSection(sheet, rowIndex, SURCHARGES_SECTION_TITLE, headerStyle, sectionStyle, surchargeRows, false);
+        }
+
+        for (int i = 0; i < COLUMNS.length; i++) {
+            sheet.autoSizeColumn(i);
+        }
+        return totals;
     }
 
     // includeColumnHeaders=false — для раздела «Надбавки к цене полотна»: его строки несут только
@@ -207,7 +221,9 @@ public class SpecificationExportService {
         return component.price().priced() ? component.price().dealerPrice() : BigDecimal.ZERO;
     }
 
-    private record Totals(BigDecimal retail, BigDecimal dealer) {
+    // Package-private (не private) — возвращается из writeConfigurationSheet, которую вызывает
+    // OrderExportService (тот же пакет service) для сборки строки сводки заказа с итоговой ценой позиции.
+    record Totals(BigDecimal retail, BigDecimal dealer) {
     }
 
     private void writeRow(Row dataRow, SpecRow row) {
