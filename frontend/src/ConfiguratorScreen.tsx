@@ -50,6 +50,7 @@ import type {
 import { OptionGroup } from './components/OptionGroup'
 import { ComponentBreakdownList, type SurchargeBreakdownItem } from './ComponentBreakdownList'
 import type { CartDetailRow, CartItem, CartItemContent } from './cart'
+import { formatMoney, formatMoneyWithCurrency } from './format'
 import './App.css'
 
 const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 'frameExtensions']
@@ -715,6 +716,11 @@ interface ConfiguratorScreenProps {
   onAddToCart: (item: CartItem, sourceRect: DOMRect | null) => void
   cartSaveError: boolean
   loadRequest: ConfiguratorLoadRequest | null
+  // resetSignal — растёт на 1 при каждом клике по пункту меню «Эмаль и шпон» (см. App.tsx, правка
+  // пользователя): такой клик принудительно очищает конфигуратор тем же способом, что и кнопка
+  // «Очистить», независимо от того, был ли уже открыт этот экран. Число (а не булев флаг), чтобы эффект
+  // срабатывал заново при каждом клике подряд, даже если состояние между кликами не менялось.
+  resetSignal: number
   // editingItemId — id позиции корзины, открытой через «Посмотреть» (см. order-cart-ui, «Живая
   // синхронизация конфигурации, открытой из корзины»); null — обычный режим «добавить новую». Пока задан,
   // любое изменение конфигурации сразу пишется в эту же позицию через onSyncEditedItem, а кнопка «Добавить
@@ -729,6 +735,7 @@ function ConfiguratorScreen({
   onAddToCart,
   cartSaveError,
   loadRequest,
+  resetSignal,
   editingItemId,
   onSyncEditedItem,
   onStopEditing,
@@ -934,6 +941,20 @@ function ConfiguratorScreen({
     setNextHardwareLineKey(lines.length + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadRequest])
+
+  // Клик по пункту меню «Эмаль и шпон» (см. App.tsx, resetSignal) принудительно очищает конфигуратор —
+  // тем же способом, что и кнопка «Очистить» (handleClearAll, определена ниже — доступна здесь благодаря
+  // hoisting объявления function). Пропускаем самое первое срабатывание при монтировании (resetSignal
+  // стартует с 0 и ещё не был инкрементирован ни одним кликом).
+  const isFirstResetSignalRef = useRef(true)
+  useEffect(() => {
+    if (isFirstResetSignalRef.current) {
+      isFirstResetSignalRef.current = false
+      return
+    }
+    handleClearAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSignal])
 
   // «Реверс» и «Четверть» — независимые переключатели одного уровня, оба оцениваются по ПОЛНОМУ
   // (нефильтрованному) каталогу — так же, как «Реверс» всегда оценивался сам по себе. Раньше «Четверть»
@@ -1845,7 +1866,7 @@ function ConfiguratorScreen({
                         : ''}
                     </span>
                     <span>
-                      {post.retailPrice} ₽ / {post.dealerPrice} ₽ (дилер)
+                      {formatMoney(post.retailPrice)} / {formatMoney(post.dealerPrice)} (дилер)
                     </span>
                   </div>
                 </List.Item>
@@ -2379,9 +2400,17 @@ function ConfiguratorScreen({
               {!pricingError && pricingResult && (
                 <>
                   <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <Statistic title="Розничная цена" value={pricingResult.totalRetailPrice} suffix="₽" />
+                    <Statistic
+                      title="Розничная цена"
+                      value={pricingResult.totalRetailPrice}
+                      formatter={(value) => formatMoneyWithCurrency(Number(value))}
+                    />
                     <div className="app-pricing__dealer-block">
-                      <Statistic title="Дилерская цена" value={pricingResult.totalDealerPrice} suffix="₽" />
+                      <Statistic
+                        title="Дилерская цена"
+                        value={pricingResult.totalDealerPrice}
+                        formatter={(value) => formatMoneyWithCurrency(Number(value))}
+                      />
                     </div>
                   </Space>
                   <ComponentBreakdownList

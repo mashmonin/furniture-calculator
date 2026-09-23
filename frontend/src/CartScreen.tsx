@@ -4,6 +4,7 @@ import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, UpOutlined
 import { exportOrder } from './api/doorConfigurations'
 import type { CartDetailRow, CartItem } from './cart'
 import { totalCartQuantity } from './cart'
+import { formatMoney, formatMoneyWithCurrency } from './format'
 
 interface CartScreenProps {
   items: CartItem[]
@@ -23,7 +24,7 @@ const ITEM_STATUS_LABEL = 'МЕЖКОМНАТНАЯ ДВЕРЬ'
 const SERVICE_TAG_LABEL = 'ЭМАЛЬ И ШПОН'
 
 function money(value: number | null): string {
-  return value !== null ? `${value} ₽` : '—'
+  return value !== null ? formatMoney(value) : '—'
 }
 
 // Вложенная таблица детализации одной позиции по компонентам (см. order-cart-ui, «Разворачиваемая
@@ -57,10 +58,10 @@ function DetailTable({ rows }: { rows: CartDetailRow[] }) {
               <Typography.Text strong>Итого</Typography.Text>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={1}>
-              <Typography.Text strong>{money(dealerTotal)}</Typography.Text>
+              <Typography.Text strong>{formatMoneyWithCurrency(dealerTotal)}</Typography.Text>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={2}>
-              <Typography.Text strong>{money(retailTotal)}</Typography.Text>
+              <Typography.Text strong>{formatMoneyWithCurrency(retailTotal)}</Typography.Text>
             </Table.Summary.Cell>
           </Table.Summary.Row>
         )
@@ -195,7 +196,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
             title: 'Конфигурация',
             render: (_, item) => (
               <Space direction="vertical" size={4}>
-                <Typography.Text strong>{item.displayName}</Typography.Text>
+                <Typography.Text>{item.displayName}</Typography.Text>
                 <Space size={4}>
                   <Tag color="green">{SERVICE_TAG_LABEL}</Tag>
                   <Tag color="blue">{ITEM_STATUS_LABEL}</Tag>
@@ -209,7 +210,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           },
           {
             title: 'Цена за ед.',
-            render: (_, item) => `${item.pricingSnapshot.totalRetailPrice} ₽`,
+            render: (_, item) => formatMoneyWithCurrency(item.pricingSnapshot.totalRetailPrice),
           },
           {
             title: 'Количество',
@@ -223,7 +224,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           },
           {
             title: 'Сумма',
-            render: (_, item) => `${item.pricingSnapshot.totalRetailPrice * item.quantity} ₽`,
+            render: (_, item) => formatMoneyWithCurrency(item.pricingSnapshot.totalRetailPrice * item.quantity),
           },
           {
             title: 'Действия',
@@ -265,7 +266,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
         <Space align="baseline" size={16}>
           <Typography.Text strong>Итого по заказу</Typography.Text>
           <Typography.Title level={3} style={{ margin: 0 }}>
-            {orderTotal} ₽
+            {formatMoney(orderTotal)}
           </Typography.Title>
         </Space>
       </div>

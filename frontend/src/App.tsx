@@ -41,6 +41,10 @@ function App() {
   // изменения в эту же позицию (см. order-cart-ui, «Живая синхронизация конфигурации, открытой из корзины»)
   // и блокирует кнопку «Добавить в корзину». Сбрасывается по «Очистить» (см. ConfiguratorScreen.onStopEditing).
   const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null)
+  // Растёт на 1 при каждом клике по пункту меню «Эмаль и шпон» (см. правку пользователя) — сигнал для
+  // ConfiguratorScreen принудительно очистить форму тем же способом, что и кнопка «Очистить», независимо
+  // от того, был ли уже открыт этот экран.
+  const [configuratorResetKey, setConfiguratorResetKey] = useState(0)
 
   // Визуальный эффект «полёта» добавленной конфигурации к пункту «Корзина заказа» в левом меню (см. правку
   // пользователя) — cartMenuItemRef даёт координаты цели (пункт меню всегда в DOM, независимо от текущего
@@ -180,9 +184,18 @@ function App() {
               { key: 'door-configurator', label: 'Эмаль и шпон' },
               // Обёрнуто в span с ref — не влияет на вид пункта меню, только даёт координаты цели для
               // эффекта «полёта» (см. addCartItem, flight выше); пункт всегда в DOM независимо от screen.
-              { key: 'cart', label: <span ref={cartMenuItemRef}>Корзина заказа</span> },
+              { key: 'cart', label: <span ref={cartMenuItemRef}>Корзина</span> },
             ]}
-            onClick={(info) => setScreen(info.key === 'cart' ? 'cart' : 'configurator')}
+            onClick={(info) => {
+              if (info.key === 'cart') {
+                setScreen('cart')
+                return
+              }
+              // Клик по «Эмаль и шпон» принудительно очищает конфигуратор — тем же сбросом, что и кнопка
+              // «Очистить» (см. правку пользователя) — независимо от того, был ли уже открыт этот экран.
+              setConfiguratorResetKey((value) => value + 1)
+              setScreen('configurator')
+            }}
           />
         </div>
 
@@ -191,6 +204,7 @@ function App() {
             onAddToCart={addCartItem}
             cartSaveError={cartSaveError}
             loadRequest={loadRequest}
+            resetSignal={configuratorResetKey}
             editingItemId={editingCartItemId}
             onSyncEditedItem={syncEditedCartItem}
             onStopEditing={stopEditingCartItem}
