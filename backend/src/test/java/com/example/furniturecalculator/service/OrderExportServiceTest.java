@@ -27,9 +27,10 @@ import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.support.TestEntities;
 
 // SpecificationExportService здесь настоящий (не мок), с замоканным только DoorConfigurationPricingService
-// под ним — так лист детализации каждой позиции строится реальной, уже протестированной в
-// SpecificationExportServiceTest логикой (writeConfigurationSheet), а эти тесты проверяют только то, что
-// добавляет OrderExportService: лист-сводку, имена листов детализации и валидацию списка позиций.
+// под ним — так построчная детализация каждой позиции строится реальной, уже протестированной в
+// SpecificationExportServiceTest логикой (resolveConfigurationBreakdown), а эти тесты проверяют только то,
+// что добавляет OrderExportService: единый лист «Заказ» со строкой конфигурации и детализацией под ней на
+// каждую позицию (см. change update-order-export-flat-layout) и валидацию списка позиций.
 @ExtendWith(MockitoExtension.class)
 class OrderExportServiceTest {
 
@@ -59,61 +60,71 @@ class OrderExportServiceTest {
     }
 
     @Test
-    void сводка_содержит_строку_на_каждую_позицию_и_итог() throws IOException {
+    void лист_заказа_содержит_строку_конфигурации_и_детализацию_для_каждой_позиции() throws IOException {
         when(pricingService.resolveSpecificationComponents(any()))
                 .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
 
         byte[] file = service.export(List.of(line("Вертикаль 01", 2), line("Вертикаль 02", 1)));
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
-            Sheet summary = workbook.getSheet("Сводка");
-            assertThat(summary).isNotNull();
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(1);
+            Sheet sheet = workbook.getSheet("Заказ");
+            assertThat(sheet).isNotNull();
 
-            Row row1 = summary.getRow(1);
-            assertThat(row1.getCell(0).getNumericCellValue()).isEqualTo(1);
-            assertThat(row1.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 01");
-            assertThat(row1.getCell(2).getNumericCellValue()).isEqualTo(2);
-            assertThat(row1.getCell(3).getNumericCellValue()).isEqualTo(1000.0);
-            assertThat(row1.getCell(4).getNumericCellValue()).isEqualTo(2000.0);
+            Row headerRow = sheet.getRow(0);
+            assertThat(headerRow.getCell(0).getStringCellValue()).isEqualTo("№");
+            assertThat(headerRow.getCell(1).getStringCellValue()).isEqualTo("Конфигурация");
 
-            Row row2 = summary.getRow(2);
-            assertThat(row2.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 02");
-            assertThat(row2.getCell(2).getNumericCellValue()).isEqualTo(1);
-            assertThat(row2.getCell(4).getNumericCellValue()).isEqualTo(1000.0);
+            Row configRow1 = sheet.getRow(1);
+            assertThat(configRow1.getCell(0).getNumericCellValue()).isEqualTo(1);
+            assertThat(configRow1.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 01");
+            assertThat(configRow1.getCell(3).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(configRow1.getCell(4).getNumericCellValue()).isEqualTo(2);
+            assertThat(configRow1.getCell(5).getNumericCellValue()).isEqualTo(2000.0);
 
-            Row totalRow = summary.getRow(3);
-            assertThat(totalRow.getCell(1).getStringCellValue()).isEqualTo("Итого по заказу");
-            assertThat(totalRow.getCell(4).getNumericCellValue()).isEqualTo(3000.0);
+            Row detailHeaderRow1 = sheet.getRow(2);
+            assertThat(detailHeaderRow1.getCell(0).getStringCellValue()).isEqualTo("Элемент");
+
+            // Строка 3 (индекс) — детализация полотна первой позиции, строка 4 — «Итого» по детализации
+            // (см. writeDetailTotalsRow), строка 5 — строка конфигурации второй позиции.
+            Row totalsRow1 = sheet.getRow(4);
+            assertThat(totalsRow1.getCell(1).getStringCellValue()).isEqualTo("Итого");
+            assertThat(totalsRow1.getCell(7).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(totalsRow1.getCell(8).getNumericCellValue()).isEqualTo(1000.0);
+
+            Row configRow2 = sheet.getRow(5);
+            assertThat(configRow2.getCell(0).getNumericCellValue()).isEqualTo(2);
+            assertThat(configRow2.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 02");
+            assertThat(configRow2.getCell(4).getNumericCellValue()).isEqualTo(1);
+            assertThat(configRow2.getCell(5).getNumericCellValue()).isEqualTo(1000.0);
+
+            // Строка 9 (индекс) — последняя строка листа: итог по заказу (2000 + 1000, см. writeOrderTotalRow).
+            // В тестовой фикстуре leafComponent дилерская цена равна розничной, поэтому дилерский итог тоже 3000.
+            Row orderTotalRow = sheet.getRow(9);
+            assertThat(orderTotalRow.getCell(1).getStringCellValue()).isEqualTo("Итого по заказу");
+            assertThat(orderTotalRow.getCell(5).getNumericCellValue()).isEqualTo(3000.0);
+            assertThat(orderTotalRow.getCell(6).getStringCellValue()).isEqualTo("Итого дилер, ₽");
+            assertThat(orderTotalRow.getCell(7).getNumericCellValue()).isEqualTo(3000.0);
         }
     }
 
     @Test
-    void лист_детализации_соответствует_одиночной_выгрузке_той_же_конфигурации() throws IOException {
+    void строка_детализации_полотна_содержит_то_же_наименование_и_цену_что_и_компонент() throws IOException {
         when(pricingService.resolveSpecificationComponents(any()))
                 .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
 
         byte[] file = service.export(List.of(line("Вертикаль 01", 1)));
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
-            Sheet detailSheet = workbook.getSheet("1. Вертикаль 01");
-            assertThat(detailSheet).isNotNull();
-            assertThat(detailSheet.getRow(0).getCell(0).getStringCellValue()).isEqualTo("Полотно и опции полотна");
-            Row leafRow = detailSheet.getRow(2);
-            assertThat(leafRow.getCell(0).getStringCellValue()).isEqualTo("LeafType 1");
-            assertThat(leafRow.getCell(4).getNumericCellValue()).isEqualTo(1000.0);
-        }
-    }
-
-    @Test
-    void название_листа_включает_номер_и_наименование_позиции() throws IOException {
-        when(pricingService.resolveSpecificationComponents(any()))
-                .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
-
-        byte[] file = service.export(List.of(line("Вертикаль 01", 1), line("Вертикаль 02", 1)));
-
-        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
-            assertThat(workbook.getSheet("1. Вертикаль 01")).isNotNull();
-            assertThat(workbook.getSheet("2. Вертикаль 02")).isNotNull();
+            Sheet sheet = workbook.getSheet("Заказ");
+            Row leafDetailRow = sheet.getRow(3);
+            assertThat(leafDetailRow.getCell(0).getStringCellValue()).isEqualTo("Полотно");
+            assertThat(leafDetailRow.getCell(1).getStringCellValue()).isEqualTo("LeafType 1");
+            assertThat(leafDetailRow.getCell(4).getNumericCellValue()).isEqualTo(1);
+            assertThat(leafDetailRow.getCell(5).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(leafDetailRow.getCell(6).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(leafDetailRow.getCell(7).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(leafDetailRow.getCell(8).getNumericCellValue()).isEqualTo(1000.0);
         }
     }
 

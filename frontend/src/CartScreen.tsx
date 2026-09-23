@@ -177,6 +177,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
 
   const totalItems = totalCartQuantity(items)
   const orderTotal = items.reduce((sum, item) => sum + item.pricingSnapshot.totalRetailPrice * item.quantity, 0)
+  const orderDealerTotal = items.reduce((sum, item) => sum + item.pricingSnapshot.totalDealerPrice * item.quantity, 0)
 
   return (
     <div className="app-main">
@@ -266,7 +267,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
         <Space align="baseline" size={16}>
           <Typography.Text strong>Итого по заказу</Typography.Text>
           <Typography.Title level={3} style={{ margin: 0 }}>
-            {formatMoney(orderTotal)}
+            {formatMoney(orderTotal)} / {formatMoney(orderDealerTotal)} (дилер)
           </Typography.Title>
         </Space>
       </div>

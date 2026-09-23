@@ -429,6 +429,90 @@ class SpecificationExportServiceTest {
         }
     }
 
+    // Регрессия: размер наличника/добора — это ДЛИНА (см. resolvedLength в SpecificationExportService), а
+    // не высота — у этих компонентов heightOption всегда null, поэтому попытка взять heightOption/
+    // heightMmOverride (как для короба) молча давала пустое «Размеры» в детализации заказа.
+    @Test
+    void детализация_показывает_длину_наличника_и_добора_как_размер() {
+        DoorCasingType doorCasingType = TestEntities.doorCasingType(5L);
+        FrameExtensionsType frameExtensionsType = TestEntities.frameExtensionsType(6L);
+        LinerDimensionType lengthType = TestEntities.linerDimensionType(4L, "DT-001");
+        LinerDimensionOption casingLength =
+                TestEntities.linerDimensionOption(20L, lengthType, BigDecimal.valueOf(2100), true, doorCasingType);
+        LinerDimensionOption extensionsLength =
+                TestEntities.linerDimensionOption(21L, lengthType, BigDecimal.valueOf(2050), true, frameExtensionsType);
+
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent doorCasing = new ResolvedComponent(doorCasingType, new ComponentPriceDto("doorCasing", true, BigDecimal.valueOf(300), BigDecimal.valueOf(200),
+                        BigDecimal.valueOf(300), BigDecimal.valueOf(200)),
+                casingLength, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frameExtensions = new ResolvedComponent(frameExtensionsType, new ComponentPriceDto("frameExtensions", true, BigDecimal.valueOf(150), BigDecimal.valueOf(100),
+                        BigDecimal.valueOf(150), BigDecimal.valueOf(100)),
+                extensionsLength, null, null, null, null, null, 1, List.of(), List.of(), null);
+
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, doorCasing, frameExtensions, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        SpecificationExportService.ConfigurationBreakdown breakdown = service.resolveConfigurationBreakdown(emptyRequest());
+
+        SpecificationExportService.DetailRow casingRow = breakdown.detailRows().stream()
+                .filter(row -> "Наличник".equals(row.element())).findFirst().orElseThrow();
+        assertThat(casingRow.size()).isEqualTo("2100");
+
+        SpecificationExportService.DetailRow extensionsRow = breakdown.detailRows().stream()
+                .filter(row -> "Добор".equals(row.element())).findFirst().orElseThrow();
+        assertThat(extensionsRow.size()).isEqualTo("2050");
+    }
+
+    // Плоская детализация (resolveConfigurationBreakdown, используется листом заказа и, до правки
+    // пользователя, повторяла раскрываемую детализацию корзины на фронте) больше НЕ содержит отдельных строк
+    // на состав короба (см. правку пользователя, order-cart-ui, «Разворачиваемая детализация позиции
+    // корзины») — короб виден только одной строкой «Короб» с суммарной ценой; сам frame_post из теста при
+    // этом не отбрасывается совсем: старый лист одиночной спецификации (frameSectionRows, отдельная,
+    // не затронутая этой правкой возможность door-configuration-export) по-прежнему показывает его отдельной
+    // строкой, и «Комплект зарезных стоек» там по-прежнему считается как 1 штука (см. предыдущую правку).
+    @Test
+    void плоская_детализация_не_содержит_отдельных_строк_состава_короба() throws IOException {
+        FrameType frameType = TestEntities.frameType(2L);
+        FramePost kitPost = TestEntities.framePost(100L, BigDecimal.valueOf(300), BigDecimal.valueOf(200), frameType);
+        org.springframework.test.util.ReflectionTestUtils.setField(kitPost.getPostType(), "name", "Комплект зарезных стоек");
+        org.springframework.test.util.ReflectionTestUtils.setField(kitPost, "quantity", 3);
+
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(3000), BigDecimal.valueOf(2000),
+                        BigDecimal.valueOf(3000), BigDecimal.valueOf(2000)),
+                null, null, null, null, null, List.of(kitPost), 1, List.of(), List.of(), null);
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, frame, null, null, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        SpecificationExportService.ConfigurationBreakdown breakdown = service.resolveConfigurationBreakdown(emptyRequest());
+        assertThat(breakdown.detailRows()).extracting(SpecificationExportService.DetailRow::element)
+                .containsExactly("Полотно", "Короб");
+        SpecificationExportService.DetailRow frameRow = breakdown.detailRows().stream()
+                .filter(row -> "Короб".equals(row.element())).findFirst().orElseThrow();
+        // Цена строки «Короб» — цена всего frame-компонента (3000/2000), уже включающая состав его стоек
+        // (см. door-configuration-api, «Стоимость короба как сумма цен его стоек») — не 300/200 отдельного поста.
+        assertThat(frameRow.retailSum()).isEqualByComparingTo(BigDecimal.valueOf(3000));
+        assertThat(frameRow.dealerSum()).isEqualByComparingTo(BigDecimal.valueOf(2000));
+
+        byte[] file = service.export(emptyRequest());
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            // Полотно (0=заголовок,1=шапка,2=полотно) → короб и обрамление (4=заголовок,5=шапка,6=короб,
+            // 7=комплект стоек) — старый лист одиночной спецификации по-прежнему показывает состав короба.
+            Row kitSheetRow = sheet.getRow(7);
+            assertThat(kitSheetRow.getCell(0).getStringCellValue()).isEqualTo("Комплект зарезных стоек");
+            assertThat(kitSheetRow.getCell(3).getNumericCellValue()).isEqualTo(1);
+            assertThat(kitSheetRow.getCell(4).getNumericCellValue()).isEqualTo(300.0);
+        }
+    }
+
     private SpecificationExportRequestDto emptyRequest() {
         return new SpecificationExportRequestDto(
                 1L, null, null, null, null, null, null, null, null, null, null, null, null);

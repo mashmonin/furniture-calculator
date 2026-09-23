@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -121,6 +122,136 @@ public class SpecificationExportService {
         return totals;
     }
 
+    // Плоская построчная детализация конфигурации по компонентам (см. change update-order-export-flat-layout,
+    // order-export-api) — тот же состав данных, что фронтенд строит для раскрываемой таблицы детализации
+    // позиции корзины (см. frontend/src/ConfiguratorScreen.tsx, buildCartItemContent/detailRows), но
+    // независимо пересчитанный на backend через resolveSpecificationComponents (см. writeConfigurationSheet
+    // выше — тот же принцип «не доверять уже показанным на экране числам»). В отличие от writeConfigurationSheet
+    // (сгруппированные по разделам строки с 8 колонками для единичной выгрузки, см. door-configuration-export)
+    // здесь — один плоский список строк с колонкой «Элемент» и явной суммой по строке, используемый только
+    // OrderExportService для листа заказа целиком.
+    @Transactional(readOnly = true)
+    ConfigurationBreakdown resolveConfigurationBreakdown(SpecificationExportRequestDto request) {
+        SpecificationComponents components = pricingService.resolveSpecificationComponents(request);
+        Totals totals = totals(components);
+        String dimensionsLabel = leafDimensionsLabel(components, request);
+        List<DetailRow> detailRows = buildDetailRows(components, request, dimensionsLabel);
+        return new ConfigurationBreakdown(components.leaf().type().getName(), dimensionsLabel, totals, detailRows);
+    }
+
+    // Длина × высота × толщина полотна через « × » (см. order-cart-ui, «Таблица позиций корзины» —
+    // dimensionsLabel строится на фронте тем же способом и тем же разделителем, без единиц измерения).
+    private String leafDimensionsLabel(SpecificationComponents components, SpecificationExportRequestDto request) {
+        ComponentSelectionDto leafSelection = request.leaf() != null ? request.leaf() : ComponentSelectionDto.EMPTY;
+        ResolvedComponent leaf = components.leaf();
+        BigDecimal length = leaf.lengthOption() != null ? leaf.lengthOption().getValue() : leafSelection.customLengthValueMm();
+        BigDecimal height = components.leafHeightValue();
+        BigDecimal thickness = leaf.thicknessOption() != null ? leaf.thicknessOption().getValue() : null;
+        List<BigDecimal> values = new ArrayList<>();
+        if (length != null) {
+            values.add(length);
+        }
+        if (height != null) {
+            values.add(height);
+        }
+        if (thickness != null) {
+            values.add(thickness);
+        }
+        if (values.isEmpty()) {
+            return null;
+        }
+        return values.stream().map(value -> value.stripTrailingZeros().toPlainString()).collect(Collectors.joining(" × "));
+    }
+
+    private List<DetailRow> buildDetailRows(
+            SpecificationComponents components, SpecificationExportRequestDto request, String leafDimensionsLabel) {
+        List<DetailRow> rows = new ArrayList<>();
+        ResolvedComponent leaf = components.leaf();
+        rows.add(detailRow("Полотно", leaf.type().getName(), leafDimensionsLabel, formatColour(leaf), 1, leaf.price()));
+
+        if (components.edge() != null) {
+            ResolvedComponent edge = components.edge();
+            rows.add(detailRow("Кромка", edge.type().getName(), null, null, 1, edge.price()));
+        }
+
+        if (components.frame() != null) {
+            // Позиции состава короба (frame.framePosts(), включая «Комплект зарезных стоек») здесь намеренно
+            // НЕ выводятся отдельными строками (см. правку пользователя, order-cart-ui, «Разворачиваемая
+            // детализация позиции корзины» — тот же принцип, что и в детализации корзины на фронте, откуда
+            // этот метод и переиспользуется для листа заказа): цена компонента «Короб» уже включает их сумму
+            // целиком (см. door-configuration-api, «Стоимость короба как сумма цен его стоек»), поэтому
+            // одной строки «Короб» достаточно. Состав по-прежнему выгружается построчно в ОДИНОЧНОЙ
+            // спецификации (см. frameSectionRows ниже, door-configuration-export, «Состав короба выгружается
+            // построчно») — это отдельная, не затронутая этой правкой возможность.
+            ResolvedComponent frame = components.frame();
+            String frameSize = plainNumber(resolvedHeight(frame, null));
+            rows.add(detailRow("Короб", frame.type().getName(), frameSize, null, 1, frame.price()));
+        }
+
+        if (components.doorCasing() != null) {
+            ResolvedComponent casing = components.doorCasing();
+            ComponentSelectionDto selection = request.doorCasing() != null ? request.doorCasing() : ComponentSelectionDto.EMPTY;
+            String size = plainNumber(resolvedLength(casing, selection));
+            rows.add(detailRow("Наличник", casing.type().getName(), size, formatColour(casing), casing.quantity(), casing.price()));
+        }
+
+        if (components.frameExtensions() != null) {
+            ResolvedComponent extensions = components.frameExtensions();
+            ComponentSelectionDto selection = request.frameExtensions() != null ? request.frameExtensions() : ComponentSelectionDto.EMPTY;
+            String size = plainNumber(resolvedLength(extensions, selection));
+            rows.add(detailRow(
+                    "Добор", extensions.type().getName(), size, formatColour(extensions), extensions.quantity(), extensions.price()));
+        }
+
+        for (HardwarePriceDto item : components.hardware()) {
+            String name = item.category().name() + " — " + item.type().name();
+            BigDecimal retailUnit = perUnit(item.retailPrice(), item.quantity());
+            BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
+            rows.add(new DetailRow("Фурнитура", name, null, item.colourName(), item.quantity(), true,
+                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice()));
+        }
+
+        return rows;
+    }
+
+    // Строка детализации по компоненту с ценой из ComponentPriceDto (уже посчитанной с учётом quantity для
+    // doorCasing/frameExtensions, см. комментарий в totals()) — цена «за единицу» получается делением
+    // обратно на quantity (для leaf/edge/frame/postов quantity=1, деление не требуется).
+    private DetailRow detailRow(String element, String name, String size, String colour, int quantity, ComponentPriceDto price) {
+        if (!price.priced()) {
+            return new DetailRow(element, name, size, colour, quantity, false, null, null, null, null);
+        }
+        BigDecimal retailSum = price.retailPrice();
+        BigDecimal dealerSum = price.dealerPrice();
+        return new DetailRow(
+                element, name, size, colour, quantity, true, perUnit(retailSum, quantity), perUnit(dealerSum, quantity), retailSum, dealerSum);
+    }
+
+    private BigDecimal perUnit(BigDecimal total, int quantity) {
+        return quantity == 1 ? total : total.divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
+    }
+
+    // Высота короба/наличника/добора — из каталожной опции либо, если недоступна напрямую (короб «Фантом»
+    // мирроритcя от высоты полотна), из heightMmOverride (см. componentRow выше — тот же принцип).
+    private BigDecimal resolvedHeight(ResolvedComponent component, BigDecimal externalOverride) {
+        if (externalOverride != null) {
+            return externalOverride;
+        }
+        return component.heightOption() != null ? component.heightOption().getValue() : component.heightMmOverride();
+    }
+
+    // Размер наличника/добора — это ДЛИНА (подбирается по диапазону, привязанному к высоте полотна, см.
+    // DoorConfigurationPricingService.addComponentIfPresent, requireLengthWithinLeafRange), а не высота: у
+    // этих компонентов heightOption всегда null (см. componentRow выше — та же самая логика для одиночной
+    // выгрузки), в отличие от короба, где именно высота — значимый размер (см. resolvedHeight).
+    private BigDecimal resolvedLength(ResolvedComponent component, ComponentSelectionDto selection) {
+        return component.lengthOption() != null ? component.lengthOption().getValue() : selection.customLengthValueMm();
+    }
+
+    private String plainNumber(BigDecimal value) {
+        return value != null ? value.stripTrailingZeros().toPlainString() : null;
+    }
+
     // includeColumnHeaders=false — для раздела «Надбавки к цене полотна»: его строки несут только
     // наименование и процент, колонки размеров/цвета/количества/цены к ним неприменимы, поэтому строка
     // заголовков колонок для этого раздела не пишется вовсе (а не просто оставляется пустой).
@@ -226,6 +357,31 @@ public class SpecificationExportService {
     record Totals(BigDecimal retail, BigDecimal dealer) {
     }
 
+    // Одна строка плоской детализации конфигурации по компоненту (см. resolveConfigurationBreakdown выше) —
+    // retailPrice/dealerPrice здесь уже цена ЗА ЕДИНИЦУ (в отличие от ComponentPriceDto/HardwarePriceDto,
+    // где для doorCasing/frameExtensions/фурнитуры цена уже умножена на quantity), retailSum/dealerSum — с
+    // учётом quantity этой строки. priced=false — цена не найдена, все ценовые поля null (см. OrderExportService,
+    // где это превращается в «—», тем же принципом, что и в writeRow/SpecRow выше).
+    record DetailRow(
+            String element,
+            String name,
+            String size,
+            String colour,
+            int quantity,
+            boolean priced,
+            BigDecimal retailPrice,
+            BigDecimal dealerPrice,
+            BigDecimal retailSum,
+            BigDecimal dealerSum) {
+    }
+
+    // Итог по одной конфигурации заказа для OrderExportService: displayName/dimensionsLabel — для строки
+    // конфигурации листа заказа (те же значения, что и CartItem.displayName/dimensionsLabel на фронте),
+    // totals — цена за единицу (используется и как «Цена за ед.», и умножается на quantity позиции для
+    // «Сумма»), detailRows — построчная детализация под строкой конфигурации.
+    record ConfigurationBreakdown(String displayName, String dimensionsLabel, Totals totals, List<DetailRow> detailRows) {
+    }
+
     private void writeRow(Row dataRow, SpecRow row) {
         dataRow.createCell(0).setCellValue(row.name());
         if (row.dimensions() != null) {
@@ -297,10 +453,14 @@ public class SpecificationExportService {
         rows.add(componentRow(frame, ComponentSelectionDto.EMPTY, null, false));
         for (FramePost post : frame.framePosts()) {
             String name = post.getPostType().getName();
-            BigDecimal length = FRAME_POST_NAME_WITHOUT_LENGTH.equals(name) ? null : post.getLength();
+            // «Комплект зарезных стоек» — уже готовый набор, считается как 1 штука, а не post.getQuantity()
+            // (см. тот же принцип в buildDetailRows выше).
+            boolean isKitPost = FRAME_POST_NAME_WITHOUT_LENGTH.equals(name);
+            BigDecimal length = isKitPost ? null : post.getLength();
             String dimensions = formatDimensions(length, null, null);
+            int quantity = isKitPost ? 1 : post.getQuantity();
             // У позиций короба надбавок никогда не бывает — базовая цена совпадает с итоговой.
-            rows.add(new SpecRow(name, dimensions, null, post.getQuantity(), true,
+            rows.add(new SpecRow(name, dimensions, null, quantity, true,
                     post.getRetailPrice(), post.getRetailPrice(), post.getDealerPrice(), post.getDealerPrice(), true));
         }
         return rows;
