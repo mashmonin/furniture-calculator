@@ -1,5 +1,6 @@
 import { List, Space, Typography } from 'antd'
 import type { ComponentKey, ComponentPriceDto, HardwarePriceDto } from './api/types'
+import { formatMoney } from './format'
 
 export interface SurchargeBreakdownItem {
   label: string
@@ -46,7 +47,7 @@ export function ComponentBreakdownList({ components, hardware, quantities, surch
               <Space direction="vertical" size={0}>
                 <span>
                   {COMPONENT_LABELS[key] ?? item.component}:{' '}
-                  {item.priced ? `${item.retailPrice} ₽ / ${item.dealerPrice} ₽ (дилер)` : 'цена не найдена'}
+                  {item.priced ? `${formatMoney(item.retailPrice!)} / ${formatMoney(item.dealerPrice!)} (дилер)` : 'цена не найдена'}
                   {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
                 </span>
                 {componentSurcharges.map((surcharge) => (
@@ -56,7 +57,7 @@ export function ComponentBreakdownList({ components, hardware, quantities, surch
                 ))}
                 {hasSurcharge && (
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    Без надбавок: {item.baseRetailPrice} ₽ / {item.baseDealerPrice} ₽ (дилер)
+                    Без надбавок: {formatMoney(item.baseRetailPrice!)} / {formatMoney(item.baseDealerPrice!)} (дилер)
                   </Typography.Text>
                 )}
               </Space>
@@ -74,7 +75,7 @@ export function ComponentBreakdownList({ components, hardware, quantities, surch
           renderItem={(item) => (
             <List.Item>
               {item.category.name} — {item.type.name} ({item.colourName}) × {item.quantity} шт.:{' '}
-              {item.retailPrice} ₽ / {item.dealerPrice} ₽ (дилер)
+              {formatMoney(item.retailPrice)} / {formatMoney(item.dealerPrice)} (дилер)
             </List.Item>
           )}
         />
