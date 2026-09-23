@@ -1438,21 +1438,13 @@ function ConfiguratorScreen({
       detailRows.push(detailRow('Кромка', edgeComponent.type.name, null, null, 1, priceByComponent('edge')))
     }
     if (frameComponent) {
+      // Строки состава короба (frameComponent.posts, включая «Комплект зарезных стоек») здесь намеренно НЕ
+      // добавляются (см. правку пользователя) — цена компонента «Короб» уже включает их сумму целиком (см.
+      // door-configuration-api, «Стоимость короба как сумма цен его стоек»), поэтому одной строки «Короб»
+      // достаточно для полноты суммы; состав его позиций по-прежнему виден в самом конфигураторе (см.
+      // door-configurator-ui, «Отображение позиций короба»), только не дублируется в детализации корзины.
       const frameSize = frameMatchedValue !== undefined ? `${frameMatchedValue}` : null
       detailRows.push(detailRow('Короб', frameComponent.type.name, frameSize, null, 1, priceByComponent('frame')))
-      frameComponent.posts.forEach((post) => {
-        detailRows.push({
-          element: 'Короб',
-          name: post.postType.name,
-          size: post.length !== null ? `${post.length}` : null,
-          colour: null,
-          quantity: post.quantity,
-          dealerPrice: post.dealerPrice,
-          retailPrice: post.retailPrice,
-          dealerSum: post.dealerPrice * post.quantity,
-          retailSum: post.retailPrice * post.quantity,
-        })
-      })
     }
     if (doorCasingComponent) {
       const quantity = selection.doorCasing.quantity ?? 1
@@ -1860,7 +1852,7 @@ function ConfiguratorScreen({
                 <List.Item>
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                     <span>
-                      {post.postType.name} × {post.quantity}
+                      {post.postType.name} × {post.postType.name === FRAME_POST_NAME_WITHOUT_LENGTH ? 1 : post.quantity}
                       {post.length !== null && post.postType.name !== FRAME_POST_NAME_WITHOUT_LENGTH
                         ? `, длина ${post.length}`
                         : ''}

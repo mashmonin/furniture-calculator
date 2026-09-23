@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -12,7 +11,6 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,15 +18,20 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.furniturecalculator.dto.OrderLineExportRequestDto;
 
-// Выгрузка всего заказа (несколько позиций из корзины, см. change add-order-cart-screen, order-export-api)
-// одним .xlsx: первый лист — сводка по всем позициям, затем по листу детализации на каждую позицию. Расчёт
-// и построение листа детализации переиспользуют SpecificationExportService.writeConfigurationSheet — та же
-// логика, что и у выгрузки одиночной спецификации, без дублирования (см. design.md, «Backend: выгрузка
-// всего заказа одним файлом»).
+// Выгрузка всего заказа (несколько позиций из корзины, см. change update-order-export-flat-layout,
+// order-export-api) одним .xlsx, одним листом — тот же состав данных и та же структура «строка конфигурации,
+// сразу под ней детализация по компонентам», что и таблица корзины на фронте (см. frontend/src/CartScreen.tsx):
+// главные колонки «№»/«Конфигурация»/«Параметры»/«Цена за ед.»/«Количество»/«Сумма» (без «Действия» — это
+// кнопки, в файле не нужны), под каждой строкой — своя мини-таблица детализации из 9 колонок. Расчёт
+// переиспользует SpecificationExportService.resolveConfigurationBreakdown — та же логика (и то же
+// «backend пересчитывает заново, не доверяя фронту»), что и у выгрузки одиночной спецификации.
 @Service
 public class OrderExportService {
 
-    private static final String[] SUMMARY_COLUMNS = {"№", "Наименование", "Количество", "Цена за единицу, ₽", "Сумма, ₽"};
+    private static final String[] MAIN_COLUMNS = {"№", "Конфигурация", "Параметры", "Цена за ед., ₽", "Количество", "Сумма, ₽"};
+    private static final String[] DETAIL_COLUMNS = {
+            "Элемент", "Наименование", "Размеры", "Цвет", "Кол-во", "Цена дилер, ₽", "Цена клиенту, ₽", "Сумма дилер, ₽", "Сумма клиенту, ₽"
+    };
 
     private final SpecificationExportService specificationExportService;
 
@@ -47,20 +50,35 @@ public class OrderExportService {
         }
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet summarySheet = workbook.createSheet("Сводка");
-            List<SummaryRow> summaryRows = new ArrayList<>();
-            List<String> usedSheetNames = new ArrayList<>();
+            Sheet sheet = workbook.createSheet("Заказ");
+            CellStyle mainRowStyle = boldStyle(workbook, (short) 12);
+            CellStyle headerStyle = boldStyle(workbook, (short) -1);
+
+            int rowIndex = writeHeaderRow(sheet, 0, MAIN_COLUMNS, headerStyle);
             int position = 1;
+            BigDecimal orderRetailTotal = BigDecimal.ZERO;
+            BigDecimal orderDealerTotal = BigDecimal.ZERO;
             for (OrderLineExportRequestDto line : lines) {
-                String sheetName = uniqueSheetName(position + ". " + line.displayName(), usedSheetNames);
-                usedSheetNames.add(sheetName);
-                Sheet detailSheet = workbook.createSheet(sheetName);
-                SpecificationExportService.Totals totals =
-                        specificationExportService.writeConfigurationSheet(workbook, detailSheet, line.specification());
-                summaryRows.add(new SummaryRow(position, line.displayName(), line.quantity(), totals.retail()));
+                SpecificationExportService.ConfigurationBreakdown breakdown =
+                        specificationExportService.resolveConfigurationBreakdown(line.specification());
+                BigDecimal quantity = BigDecimal.valueOf(line.quantity());
+                BigDecimal lineSum = breakdown.totals().retail().multiply(quantity);
+                orderRetailTotal = orderRetailTotal.add(lineSum);
+                orderDealerTotal = orderDealerTotal.add(breakdown.totals().dealer().multiply(quantity));
+                rowIndex = writeConfigurationRow(sheet, rowIndex, position, line, breakdown, lineSum, mainRowStyle);
+                rowIndex = writeHeaderRow(sheet, rowIndex, DETAIL_COLUMNS, headerStyle);
+                for (SpecificationExportService.DetailRow detailRow : breakdown.detailRows()) {
+                    writeDetailRow(sheet.createRow(rowIndex++), detailRow);
+                }
+                rowIndex = writeDetailTotalsRow(sheet, rowIndex, breakdown.detailRows(), mainRowStyle);
                 position++;
             }
-            writeSummarySheet(summarySheet, summaryRows);
+            writeOrderTotalRow(sheet, rowIndex, orderRetailTotal, orderDealerTotal, mainRowStyle);
+
+            int columnCount = Math.max(MAIN_COLUMNS.length, DETAIL_COLUMNS.length);
+            for (int i = 0; i < columnCount; i++) {
+                sheet.autoSizeColumn(i);
+            }
 
             workbook.write(out);
             return out.toByteArray();
@@ -69,72 +87,122 @@ public class OrderExportService {
         }
     }
 
-    private void writeSummarySheet(Sheet sheet, List<SummaryRow> rows) {
-        CellStyle headerStyle = headerStyle(sheet.getWorkbook());
-        CellStyle totalStyle = headerStyle(sheet.getWorkbook());
-
-        Row headerRow = sheet.createRow(0);
-        for (int i = 0; i < SUMMARY_COLUMNS.length; i++) {
+    private int writeHeaderRow(Sheet sheet, int rowIndex, String[] columns, CellStyle style) {
+        Row headerRow = sheet.createRow(rowIndex);
+        for (int i = 0; i < columns.length; i++) {
             Cell cell = headerRow.createCell(i);
-            cell.setCellValue(SUMMARY_COLUMNS[i]);
-            cell.setCellStyle(headerStyle);
+            cell.setCellValue(columns[i]);
+            cell.setCellStyle(style);
         }
+        return rowIndex + 1;
+    }
 
-        int rowIndex = 1;
-        BigDecimal orderTotal = BigDecimal.ZERO;
-        for (SummaryRow row : rows) {
-            BigDecimal lineTotal = row.unitRetailPrice().multiply(BigDecimal.valueOf(row.quantity()));
-            orderTotal = orderTotal.add(lineTotal);
-            Row dataRow = sheet.createRow(rowIndex++);
-            dataRow.createCell(0).setCellValue(row.position());
-            dataRow.createCell(1).setCellValue(row.displayName());
-            dataRow.createCell(2).setCellValue(row.quantity());
-            dataRow.createCell(3).setCellValue(row.unitRetailPrice().doubleValue());
-            dataRow.createCell(4).setCellValue(lineTotal.doubleValue());
+    private int writeConfigurationRow(
+            Sheet sheet, int rowIndex, int position, OrderLineExportRequestDto line,
+            SpecificationExportService.ConfigurationBreakdown breakdown, BigDecimal lineSum, CellStyle style) {
+        BigDecimal unitPrice = breakdown.totals().retail();
+
+        Row row = sheet.createRow(rowIndex);
+        Cell positionCell = row.createCell(0);
+        positionCell.setCellValue(position);
+        positionCell.setCellStyle(style);
+        Cell nameCell = row.createCell(1);
+        nameCell.setCellValue(line.displayName());
+        nameCell.setCellStyle(style);
+        if (breakdown.dimensionsLabel() != null) {
+            row.createCell(2).setCellValue(breakdown.dimensionsLabel());
         }
+        row.createCell(3).setCellValue(unitPrice.doubleValue());
+        row.createCell(4).setCellValue(line.quantity());
+        row.createCell(5).setCellValue(lineSum.doubleValue());
+        return rowIndex + 1;
+    }
 
-        Row totalRow = sheet.createRow(rowIndex);
-        Cell totalLabelCell = totalRow.createCell(1);
-        totalLabelCell.setCellValue("Итого по заказу");
-        totalLabelCell.setCellStyle(totalStyle);
-        Cell totalValueCell = totalRow.createCell(4);
-        totalValueCell.setCellValue(orderTotal.doubleValue());
-        totalValueCell.setCellStyle(totalStyle);
-
-        for (int i = 0; i < SUMMARY_COLUMNS.length; i++) {
-            sheet.autoSizeColumn(i);
+    private void writeDetailRow(Row row, SpecificationExportService.DetailRow detailRow) {
+        row.createCell(0).setCellValue(detailRow.element());
+        row.createCell(1).setCellValue(detailRow.name());
+        if (detailRow.size() != null) {
+            row.createCell(2).setCellValue(detailRow.size());
+        }
+        if (detailRow.colour() != null) {
+            row.createCell(3).setCellValue(detailRow.colour());
+        }
+        row.createCell(4).setCellValue(detailRow.quantity());
+        if (detailRow.priced()) {
+            row.createCell(5).setCellValue(detailRow.dealerPrice().doubleValue());
+            row.createCell(6).setCellValue(detailRow.retailPrice().doubleValue());
+            row.createCell(7).setCellValue(detailRow.dealerSum().doubleValue());
+            row.createCell(8).setCellValue(detailRow.retailSum().doubleValue());
+        } else {
+            // Цена не найдена — прочерк, тем же принципом, что и в SpecificationExportService.writeRow
+            // (см. specs/door-configuration-export, «Ненайденная цена отображается прочерком»).
+            row.createCell(5).setCellValue("—");
+            row.createCell(6).setCellValue("—");
+            row.createCell(7).setCellValue("—");
+            row.createCell(8).setCellValue("—");
         }
     }
 
-    // Имена листов Excel ограничены 31 символом, не могут содержать \/?*[]: и должны быть уникальны в
-    // пределах книги — WorkbookUtil.createSafeSheetName вырезает недопустимые символы и обрезает длину;
-    // уникальность (на случай двух позиций с одинаковым наименованием) добавляем сами суффиксом номера.
-    private String uniqueSheetName(String desired, List<String> alreadyUsed) {
-        String safe = WorkbookUtil.createSafeSheetName(desired);
-        if (!alreadyUsed.contains(safe)) {
-            return safe;
+    // Строка «Итого» под детализацией одной конфигурации (см. правку пользователя) — на месте прежней
+    // пустой строки-разделителя перед следующей конфигурацией: сумма столбцов «Сумма дилер»/«Сумма клиенту»
+    // по всем строкам детализации этой позиции (тем же принципом, что и итоговая строка «Итого» в
+    // раскрываемой детализации позиции корзины на фронте, см. frontend/src/CartScreen.tsx, DetailTable —
+    // ненайденные цены считаются как 0, не пропускаются и не прерывают суммирование).
+    private int writeDetailTotalsRow(
+            Sheet sheet, int rowIndex, List<SpecificationExportService.DetailRow> detailRows, CellStyle style) {
+        BigDecimal dealerTotal = BigDecimal.ZERO;
+        BigDecimal retailTotal = BigDecimal.ZERO;
+        for (SpecificationExportService.DetailRow detailRow : detailRows) {
+            if (detailRow.priced()) {
+                dealerTotal = dealerTotal.add(detailRow.dealerSum());
+                retailTotal = retailTotal.add(detailRow.retailSum());
+            }
         }
-        int suffix = 2;
-        String candidate;
-        do {
-            String suffixText = " (" + suffix + ")";
-            String truncatedBase = safe.length() > 31 - suffixText.length()
-                    ? safe.substring(0, 31 - suffixText.length())
-                    : safe;
-            candidate = truncatedBase + suffixText;
-            suffix++;
-        } while (alreadyUsed.contains(candidate));
-        return candidate;
+
+        Row row = sheet.createRow(rowIndex);
+        Cell labelCell = row.createCell(1);
+        labelCell.setCellValue("Итого");
+        labelCell.setCellStyle(style);
+        Cell dealerCell = row.createCell(7);
+        dealerCell.setCellValue(dealerTotal.doubleValue());
+        dealerCell.setCellStyle(style);
+        Cell retailCell = row.createCell(8);
+        retailCell.setCellValue(retailTotal.doubleValue());
+        retailCell.setCellStyle(style);
+        return rowIndex + 1;
     }
 
-    private CellStyle headerStyle(org.apache.poi.ss.usermodel.Workbook workbook) {
+    // Итог по заказу — последней строкой листа, после блоков всех позиций: сумма столбца «Сумма» всех строк
+    // конфигураций (клиентская, тем же принципом, что и «Итого по заказу» под таблицей позиций на экране
+    // корзины, см. order-cart-ui, «Сводка и итог по заказу») и, рядом с ней, дилерская сумма по заказу (см.
+    // правку пользователя) — сумма breakdown.totals().dealer() каждой позиции с учётом её количества.
+    private void writeOrderTotalRow(Sheet sheet, int rowIndex, BigDecimal retailTotal, BigDecimal dealerTotal, CellStyle style) {
+        Row row = sheet.createRow(rowIndex);
+        Cell labelCell = row.createCell(1);
+        labelCell.setCellValue("Итого по заказу");
+        labelCell.setCellStyle(style);
+        Cell retailCell = row.createCell(5);
+        retailCell.setCellValue(retailTotal.doubleValue());
+        retailCell.setCellStyle(style);
+        Cell dealerLabelCell = row.createCell(6);
+        dealerLabelCell.setCellValue("Итого дилер, ₽");
+        dealerLabelCell.setCellStyle(style);
+        Cell dealerCell = row.createCell(7);
+        dealerCell.setCellValue(dealerTotal.doubleValue());
+        dealerCell.setCellStyle(style);
+    }
+
+    // fontHeightPoints — размер шрифта в пунктах, если > 0 (см. строку конфигурации, крупнее заголовков
+    // колонок — тем же принципом, что и sectionStyle/headerStyle в SpecificationExportService); иначе —
+    // размер по умолчанию книги.
+    private CellStyle boldStyle(XSSFWorkbook workbook, short fontHeightPoints) {
         Font font = workbook.createFont();
         font.setBold(true);
+        if (fontHeightPoints > 0) {
+            font.setFontHeightInPoints(fontHeightPoints);
+        }
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
         return style;
-    }
-
-    private record SummaryRow(int position, String displayName, int quantity, BigDecimal unitRetailPrice) {
     }
 }
