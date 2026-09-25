@@ -1,1 +1,8 @@
+plugins {
+	// Автопровижининг тулчейнов: без него Gradle резолвит toolchain{} только среди
+	// уже установленных на машине JDK (любого вендора) — см. build.gradle, секция
+	// desktop-упаковки, почему это ломало jlink-рантайм на Apple Silicon.
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'furniture-calculator'
