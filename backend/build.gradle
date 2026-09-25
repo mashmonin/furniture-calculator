@@ -17,6 +17,16 @@ description = 'Furniture calculator backend'
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
+		// Явный vendor — иначе Gradle без разбора берёт первый подходящий JDK 21,
+		// уже установленный на машине (см. settings.gradle, foojay-resolver-convention).
+		// На Apple Silicon Mac, где JDK 21 ставили через "brew install openjdk@21"
+		// (см. openspec/changes/add-arm64-desktop-build-support), это молча
+		// зарезолвилось в Homebrew-сборку: её libfontmanager.dylib жёстко прошит на
+		// /usr/local/opt/harfbuzz/... с машины, собиравшей сам JDK — на чужой машине
+		// без такого Homebrew-пакета экспорт в Excel (Apache POI → AWT/Font) падал с
+		// HTTP 500 (UnsatisfiedLinkError). Adoptium — официальная portable-сборка,
+		// без зашитых абсолютных путей на Homebrew.
+		vendor = JvmVendorSpec.ADOPTIUM
 	}
 }
 
