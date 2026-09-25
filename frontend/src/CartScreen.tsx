@@ -23,6 +23,18 @@ const ITEM_STATUS_LABEL = 'МЕЖКОМНАТНАЯ ДВЕРЬ'
 // перед тегом ITEM_STATUS_LABEL, но после наименования модели (см. правку пользователя).
 const SERVICE_TAG_LABEL = 'ЭМАЛЬ И ШПОН'
 
+// Уникальный яркий цвет на каждый тег атрибута конфигурации (см. правку пользователя, order-cart-ui, «Теги
+// атрибутов конфигурации») — отличается и от зелёного SERVICE_TAG_LABEL, и от синего ITEM_STATUS_LABEL, и
+// друг от друга; значения — предустановленные яркие цвета antd Tag.
+const ATTRIBUTE_TAG_COLORS: Record<string, string> = {
+  'РЕВЕРС': 'red',
+  'ОСТЕКЛЕНИЕ': 'cyan',
+  'ЧЕТВЕРТЬ': 'orange',
+  'ТОЛЩИНА 59': 'gold',
+  'ЗЕРКАЛО': 'purple',
+  'ДВУСТОРОННЯЯ': 'magenta',
+}
+
 function money(value: number | null): string {
   return value !== null ? formatMoney(value) : '—'
 }
@@ -195,12 +207,18 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           },
           {
             title: 'Конфигурация',
+            width: 300,
             render: (_, item) => (
               <Space direction="vertical" size={4}>
                 <Typography.Text>{item.displayName}</Typography.Text>
-                <Space size={4}>
+                <Space size={4} wrap>
                   <Tag color="green">{SERVICE_TAG_LABEL}</Tag>
                   <Tag color="blue">{ITEM_STATUS_LABEL}</Tag>
+                  {(item.attributeTags ?? []).map((tag) => (
+                    <Tag key={tag} color={ATTRIBUTE_TAG_COLORS[tag] ?? 'default'}>
+                      {tag}
+                    </Tag>
+                  ))}
                 </Space>
               </Space>
             ),
@@ -280,7 +298,13 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           type="info"
           showIcon
           message={<Typography.Text strong>Конфигурация сохранена в заказе</Typography.Text>}
-          description="Откройте позицию, чтобы проверить полный состав и параметры. При изменении конфигурации цены будут пересчитаны."
+          description={
+            <>
+              Откройте позицию, чтобы проверить полный состав и параметры.
+              <br />
+              При изменении конфигурации цены будут пересчитаны.
+            </>
+          }
         />
         <div
           style={{
