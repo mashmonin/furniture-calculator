@@ -73,7 +73,7 @@ public class OrderExportService {
                 rowIndex = writeDetailTotalsRow(sheet, rowIndex, breakdown.detailRows(), mainRowStyle);
                 position++;
             }
-            writeOrderTotalRow(sheet, rowIndex, orderRetailTotal, orderDealerTotal, mainRowStyle);
+            writeOrderTotalRow(sheet, rowIndex, orderDealerTotal, orderRetailTotal, mainRowStyle);
 
             int columnCount = Math.max(MAIN_COLUMNS.length, DETAIL_COLUMNS.length);
             for (int i = 0; i < columnCount; i++) {
@@ -106,9 +106,11 @@ public class OrderExportService {
         Cell positionCell = row.createCell(0);
         positionCell.setCellValue(position);
         positionCell.setCellStyle(style);
+        // Ячейка «Конфигурация» — без стиля (не жирная, см. правку пользователя): наименование, и если у
+        // позиции есть применимые теги атрибутов (line.attributeTags(), см. change
+        // refine-order-export-layout), сразу после наименования через « — » и запятые между тегами.
         Cell nameCell = row.createCell(1);
-        nameCell.setCellValue(line.displayName());
-        nameCell.setCellStyle(style);
+        nameCell.setCellValue(configurationCellText(line));
         if (breakdown.dimensionsLabel() != null) {
             row.createCell(2).setCellValue(breakdown.dimensionsLabel());
         }
@@ -116,6 +118,17 @@ public class OrderExportService {
         row.createCell(4).setCellValue(line.quantity());
         row.createCell(5).setCellValue(lineSum.doubleValue());
         return rowIndex + 1;
+    }
+
+    // «Наименование — ТЕГ1, ТЕГ2» (см. правку пользователя) — attributeTags() может быть null (клиент, ещё
+    // не отправляющий это поле, см. OrderLineExportRequestDto) или пустым списком; в обоих случаях — только
+    // наименование, без « — ».
+    private String configurationCellText(OrderLineExportRequestDto line) {
+        List<String> tags = line.attributeTags();
+        if (tags == null || tags.isEmpty()) {
+            return line.displayName();
+        }
+        return line.displayName() + " — " + String.join(", ", tags);
     }
 
     private void writeDetailRow(Row row, SpecificationExportService.DetailRow detailRow) {
@@ -172,24 +185,19 @@ public class OrderExportService {
         return rowIndex + 1;
     }
 
-    // Итог по заказу — последней строкой листа, после блоков всех позиций: сумма столбца «Сумма» всех строк
-    // конфигураций (клиентская, тем же принципом, что и «Итого по заказу» под таблицей позиций на экране
-    // корзины, см. order-cart-ui, «Сводка и итог по заказу») и, рядом с ней, дилерская сумма по заказу (см.
-    // правку пользователя) — сумма breakdown.totals().dealer() каждой позиции с учётом её количества.
-    private void writeOrderTotalRow(Sheet sheet, int rowIndex, BigDecimal retailTotal, BigDecimal dealerTotal, CellStyle style) {
+    // Итог по заказу — последней строкой листа, после блоков всех позиций: ровно три заполненные, идущие
+    // подряд ячейки, начиная с колонки A (см. правку пользователя) — «Итого по заказу» (жирным, единственная
+    // жирная ячейка строки), дилерская сумма по заказу, клиентская (розничная) сумма по заказу (обе — без
+    // жирного начертания). Дилерская сумма — сумма breakdown.totals().dealer() каждой позиции с учётом её
+    // количества; клиентская — сумма столбца «Сумма» всех строк конфигураций, тем же принципом, что и
+    // «Итого по заказу» под таблицей позиций на экране корзины (см. order-cart-ui, «Сводка и итог по заказу»).
+    private void writeOrderTotalRow(Sheet sheet, int rowIndex, BigDecimal dealerTotal, BigDecimal retailTotal, CellStyle labelStyle) {
         Row row = sheet.createRow(rowIndex);
-        Cell labelCell = row.createCell(1);
+        Cell labelCell = row.createCell(0);
         labelCell.setCellValue("Итого по заказу");
-        labelCell.setCellStyle(style);
-        Cell retailCell = row.createCell(5);
-        retailCell.setCellValue(retailTotal.doubleValue());
-        retailCell.setCellStyle(style);
-        Cell dealerLabelCell = row.createCell(6);
-        dealerLabelCell.setCellValue("Итого дилер, ₽");
-        dealerLabelCell.setCellStyle(style);
-        Cell dealerCell = row.createCell(7);
-        dealerCell.setCellValue(dealerTotal.doubleValue());
-        dealerCell.setCellStyle(style);
+        labelCell.setCellStyle(labelStyle);
+        row.createCell(1).setCellValue(dealerTotal.doubleValue());
+        row.createCell(2).setCellValue(retailTotal.doubleValue());
     }
 
     // fontHeightPoints — размер шрифта в пунктах, если > 0 (см. строку конфигурации, крупнее заголовков
