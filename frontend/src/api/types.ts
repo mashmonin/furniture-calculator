@@ -173,6 +173,10 @@ export interface OrderLineExportRequestDto {
   displayName: string
   quantity: number
   specification: SpecificationExportRequestDto
+  // Теги атрибутов конфигурации этой позиции (см. change refine-order-export-layout, order-export-api) —
+  // те же значения, что и CartItem.attributeTags, добавляются backend в ячейку наименования листа заказа
+  // без пересчёта по каталогу.
+  attributeTags: string[]
 }
 
 // Расчёт этапа «Фурнитура» независимо от door_configuration и её компонентов (см. change

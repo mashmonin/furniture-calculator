@@ -142,6 +142,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
         displayName: item.displayName,
         quantity: item.quantity,
         specification: item.exportRequest,
+        attributeTags: item.attributeTags ?? [],
       })),
     )
       .then(({ blob, filename }) => {

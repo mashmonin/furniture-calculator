@@ -56,7 +56,16 @@ class OrderExportServiceTest {
     }
 
     private OrderLineExportRequestDto line(String displayName, int quantity) {
-        return new OrderLineExportRequestDto(displayName, quantity, request());
+        return new OrderLineExportRequestDto(displayName, quantity, request(), List.of());
+    }
+
+    private OrderLineExportRequestDto lineWithTags(String displayName, int quantity, List<String> attributeTags) {
+        return new OrderLineExportRequestDto(displayName, quantity, request(), attributeTags);
+    }
+
+    // Жирный шрифт ячейки — через индекс шрифта в её стиле (POI не даёт прямого Cell.isBold()).
+    private boolean isBold(XSSFWorkbook workbook, org.apache.poi.ss.usermodel.Cell cell) {
+        return workbook.getFontAt(cell.getCellStyle().getFontIndex()).getBold();
     }
 
     @Test
@@ -81,6 +90,9 @@ class OrderExportServiceTest {
             assertThat(configRow1.getCell(3).getNumericCellValue()).isEqualTo(1000.0);
             assertThat(configRow1.getCell(4).getNumericCellValue()).isEqualTo(2);
             assertThat(configRow1.getCell(5).getNumericCellValue()).isEqualTo(2000.0);
+            // Наименование не выделяется жирным (см. правку пользователя), в отличие от «№».
+            assertThat(isBold(workbook, configRow1.getCell(0))).isTrue();
+            assertThat(isBold(workbook, configRow1.getCell(1))).isFalse();
 
             Row detailHeaderRow1 = sheet.getRow(2);
             assertThat(detailHeaderRow1.getCell(0).getStringCellValue()).isEqualTo("Элемент");
@@ -98,13 +110,45 @@ class OrderExportServiceTest {
             assertThat(configRow2.getCell(4).getNumericCellValue()).isEqualTo(1);
             assertThat(configRow2.getCell(5).getNumericCellValue()).isEqualTo(1000.0);
 
-            // Строка 9 (индекс) — последняя строка листа: итог по заказу (2000 + 1000, см. writeOrderTotalRow).
-            // В тестовой фикстуре leafComponent дилерская цена равна розничной, поэтому дилерский итог тоже 3000.
+            // Строка 9 (индекс) — последняя строка листа: итог по заказу (2000 + 1000, см. writeOrderTotalRow),
+            // ровно три ячейки подряд с колонки A — label, дилерская сумма, клиентская сумма. В тестовой
+            // фикстуре leafComponent дилерская цена равна розничной, поэтому дилерский итог тоже 3000.
             Row orderTotalRow = sheet.getRow(9);
-            assertThat(orderTotalRow.getCell(1).getStringCellValue()).isEqualTo("Итого по заказу");
-            assertThat(orderTotalRow.getCell(5).getNumericCellValue()).isEqualTo(3000.0);
-            assertThat(orderTotalRow.getCell(6).getStringCellValue()).isEqualTo("Итого дилер, ₽");
-            assertThat(orderTotalRow.getCell(7).getNumericCellValue()).isEqualTo(3000.0);
+            assertThat(orderTotalRow.getCell(0).getStringCellValue()).isEqualTo("Итого по заказу");
+            assertThat(orderTotalRow.getCell(1).getNumericCellValue()).isEqualTo(3000.0);
+            assertThat(orderTotalRow.getCell(2).getNumericCellValue()).isEqualTo(3000.0);
+            assertThat(orderTotalRow.getCell(3)).isNull();
+            assertThat(isBold(workbook, orderTotalRow.getCell(0))).isTrue();
+            assertThat(isBold(workbook, orderTotalRow.getCell(1))).isFalse();
+            assertThat(isBold(workbook, orderTotalRow.getCell(2))).isFalse();
+        }
+    }
+
+    @Test
+    void ячейка_конфигурации_содержит_теги_атрибутов_после_наименования() throws IOException {
+        when(pricingService.resolveSpecificationComponents(any()))
+                .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
+
+        byte[] file = service.export(List.of(lineWithTags("Вертикаль 01", 1, List.of("РЕВЕРС", "ЧЕТВЕРТЬ"))));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheet("Заказ");
+            Row configRow = sheet.getRow(1);
+            assertThat(configRow.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 01 — РЕВЕРС, ЧЕТВЕРТЬ");
+        }
+    }
+
+    @Test
+    void ячейка_конфигурации_без_тегов_показывает_только_наименование() throws IOException {
+        when(pricingService.resolveSpecificationComponents(any()))
+                .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
+
+        byte[] file = service.export(List.of(line("Вертикаль 01", 1)));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheet("Заказ");
+            Row configRow = sheet.getRow(1);
+            assertThat(configRow.getCell(1).getStringCellValue()).isEqualTo("Вертикаль 01");
         }
     }
 
