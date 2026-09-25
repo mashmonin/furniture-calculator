@@ -30,6 +30,11 @@ export interface CartItemContent {
   exportRequest: SpecificationExportRequestDto
   pricingSnapshot: PricingResponseDto
   detailRows: CartDetailRow[]
+  // Теги атрибутов конфигурации для столбца «Конфигурация» на экране корзины (см. order-cart-ui, «Теги
+  // атрибутов конфигурации») — только применимые к этой позиции («РЕВЕРС», «ОСТЕКЛЕНИЕ», «ЧЕТВЕРТЬ»,
+  // «ТОЛЩИНА 59», «ЗЕРКАЛО», «ДВУСТОРОННЯЯ»), уже готовые строки, а не булевы флаги — построены на фронте в
+  // момент добавления/синхронизации тем же принципом, что и detailRows.
+  attributeTags: string[]
 }
 
 // Одна позиция корзины заказа (см. change add-order-cart-screen, order-cart-ui, «Хранение корзины в

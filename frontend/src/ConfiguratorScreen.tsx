@@ -1337,6 +1337,7 @@ function ConfiguratorScreen({
     exportRequest: SpecificationExportRequestDto
     pricingSnapshot: PricingResponseDto
     detailRows: CartDetailRow[]
+    attributeTags: string[]
   } | null {
     if (leafTypeId === undefined || !pricingResult || !leafComponent) {
       return null
@@ -1388,6 +1389,28 @@ function ConfiguratorScreen({
     const dimensionsLabel = [leafLengthValue, leafHeightValue, leafThicknessValue]
       .filter((value): value is number => value !== undefined)
       .join(' × ')
+
+    // Теги атрибутов конфигурации для столбца «Конфигурация» на экране корзины (см. order-cart-ui, «Теги
+    // атрибутов конфигурации») — только применимые к этой позиции, из уже вычисленных здесь же значений;
+    // «ОСТЕКЛЕНИЕ»/«ЗЕРКАЛО» взаимоисключающие по построению — resolvedPanelType одно значение из трёх.
+    const attributeTags: string[] = []
+    if (resolvedReverse) {
+      attributeTags.push('РЕВЕРС')
+    }
+    if (resolvedPanelType === 'GLAZED') {
+      attributeTags.push('ОСТЕКЛЕНИЕ')
+    } else if (resolvedPanelType === 'MIRRORED') {
+      attributeTags.push('ЗЕРКАЛО')
+    }
+    if (resolvedHasQuarter) {
+      attributeTags.push('ЧЕТВЕРТЬ')
+    }
+    if (leafThicknessValue === THICKNESS_REQUIRING_QUARTER_MM) {
+      attributeTags.push('ТОЛЩИНА 59')
+    }
+    if (selection.leaf.doubleSidedPainting) {
+      attributeTags.push('ДВУСТОРОННЯЯ')
+    }
 
     // Детализация по компонентам для раскрываемой таблицы корзины (см. order-cart-ui, «Разворачиваемая
     // детализация позиции корзины») — строится здесь же, на фронте, из тех же catalog/selection данных, что
@@ -1482,6 +1505,7 @@ function ConfiguratorScreen({
       exportRequest: request,
       pricingSnapshot: pricingResult,
       detailRows,
+      attributeTags,
     }
   }
 
