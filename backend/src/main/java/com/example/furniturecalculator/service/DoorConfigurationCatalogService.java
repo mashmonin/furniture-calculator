@@ -1,5 +1,6 @@
 package com.example.furniturecalculator.service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -154,6 +155,7 @@ public class DoorConfigurationCatalogService {
             return null;
         }
         List<LinerDimensionOptionDto> dimensionOptions = dimensionOptionsFor(type).stream()
+                .sorted(Comparator.comparing(LinerDimensionOption::getValue))
                 .map(this::toDto)
                 .toList();
         List<ColourOptionDto> colourOptions = colourOptionsFor(type).stream()

@@ -359,3 +359,6 @@ databaseChangeLog:
       file: changes-desktop-overrides/0105-leaf-quarter-attribute.yaml
       relativeToChangelogFile: true
       context: "desktop"
+  - include:
+      file: changes/0106-phantom-leaf-catalog.yaml
+      relativeToChangelogFile: true

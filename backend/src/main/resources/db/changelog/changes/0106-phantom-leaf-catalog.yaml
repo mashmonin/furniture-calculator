@@ -1,0 +1,123 @@
+databaseChangeLog:
+  # Заполняет каталог для серии «Фантом» (leaf_type LT-045, ФАНТОМ 01), которая до этого change была заведена
+  # в справочниках collection/leaf_type, но не имела ни одной строки каталожной конфигурации (см. change
+  # add-phantom-leaf-catalog). Короб «Фантом» (FT-001) — единственный совместимый короб; «Фантом реверс» не
+  # отдельный frame_type, а тот же FT-001 со значением is_reverse = true у door_configuration.
+  - changeSet:
+      id: 0106-1-insert-phantom-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code = 'LT-045'
+
+  - changeSet:
+      id: 0106-2-insert-phantom-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code = 'LT-045'
+
+  - changeSet:
+      id: 0106-3-insert-phantom-door-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            # 6 строк: is_reverse=false/has_quarter=false (без кромки, ET-001), is_reverse=false/has_quarter=true
+            # (без кромки, ET-002), is_reverse=true/has_quarter=true (без кромки, ET-002) — см. specs,
+            # door-configuration-catalog, «Сочетания реверса, четверти и кромки для ФАНТОМ 01». Без наличника и
+            # добора — короб «Фантом» ими не комплектуется ни для одной модели полотна.
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, edge_type_id, is_reverse, has_quarter)
+              SELECT lt.id, ft.id, et.id, v.is_reverse, v.has_quarter
+              FROM (VALUES
+                (false, false, CAST(NULL AS VARCHAR)),
+                (false, false, 'ET-001'),
+                (false, true, CAST(NULL AS VARCHAR)),
+                (false, true, 'ET-002'),
+                (true, true, CAST(NULL AS VARCHAR)),
+                (true, true, 'ET-002')
+              ) AS v(is_reverse, has_quarter, edge_code)
+              CROSS JOIN leaf_type lt
+              CROSS JOIN frame_type ft
+              LEFT JOIN edge_type et ON et.code = v.edge_code
+              WHERE lt.code = 'LT-045'
+                AND ft.code = 'FT-001'
+
+  - changeSet:
+      id: 0106-4-insert-phantom-mirror-finish-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO mirror_finish_option (mirror_finish_type_id, leaf_type_id)
+              SELECT mft.id, lt.id
+              FROM mirror_finish_type mft
+              CROSS JOIN leaf_type lt
+              WHERE lt.code = 'LT-045'
+
+  - changeSet:
+      id: 0106-5-update-phantom-panel-type
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Следствие появления mirror_finish_option (шаг 0106-4) — см. specs, door-configuration-catalog,
+            # «Тип полотна leaf_type»: MIRRORED присваивается тем и только тем leaf_type, у которых есть хотя бы
+            # одна строка mirror_finish_option.
+            sql: >-
+              UPDATE leaf_type SET panel_type = 'MIRRORED' WHERE code = 'LT-045'
+
+  - changeSet:
+      id: 0106-6-insert-phantom-price
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id)
+              SELECT 10728, 18255, id FROM leaf_type WHERE code = 'LT-045'
+
+  - changeSet:
+      id: 0106-7-remove-phantom-neo-configurations
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Баг предсуществующего changeset 0105-9-restore-neo-frame-for-59mm-thickness-models-without-quarter:
+            # он берёт ВСЕ leaf_type с каталожной опцией толщины 59мм (включая LT-045, получивший её ещё в
+            # 0104-leaf-thickness-59mm.yaml, задолго до появления остальной конфигурации Фантома) и добавляет
+            # им короб «НЕО» (FT-003) с наличником/добором по шаблону, без исключения LT-045. Это противоречит
+            # правилу «Единственный совместимый короб для ФАНТОМ 01» (см. specs, door-configuration-catalog) —
+            # дверь Фантом комплектуется только коробом «ФАНТОМ» (FT-001). Удаляет все ошибочно заведённые для
+            # LT-045 строки door_configuration с коробом, отличным от FT-001.
+            sql: >-
+              DELETE FROM door_configuration
+              WHERE leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-045')
+                AND (frame_type_id IS NULL OR frame_type_id <> (SELECT id FROM frame_type WHERE code = 'FT-001'))
+
+  - changeSet:
+      id: 0106-8-insert-phantom-standard-thickness-option
+      author: furniture-calculator
+      changes:
+        - sql:
+            # Базовая (стандартная по умолчанию) толщина полотна ФАНТОМ 01 — 44 мм, отсутствовала в каталоге.
+            # Толщина 59 мм уже заведена ранее (0104-leaf-thickness-59mm.yaml, коллекция Фантом входит в
+            # список) и доступна как дополнительная опция наравне со стандартной (уточнено пользователем).
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, 44, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code = 'LT-045'
