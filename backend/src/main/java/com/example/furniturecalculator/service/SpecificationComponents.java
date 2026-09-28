@@ -3,6 +3,7 @@ package com.example.furniturecalculator.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
 
 // Результат полного резолва конфигурации для выгрузки спецификации (см. change add-specification-export) —
@@ -19,5 +20,14 @@ record SpecificationComponents(
         ResolvedComponent frame,
         ResolvedComponent doorCasing,
         ResolvedComponent frameExtensions,
-        List<HardwarePriceDto> hardware) {
+        List<HardwarePriceDto> hardware,
+        List<DecorativeElementPriceDto> decorativeElements) {
+
+    // Обратная совместимость с тестовыми фикстурами, написанными до появления decorativeElements (см.
+    // change add-decorative-elements-plinth).
+    SpecificationComponents(
+            ResolvedComponent leaf, BigDecimal leafHeightValue, ResolvedComponent edge, ResolvedComponent frame,
+            ResolvedComponent doorCasing, ResolvedComponent frameExtensions, List<HardwarePriceDto> hardware) {
+        this(leaf, leafHeightValue, edge, frame, doorCasing, frameExtensions, hardware, List.of());
+    }
 }

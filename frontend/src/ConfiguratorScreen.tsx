@@ -17,9 +17,11 @@ import {
 } from 'antd'
 import { DeleteOutlined } from '@ant-design/icons'
 import {
+  calculateDecorativeElementsPrice,
   calculateFrameGroupPrice,
   calculateHardwarePrice,
   calculateLeafPrice,
+  fetchDecorativeElementsCatalog,
   fetchDoorConfigurations,
   fetchHardwareCatalog,
   fetchPricingSurcharges,
@@ -29,6 +31,10 @@ import type {
   ComponentKey,
   ComponentPriceDto,
   ComponentSelectionDto,
+  DecorativeElementCategoryDto,
+  DecorativeElementPricingResponseDto,
+  DecorativeElementSelectionDto,
+  DecorativeElementTypeDto,
   DimensionRangeDto,
   DimensionSurchargeRuleDto,
   DoorConfigurationDto,
@@ -195,6 +201,26 @@ function hardwareOptionsFor(
     return []
   }
   return hardwareTypesFor(catalog, categoryId).find((type) => type.type.id === typeId)?.options ?? []
+}
+
+// Одна позиция блока «Декоративные элементы» (см. change add-decorative-elements-plinth) — тем же
+// принципом, что и HardwareLine, но без цвета: каскад категория → тип, у decorative_element_type нет
+// собственных цветовых вариантов.
+interface DecorativeElementLine {
+  key: number
+  categoryId?: number
+  decorativeElementTypeId?: number
+  quantity?: number
+}
+
+function decorativeElementTypesFor(
+  catalog: DecorativeElementCategoryDto[],
+  categoryId: number | undefined,
+): DecorativeElementTypeDto[] {
+  if (categoryId === undefined) {
+    return []
+  }
+  return catalog.find((category) => category.category.id === categoryId)?.types ?? []
 }
 
 function emptySelection(): Record<ComponentKey, ComponentSelectionDto> {
@@ -758,6 +784,12 @@ function ConfiguratorScreen({
   const [hardwareLines, setHardwareLines] = useState<HardwareLine[]>([])
   const [nextHardwareLineKey, setNextHardwareLineKey] = useState(1)
 
+  const [decorativeElementsCatalog, setDecorativeElementsCatalog] = useState<DecorativeElementCategoryDto[]>([])
+  const [decorativeElementsCatalogLoading, setDecorativeElementsCatalogLoading] = useState(true)
+  const [decorativeElementsCatalogError, setDecorativeElementsCatalogError] = useState<string | null>(null)
+  const [decorativeElementLines, setDecorativeElementLines] = useState<DecorativeElementLine[]>([])
+  const [nextDecorativeElementLineKey, setNextDecorativeElementLineKey] = useState(1)
+
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [hasQuarterSelection, setHasQuarterSelection] = useState<boolean | undefined>(undefined)
   const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
@@ -790,6 +822,12 @@ function ConfiguratorScreen({
   const [hardwarePricingLoading, setHardwarePricingLoading] = useState(false)
   const [hardwarePricingError, setHardwarePricingError] = useState<string | null>(null)
   const hardwareRequestSeqRef = useRef(0)
+
+  const [decorativeElementsPricingResult, setDecorativeElementsPricingResult] =
+    useState<DecorativeElementPricingResponseDto | null>(null)
+  const [decorativeElementsPricingLoading, setDecorativeElementsPricingLoading] = useState(false)
+  const [decorativeElementsPricingError, setDecorativeElementsPricingError] = useState<string | null>(null)
+  const decorativeElementsRequestSeqRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -853,6 +891,35 @@ function ConfiguratorScreen({
       .finally(() => {
         if (!cancelled) {
           setHardwareCatalogLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setDecorativeElementsCatalogLoading(true)
+    setDecorativeElementsCatalogError(null)
+    // Тем же принципом, что и каталог фурнитуры (см. change add-decorative-elements-plinth) — ошибка
+    // загрузки показывается видимо, блок выбора декоративных элементов без каталога не может работать.
+    fetchDecorativeElementsCatalog()
+      .then((data) => {
+        if (!cancelled) {
+          setDecorativeElementsCatalog(data)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setDecorativeElementsCatalogError(
+            error instanceof Error ? error.message : 'Не удалось загрузить каталог декоративных элементов',
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDecorativeElementsCatalogLoading(false)
         }
       })
     return () => {
@@ -939,6 +1006,24 @@ function ConfiguratorScreen({
     })
     setHardwareLines(lines)
     setNextHardwareLineKey(lines.length + 1)
+
+    // Обратный поиск categoryId по decorativeElementTypeId — тем же принципом, что и у фурнитуры, но без
+    // цветового уровня (см. change add-decorative-elements-plinth).
+    const decorativeLines: DecorativeElementLine[] = (request.decorativeElements ?? []).map((item, index) => {
+      for (const category of decorativeElementsCatalog) {
+        if (category.types.some((type) => type.type.id === item.decorativeElementTypeId)) {
+          return {
+            key: index + 1,
+            categoryId: category.category.id,
+            decorativeElementTypeId: item.decorativeElementTypeId,
+            quantity: item.quantity,
+          }
+        }
+      }
+      return { key: index + 1, decorativeElementTypeId: item.decorativeElementTypeId, quantity: item.quantity }
+    })
+    setDecorativeElementLines(decorativeLines)
+    setNextDecorativeElementLineKey(decorativeLines.length + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadRequest])
 
@@ -1298,26 +1383,83 @@ function ConfiguratorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leafTypeId, hardwareLines])
 
+  // Этап «Декоративные элементы» — тем же принципом, что и «Фурнитура», но дополнительно требует, чтобы у
+  // текущего полотна был хотя бы один допустимый decorative_element_type (leafComponent.decorativeElements)
+  // — для коллекции «Фантом» этот список всегда пуст (см. change add-decorative-elements-plinth), поэтому
+  // отдельная проверка кода коллекции не нужна: недоступность выводится из каталога, а не хардкодится.
+  useEffect(() => {
+    setDecorativeElementsPricingResult(null)
+    setDecorativeElementsPricingError(null)
+
+    const allowedTypeIds = new Set((leafComponent?.decorativeElements ?? []).map((option) => option.id))
+    const decorativeElementSelections: DecorativeElementSelectionDto[] = decorativeElementLines
+      .filter(
+        (line): line is DecorativeElementLine & { decorativeElementTypeId: number } =>
+          line.decorativeElementTypeId !== undefined && allowedTypeIds.has(line.decorativeElementTypeId),
+      )
+      .map((line) => ({ decorativeElementTypeId: line.decorativeElementTypeId, quantity: line.quantity }))
+
+    if (leafTypeId === undefined || allowedTypeIds.size === 0 || decorativeElementSelections.length === 0) {
+      setDecorativeElementsPricingLoading(false)
+      return
+    }
+
+    setDecorativeElementsPricingLoading(true)
+    const requestId = ++decorativeElementsRequestSeqRef.current
+    let cancelled = false
+
+    const timer = window.setTimeout(() => {
+      calculateDecorativeElementsPrice({ decorativeElements: decorativeElementSelections })
+        .then((result) => {
+          if (!cancelled && requestId === decorativeElementsRequestSeqRef.current) {
+            setDecorativeElementsPricingResult(result)
+            setDecorativeElementsPricingError(null)
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled && requestId === decorativeElementsRequestSeqRef.current) {
+            setDecorativeElementsPricingResult(null)
+            setDecorativeElementsPricingError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость')
+          }
+        })
+        .finally(() => {
+          if (!cancelled && requestId === decorativeElementsRequestSeqRef.current) {
+            setDecorativeElementsPricingLoading(false)
+          }
+        })
+    }, PRICING_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leafTypeId, decorativeElementLines, leafComponent])
+
   // Объединение результатов трёх этапов в единый результат для sticky-панели (см. specs/door-configurator-ui,
   // «Объединение результатов трёх этапов расчёта») — намеренно названо так же, как раньше называлось
   // единственное состояние расчёта, чтобы JSX sticky-панели ниже не менялся.
-  const pricingLoading = leafPricingLoading || frameGroupPricingLoading || hardwarePricingLoading
-  const pricingError = leafPricingError ?? frameGroupPricingError ?? hardwarePricingError
+  const pricingLoading =
+    leafPricingLoading || frameGroupPricingLoading || decorativeElementsPricingLoading || hardwarePricingLoading
+  const pricingError = leafPricingError ?? frameGroupPricingError ?? decorativeElementsPricingError ?? hardwarePricingError
   const pricingResult: PricingResponseDto | null =
     !pricingLoading && !pricingError && leafPricingResult
       ? {
           totalRetailPrice:
             leafPricingResult.totalRetailPrice +
             (frameGroupPricingResult?.totalRetailPrice ?? 0) +
+            (decorativeElementsPricingResult?.totalRetailPrice ?? 0) +
             (hardwarePricingResult?.totalRetailPrice ?? 0),
           totalDealerPrice:
             leafPricingResult.totalDealerPrice +
             (frameGroupPricingResult?.totalDealerPrice ?? 0) +
+            (decorativeElementsPricingResult?.totalDealerPrice ?? 0) +
             (hardwarePricingResult?.totalDealerPrice ?? 0),
           components: [...leafPricingResult.components, ...(frameGroupPricingResult?.components ?? [])].sort(
             (a, b) => componentOrderIndex(a.component) - componentOrderIndex(b.component),
           ),
           hardware: hardwarePricingResult?.hardware ?? [],
+          decorativeElements: decorativeElementsPricingResult?.decorativeElements ?? [],
         }
       : null
 
@@ -1378,6 +1520,15 @@ function ConfiguratorScreen({
       .map((line) => ({ hardwareOptionId: line.hardwareOptionId, quantity: line.quantity }))
     if (hardwareSelections.length > 0) {
       request.hardware = hardwareSelections
+    }
+    const decorativeElementSelections: DecorativeElementSelectionDto[] = decorativeElementLines
+      .filter(
+        (line): line is DecorativeElementLine & { decorativeElementTypeId: number } =>
+          line.decorativeElementTypeId !== undefined,
+      )
+      .map((line) => ({ decorativeElementTypeId: line.decorativeElementTypeId, quantity: line.quantity }))
+    if (decorativeElementSelections.length > 0) {
+      request.decorativeElements = decorativeElementSelections
     }
 
     const leafLengthValue =
@@ -1485,6 +1636,21 @@ function ConfiguratorScreen({
         detailRow('Добор', frameExtensionsComponent.type.name, size, colour, quantity, priceByComponent('frameExtensions')),
       )
     }
+    pricingResult.decorativeElements.forEach((item) => {
+      detailRows.push({
+        element: 'Декоративные элементы',
+        // Только название типа, без категории (см. правку пользователя) — в отличие от фурнитуры, для
+        // декоративных элементов категория не несёт дополнительной информации в наименовании.
+        name: item.type.name,
+        size: `${item.lengthMm}`,
+        colour: null,
+        quantity: item.quantity,
+        dealerPrice: item.dealerPrice / item.quantity,
+        retailPrice: item.retailPrice / item.quantity,
+        dealerSum: item.dealerPrice,
+        retailSum: item.retailPrice,
+      })
+    })
     pricingResult.hardware.forEach((item) => {
       detailRows.push({
         element: 'Фурнитура',
@@ -1557,6 +1723,7 @@ function ConfiguratorScreen({
     editingItemId,
     leafPricingResult,
     frameGroupPricingResult,
+    decorativeElementsPricingResult,
     hardwarePricingResult,
     selection,
     cascadeSelection,
@@ -1565,6 +1732,7 @@ function ConfiguratorScreen({
     mirrorFinishTypeId,
     glazingTypeId,
     hardwareLines,
+    decorativeElementLines,
   ])
 
   // Реверс возможен только вместе с четвертью (is_reverse=true всегда подразумевает has_quarter=true,
@@ -1715,6 +1883,19 @@ function ConfiguratorScreen({
     setHardwareLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
   }
 
+  function addDecorativeElementLine() {
+    setDecorativeElementLines((prev) => [...prev, { key: nextDecorativeElementLineKey }])
+    setNextDecorativeElementLineKey((key) => key + 1)
+  }
+
+  function removeDecorativeElementLine(key: number) {
+    setDecorativeElementLines((prev) => prev.filter((line) => line.key !== key))
+  }
+
+  function updateDecorativeElementLine(key: number, patch: Partial<DecorativeElementLine>) {
+    setDecorativeElementLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
+  }
+
   function handleClearAll() {
     // Сброс формы всегда выходит из режима «редактирование позиции из корзины» (если он был активен) — см.
     // editingItemId/onStopEditing выше; иначе после «Очистить» живая синхронизация продолжала бы молча
@@ -1731,12 +1912,15 @@ function ConfiguratorScreen({
     setCustomLengthMode(false)
     setCustomHeightMode(false)
     setHardwareLines([])
+    setDecorativeElementLines([])
     setLeafPricingResult(null)
     setLeafPricingError(null)
     setFrameGroupPricingResult(null)
     setFrameGroupPricingError(null)
     setHardwarePricingResult(null)
     setHardwarePricingError(null)
+    setDecorativeElementsPricingResult(null)
+    setDecorativeElementsPricingError(null)
   }
 
   // resolvedReverse (не selectedConfiguration?.reverse) — оно совпадает с ней, когда конфигурация
@@ -2359,6 +2543,94 @@ function ConfiguratorScreen({
     </>
   )
 
+  // Каталог декоративных элементов, отфильтрованный по допустимости для текущего полотна
+  // (leafComponent.decorativeElements, см. change add-decorative-elements-plinth) — для коллекции
+  // «Фантом» (и до выбора полотна) этот список всегда пуст, поэтому недоступность блока выводится из
+  // каталога, а не хардкодится по коду коллекции (см. specs, door-configurator-ui, «Декоративные элементы
+  // недоступны для коллекции «Фантом»»).
+  const allowedDecorativeElementTypeIds = new Set((leafComponent?.decorativeElements ?? []).map((option) => option.id))
+  const availableDecorativeElementsCatalog = decorativeElementsCatalog
+    .map((category) => ({
+      ...category,
+      types: category.types.filter((type) => allowedDecorativeElementTypeIds.has(type.type.id)),
+    }))
+    .filter((category) => category.types.length > 0)
+  const decorativeElementsUnavailable = availableDecorativeElementsCatalog.length === 0
+
+  const decorativeElementsPanelContent = (
+    <>
+      {decorativeElementsCatalogLoading && <Spin />}
+      {decorativeElementsCatalogError && <Alert type="error" message={decorativeElementsCatalogError} showIcon />}
+      {!decorativeElementsCatalogLoading && !decorativeElementsCatalogError && decorativeElementsUnavailable && (
+        <Typography.Text type="secondary">
+          Декоративные элементы недоступны для этой модели полотна.
+        </Typography.Text>
+      )}
+      {!decorativeElementsCatalogLoading && !decorativeElementsCatalogError && !decorativeElementsUnavailable && (
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {decorativeElementLines.map((line) => (
+            <Card size="small" key={line.key}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <OptionGroup
+                    label="Категория"
+                    options={availableDecorativeElementsCatalog.map((category) => ({
+                      id: category.category.id,
+                      label: category.category.name,
+                    }))}
+                    selectedId={line.categoryId}
+                    onChange={(id) =>
+                      updateDecorativeElementLine(line.key, { categoryId: id, decorativeElementTypeId: undefined })
+                    }
+                    variant="select"
+                    truncateSelectedLabel
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <OptionGroup
+                    label="Тип"
+                    // Один и тот же тип нельзя выбрать в двух позициях одновременно — тем же принципом,
+                    // что и цвет фурнитуры (см. блок «Фурнитура» выше).
+                    options={decorativeElementTypesFor(availableDecorativeElementsCatalog, line.categoryId)
+                      .filter(
+                        (type) =>
+                          type.type.id === line.decorativeElementTypeId ||
+                          !decorativeElementLines.some(
+                            (other) => other.key !== line.key && other.decorativeElementTypeId === type.type.id,
+                          ),
+                      )
+                      .map((type) => ({ id: type.type.id, label: type.type.name }))}
+                    selectedId={line.decorativeElementTypeId}
+                    onChange={(id) => updateDecorativeElementLine(line.key, { decorativeElementTypeId: id })}
+                    variant="select"
+                    truncateSelectedLabel
+                  />
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <Typography.Text type="secondary">Количество</Typography.Text>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      style={{ width: '100%' }}
+                      value={line.quantity ?? 1}
+                      onChange={(value) => updateDecorativeElementLine(line.key, { quantity: value ?? undefined })}
+                    />
+                  </div>
+                </div>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  aria-label="Удалить"
+                  onClick={() => removeDecorativeElementLine(line.key)}
+                />
+              </div>
+            </Card>
+          ))}
+          <Button onClick={addDecorativeElementLine}>Добавить декоративный элемент</Button>
+        </Space>
+      )}
+    </>
+  )
 
   return (
     <>
@@ -2376,6 +2648,7 @@ function ConfiguratorScreen({
               items={[
                 { key: 'leaf', label: 'Полотно', children: leafPanelContent },
                 { key: 'frameGroup', label: 'Короб и обрамление', children: frameGroupPanelContent },
+                { key: 'decorativeElements', label: 'Декоративные элементы', children: decorativeElementsPanelContent },
                 { key: 'hardware', label: 'Фурнитура', children: hardwarePanelContent },
               ]}
             />
@@ -2432,6 +2705,7 @@ function ConfiguratorScreen({
                   <ComponentBreakdownList
                     components={pricingResult.components}
                     hardware={pricingResult.hardware}
+                    decorativeElements={pricingResult.decorativeElements}
                     quantities={{
                       doorCasing: selection.doorCasing.quantity ?? 1,
                       frameExtensions: selection.frameExtensions.quantity ?? 1,

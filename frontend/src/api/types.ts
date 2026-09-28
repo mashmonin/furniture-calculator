@@ -46,6 +46,10 @@ export interface ComponentCatalogDto {
   panelType: LeafPanelType | null
   glazingOptions: ReferenceDto[]
   dimensionRanges: DimensionRangeDto[]
+  // Допустимые декоративные элементы (decorative_element_option) — заполняется только для leaf-компонента
+  // (см. change add-decorative-elements-plinth), пусто для остальных компонентов и для коллекции «Фантом».
+  // Полные данные (длина, цены) — в отдельно загружаемом каталоге декоративных элементов.
+  decorativeElements: ReferenceDto[]
 }
 
 export interface DoorConfigurationDto {
@@ -88,8 +92,18 @@ export interface HardwareSelectionDto {
   quantity?: number
 }
 
+// Позиция декоративного элемента (см. change add-decorative-elements-plinth) — тем же принципом, что и
+// HardwareSelectionDto.
+export interface DecorativeElementSelectionDto {
+  decorativeElementTypeId: number
+  quantity?: number
+}
+
 export type PricingRequestDto = Partial<Record<ComponentKey, ComponentSelectionDto>> & {
   hardware?: HardwareSelectionDto[]
+  // Список позиций декоративных элементов, независимый от door_configuration (см. change
+  // add-decorative-elements-plinth) — тем же принципом, что и hardware.
+  decorativeElements?: DecorativeElementSelectionDto[]
   // Явный признак реверса — используется только расчётом отдельного полотна (см. change
   // add-standalone-leaf-pricing); расчётом по door_configuration игнорируется, там реверс определяется
   // самой конфигурацией.
@@ -119,11 +133,23 @@ export interface HardwarePriceDto {
   dealerPrice: number
 }
 
+// Тем же принципом, что и HardwarePriceDto, но без цвета и с длиной вместо него (см. change
+// add-decorative-elements-plinth).
+export interface DecorativeElementPriceDto {
+  category: ReferenceDto
+  type: ReferenceDto
+  lengthMm: number
+  quantity: number
+  retailPrice: number
+  dealerPrice: number
+}
+
 export interface PricingResponseDto {
   totalRetailPrice: number
   totalDealerPrice: number
   components: ComponentPriceDto[]
   hardware: HardwarePriceDto[]
+  decorativeElements: DecorativeElementPriceDto[]
 }
 
 // Расчёт этапа «Короб и обрамление» независимо от полотна/кромки/фурнитуры (см. change
@@ -165,6 +191,7 @@ export interface SpecificationExportRequestDto {
   frameExtensions?: ComponentSelectionDto
   leafHeightValue?: number
   hardware?: HardwareSelectionDto[]
+  decorativeElements?: DecorativeElementSelectionDto[]
 }
 
 // Одна позиция запроса выгрузки всего заказа (см. change add-order-cart-screen, order-export-api) —
@@ -207,6 +234,30 @@ export interface HardwareTypeDto {
 export interface HardwareCategoryDto {
   category: ReferenceDto
   types: HardwareTypeDto[]
+}
+
+// Расчёт этапа «Декоративные элементы» независимо от door_configuration и её компонентов (см. change
+// add-decorative-elements-plinth) — тем же принципом, что и HardwarePricingRequestDto/ResponseDto.
+export interface DecorativeElementPricingRequestDto {
+  decorativeElements?: DecorativeElementSelectionDto[]
+}
+
+export interface DecorativeElementPricingResponseDto {
+  totalRetailPrice: number
+  totalDealerPrice: number
+  decorativeElements: DecorativeElementPriceDto[]
+}
+
+export interface DecorativeElementTypeDto {
+  type: ReferenceDto
+  lengthMm: number
+  retailPrice: number
+  dealerPrice: number
+}
+
+export interface DecorativeElementCategoryDto {
+  category: ReferenceDto
+  types: DecorativeElementTypeDto[]
 }
 
 export interface DimensionSurchargeRuleDto {

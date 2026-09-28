@@ -17,6 +17,7 @@ import com.example.furniturecalculator.domain.CatalogType;
 import com.example.furniturecalculator.domain.CollectionDimensionRange;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
+import com.example.furniturecalculator.domain.DecorativeElementType;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -33,6 +34,10 @@ import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
+import com.example.furniturecalculator.dto.DecorativeElementPricingRequestDto;
+import com.example.furniturecalculator.dto.DecorativeElementPricingResponseDto;
+import com.example.furniturecalculator.dto.DecorativeElementSelectionDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingRequestDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingResponseDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
@@ -46,6 +51,7 @@ import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
+import com.example.furniturecalculator.repository.DecorativeElementTypeRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorCasingTypeRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
@@ -149,6 +155,7 @@ public class DoorConfigurationPricingService {
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
     private final GlazingOptionRepository glazingOptionRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
+    private final DecorativeElementTypeRepository decorativeElementTypeRepository;
     private final LeafTypeRepository leafTypeRepository;
     private final EdgeTypeRepository edgeTypeRepository;
     private final FrameTypeRepository frameTypeRepository;
@@ -299,6 +306,22 @@ public class DoorConfigurationPricingService {
         return new HardwarePricingResponseDto(totalRetail, totalDealer, hardware);
     }
 
+    // Расчёт стоимости произвольного списка позиций декоративных элементов независимо от door_configuration
+    // и её компонентов (см. change add-decorative-elements-plinth) — переиспользует тот же
+    // priceDecorativeElementSelections, что и finalizeResponse(); тот же принцип, что и calculateHardware().
+    @Transactional(readOnly = true)
+    public DecorativeElementPricingResponseDto calculateDecorativeElements(DecorativeElementPricingRequestDto request) {
+        List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
+                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of());
+        BigDecimal totalRetail = decorativeElements.stream()
+                .map(DecorativeElementPriceDto::retailPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalDealer = decorativeElements.stream()
+                .map(DecorativeElementPriceDto::dealerPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new DecorativeElementPricingResponseDto(totalRetail, totalDealer, decorativeElements);
+    }
+
     // Полный резолв конфигурации для выгрузки спецификации (см. change add-specification-export) —
     // переиспользует тот же addComponentIfPresent (теперь возвращающий ResolvedComponent, см. change
     // add-specification-export) и тот же priceHardwareSelections, что и три этапных эндпоинта расчёта,
@@ -375,9 +398,12 @@ public class DoorConfigurationPricingService {
         }
 
         List<HardwarePriceDto> hardware = priceHardwareSelections(request.hardware() != null ? request.hardware() : List.of());
+        List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
+                request.decorativeElements() != null ? request.decorativeElements() : List.of());
 
         return new SpecificationComponents(
-                leafResolved, leafHeightValue, edgeResolved, frameResolved, doorCasingResolved, frameExtensionsResolved, hardware);
+                leafResolved, leafHeightValue, edgeResolved, frameResolved, doorCasingResolved, frameExtensionsResolved,
+                hardware, decorativeElements);
     }
 
     // Итоговые суммы и фурнитура не зависят от того, найдены ли компоненты через door_configuration
@@ -395,8 +421,22 @@ public class DoorConfigurationPricingService {
                 .map(HardwarePriceDto::dealerPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Декоративные элементы — тем же принципом, что и фурнитура (см. change
+        // add-decorative-elements-plinth): не привязаны к door_configuration, без надбавок, отдельное
+        // последнее слагаемое итога.
+        List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
+                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of());
+        BigDecimal decorativeElementsRetailTotal = decorativeElements.stream()
+                .map(DecorativeElementPriceDto::retailPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal decorativeElementsDealerTotal = decorativeElements.stream()
+                .map(DecorativeElementPriceDto::dealerPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new PricingResponseDto(
-                sumRetail(components).add(hardwareRetailTotal), sumDealer(components).add(hardwareDealerTotal), components, hardware);
+                sumRetail(components).add(hardwareRetailTotal).add(decorativeElementsRetailTotal),
+                sumDealer(components).add(hardwareDealerTotal).add(decorativeElementsDealerTotal),
+                components, hardware, decorativeElements);
     }
 
     // Общие суммы разбивки по компонентам — переиспользуются finalizeResponse() (calculate()/
@@ -439,6 +479,34 @@ public class DoorConfigurationPricingService {
                 resolvedQuantity,
                 option.getRetailPrice().multiply(quantityMultiplier),
                 option.getDealerPrice().multiply(quantityMultiplier));
+    }
+
+    // Позиции не объединяются, той же логикой, что и priceHardwareSelections (см. change
+    // add-decorative-elements-plinth) — decorative_element_type может повторяться несколькими независимыми
+    // строками. Допустимость типа для коллекции/leaf_type (decorative_element_option) здесь не проверяется —
+    // как и у фурнитуры, это чисто фронтенд-уровня ограничение (см. design.md, Non-Goals).
+    private List<DecorativeElementPriceDto> priceDecorativeElementSelections(List<DecorativeElementSelectionDto> selections) {
+        return selections.stream().map(this::priceDecorativeElementSelection).toList();
+    }
+
+    private DecorativeElementPriceDto priceDecorativeElementSelection(DecorativeElementSelectionDto selection) {
+        DecorativeElementType type = decorativeElementTypeRepository.findById(selection.decorativeElementTypeId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "decorative_element_type с id=" + selection.decorativeElementTypeId() + " не найден"));
+        Integer quantity = selection.quantity();
+        if (quantity != null && quantity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "количество для позиции декоративного элемента должно быть положительным числом");
+        }
+        int resolvedQuantity = quantity != null ? quantity : 1;
+        BigDecimal quantityMultiplier = BigDecimal.valueOf(resolvedQuantity);
+        return new DecorativeElementPriceDto(
+                ReferenceDto.from(type.getDecorativeElementCategory()),
+                ReferenceDto.from(type),
+                type.getLengthMm(),
+                resolvedQuantity,
+                type.getRetailPrice().multiply(quantityMultiplier),
+                type.getDealerPrice().multiply(quantityMultiplier));
     }
 
     private ComponentSelectionDto selectionOf(

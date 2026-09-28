@@ -22,5 +22,11 @@ public record ComponentCatalogDto(
         // Диапазоны допустимой нестандартной длины/высоты по коллекции (collection_dimension_range) —
         // заполняется только для leaf-компонента (см. change add-collection-dimension-range); для
         // остальных компонентов всегда пустой список.
-        List<DimensionRangeDto> dimensionRanges) {
+        List<DimensionRangeDto> dimensionRanges,
+        // Допустимые декоративные элементы (decorative_element_option) — заполняется только для
+        // leaf-компонента (см. change add-decorative-elements-plinth); для остальных компонентов всегда
+        // пустой список. Полные данные (длина, цены) отдаются отдельным каталогом
+        // (GET /api/decorative-elements-catalog, см. decorative-element-catalog) — здесь только ссылки,
+        // тем же принципом, что и mirrorFinishOptions/glazingOptions.
+        List<ReferenceDto> decorativeElements) {
 }

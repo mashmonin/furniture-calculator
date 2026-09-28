@@ -20,5 +20,18 @@ public record SpecificationExportRequestDto(
         Long frameExtensionsTypeId,
         ComponentSelectionDto frameExtensions,
         BigDecimal leafHeightValue,
-        List<HardwareSelectionDto> hardware) {
+        List<HardwareSelectionDto> hardware,
+        List<DecorativeElementSelectionDto> decorativeElements) {
+
+    // Обратная совместимость с вызывающим кодом/тестами, написанными до появления decorativeElements (см.
+    // change add-decorative-elements-plinth) — тот же принцип, что и у укороченных конструкторов
+    // PricingRequestDto.
+    public SpecificationExportRequestDto(
+            Long leafTypeId, ComponentSelectionDto leaf, Long edgeTypeId, ComponentSelectionDto edge, Boolean isReverse,
+            Long frameTypeId, ComponentSelectionDto frame, Long doorCasingTypeId, ComponentSelectionDto doorCasing,
+            Long frameExtensionsTypeId, ComponentSelectionDto frameExtensions, BigDecimal leafHeightValue,
+            List<HardwareSelectionDto> hardware) {
+        this(leafTypeId, leaf, edgeTypeId, edge, isReverse, frameTypeId, frame, doorCasingTypeId, doorCasing,
+                frameExtensionsTypeId, frameExtensions, leafHeightValue, hardware, null);
+    }
 }

@@ -22,17 +22,30 @@ public record PricingRequestDto(
         // где кромка передаётся как самостоятельный компонент, а не через согласованную door_configuration.
         // Эндпоинтом расчёта по door_configuration (calculate()) не читается — там кромка определяется
         // исключительно значением configuration.getEdgeType().
-        Long edgeTypeId) {
+        Long edgeTypeId,
+        // Список позиций декоративных элементов, независимый от door_configuration (см. change
+        // add-decorative-elements-plinth) — тем же принципом, что и hardware. Null-безопасно трактуется как
+        // пустой список.
+        List<DecorativeElementSelectionDto> decorativeElements) {
 
     public PricingRequestDto(
             ComponentSelectionDto leaf, ComponentSelectionDto frame, ComponentSelectionDto edge,
             ComponentSelectionDto doorCasing, ComponentSelectionDto frameExtensions) {
-        this(leaf, frame, edge, doorCasing, frameExtensions, null, null, null);
+        this(leaf, frame, edge, doorCasing, frameExtensions, null, null, null, null);
     }
 
     public PricingRequestDto(
             ComponentSelectionDto leaf, ComponentSelectionDto frame, ComponentSelectionDto edge,
             ComponentSelectionDto doorCasing, ComponentSelectionDto frameExtensions, List<HardwareSelectionDto> hardware) {
-        this(leaf, frame, edge, doorCasing, frameExtensions, hardware, null, null);
+        this(leaf, frame, edge, doorCasing, frameExtensions, hardware, null, null, null);
+    }
+
+    // Обратная совместимость с вызывающим кодом/тестами, написанными до появления decorativeElements (см.
+    // change add-decorative-elements-plinth) — прежний канонический 8-аргументный конструктор.
+    public PricingRequestDto(
+            ComponentSelectionDto leaf, ComponentSelectionDto frame, ComponentSelectionDto edge,
+            ComponentSelectionDto doorCasing, ComponentSelectionDto frameExtensions, List<HardwareSelectionDto> hardware,
+            Boolean isReverse, Long edgeTypeId) {
+        this(leaf, frame, edge, doorCasing, frameExtensions, hardware, isReverse, edgeTypeId, null);
     }
 }

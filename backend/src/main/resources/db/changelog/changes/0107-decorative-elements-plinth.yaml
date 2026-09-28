@@ -1,0 +1,153 @@
+databaseChangeLog:
+  # Каталог декоративных элементов (см. change add-decorative-elements-plinth) — независимый от
+  # door_configuration пласт, по образцу фурнитуры (hardware_category/type/option), но без цветовой оси:
+  # decorative_element_type сразу хранит длину и обе цены. decorative_element_option — допустимость типа
+  # для конкретного leaf_type (по образцу colour_option/mirror_finish_option), заполняется для обоих типов
+  # плинтуса и всех leaf_type всех коллекций, кроме «Фантом» (LC-009).
+  - changeSet:
+      id: 0107-1-create-decorative-element-category
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: decorative_element_category
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_decorative_element_category_code
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 0107-2-create-decorative-element-type
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: decorative_element_type
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_decorative_element_type_code
+              - column:
+                  name: short_name
+                  type: VARCHAR(255)
+              - column:
+                  name: length_mm
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: retail_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dealer_price
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: decorative_element_category_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decorative_element_type_category
+                    references: decorative_element_category(id)
+
+  - changeSet:
+      id: 0107-3-create-decorative-element-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: decorative_element_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: decorative_element_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decorative_element_option_type
+                    references: decorative_element_type(id)
+              - column:
+                  name: leaf_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decorative_element_option_leaf_type
+                    references: leaf_type(id)
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_decorative_element_option_type_leaf ON decorative_element_option (decorative_element_type_id, leaf_type_id)
+
+  - changeSet:
+      id: 0107-4-insert-plinth-category-and-types
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: decorative_element_category
+            columns:
+              - column: { name: name, value: "Плинтус" }
+              - column: { name: code, value: "DEC-001" }
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_type (name, code, length_mm, retail_price, dealer_price, decorative_element_category_id)
+              SELECT v.name, v.code, 2400, 2611, 1492, dec.id
+              FROM decorative_element_category dec
+              CROSS JOIN (VALUES
+                ('Плинтус Модо', 'DET-001'),
+                ('Плинтус Модо облегченный', 'DET-002')
+              ) AS v(name, code)
+              WHERE dec.code = 'DEC-001'
+
+  - changeSet:
+      id: 0107-5-insert-plinth-options-for-non-phantom-collections
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_option (decorative_element_type_id, leaf_type_id)
+              SELECT det.id, lt.id
+              FROM decorative_element_type det
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE det.code IN ('DET-001', 'DET-002')
+                AND c.code <> 'LC-009'
