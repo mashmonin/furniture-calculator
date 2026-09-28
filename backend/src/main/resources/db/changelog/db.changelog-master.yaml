@@ -362,3 +362,6 @@ databaseChangeLog:
   - include:
       file: changes/0106-phantom-leaf-catalog.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0107-decorative-elements-plinth.yaml
+      relativeToChangelogFile: true

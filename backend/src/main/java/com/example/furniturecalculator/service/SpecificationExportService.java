@@ -21,14 +21,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.furniturecalculator.domain.FramePost;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 
 // Сборка .xlsx-файла спецификации (см. change add-specification-export). Валидация и расчёт цены здесь не
 // дублируются — этот сервис только вызывает DoorConfigurationPricingService.resolveSpecificationComponents
-// и раскладывает уже посчитанные ResolvedComponent/HardwarePriceDto по строкам листа (см. design.md,
-// «Переиспользование ценовой логики»). Один лист: до четырёх разделов с компонентами, затем, если есть,
-// отдельный завершающий раздел «Надбавки к цене полотна» — общие колонки одинаковы во всех разделах.
+// и раскладывает уже посчитанные ResolvedComponent/HardwarePriceDto/DecorativeElementPriceDto по строкам
+// листа (см. design.md, «Переиспользование ценовой логики»). Один лист: до пяти разделов с компонентами,
+// затем, если есть, отдельный завершающий раздел «Надбавки к цене полотна» — общие колонки одинаковы во
+// всех разделах.
 @Service
 public class SpecificationExportService {
 
@@ -93,6 +95,11 @@ public class SpecificationExportService {
         List<SpecRow> casingRows = casingSectionRows(components, request);
         if (!casingRows.isEmpty()) {
             rowIndex = writeSection(sheet, rowIndex, "Наличники и доборы", headerStyle, sectionStyle, casingRows, true);
+        }
+
+        if (!components.decorativeElements().isEmpty()) {
+            rowIndex = writeSection(sheet, rowIndex, "Декоративные элементы", headerStyle, sectionStyle,
+                    decorativeElementSectionRows(components.decorativeElements()), true);
         }
 
         if (!components.hardware().isEmpty()) {
@@ -201,6 +208,15 @@ public class SpecificationExportService {
             String size = plainNumber(resolvedLength(extensions, selection));
             rows.add(detailRow(
                     "Добор", extensions.type().getName(), size, formatColour(extensions), extensions.quantity(), extensions.price()));
+        }
+
+        for (DecorativeElementPriceDto item : components.decorativeElements()) {
+            // Только название типа, без категории (см. правку пользователя) — в отличие от фурнитуры.
+            String name = item.type().name();
+            BigDecimal retailUnit = perUnit(item.retailPrice(), item.quantity());
+            BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
+            rows.add(new DetailRow("Декоративные элементы", name, plainNumber(item.lengthMm()), null, item.quantity(), true,
+                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice()));
         }
 
         for (HardwarePriceDto item : components.hardware()) {
@@ -336,6 +352,10 @@ public class SpecificationExportService {
         if (components.frameExtensions() != null) {
             retail = retail.add(pricedRetail(components.frameExtensions()));
             dealer = dealer.add(pricedDealer(components.frameExtensions()));
+        }
+        for (DecorativeElementPriceDto item : components.decorativeElements()) {
+            retail = retail.add(item.retailPrice());
+            dealer = dealer.add(item.dealerPrice());
         }
         for (HardwarePriceDto item : components.hardware()) {
             retail = retail.add(item.retailPrice());
@@ -487,6 +507,20 @@ public class SpecificationExportService {
             // У фурнитуры надбавок никогда не бывает — базовая цена совпадает с итоговой (уже с учётом
             // количества, как и в ответе POST /api/hardware/price).
             rows.add(new SpecRow(name, null, item.colourName(), item.quantity(), true,
+                    item.retailPrice(), item.retailPrice(), item.dealerPrice(), item.dealerPrice(), true));
+        }
+        return rows;
+    }
+
+    private List<SpecRow> decorativeElementSectionRows(List<DecorativeElementPriceDto> decorativeElements) {
+        List<SpecRow> rows = new ArrayList<>();
+        for (DecorativeElementPriceDto item : decorativeElements) {
+            // Только название типа, без категории (см. правку пользователя) — в отличие от фурнитуры.
+            String name = item.type().name();
+            String dimensions = plainNumber(item.lengthMm());
+            // У декоративных элементов надбавок никогда не бывает — базовая цена совпадает с итоговой (уже
+            // с учётом количества, как и в ответе POST /api/decorative-elements/price); цвета нет.
+            rows.add(new SpecRow(name, dimensions, null, item.quantity(), true,
                     item.retailPrice(), item.retailPrice(), item.dealerPrice(), item.dealerPrice(), true));
         }
         return rows;

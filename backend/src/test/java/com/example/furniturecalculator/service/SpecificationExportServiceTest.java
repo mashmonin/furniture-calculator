@@ -31,6 +31,7 @@ import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.domain.LinerDimensionOption;
 import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
+import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
@@ -40,7 +41,8 @@ import com.example.furniturecalculator.support.TestEntities;
 class SpecificationExportServiceTest {
 
     private static final List<String> SECTION_TITLES = List.of(
-            "Полотно и опции полотна", "Короб и обрамление", "Наличники и доборы", "Фурнитура", "Надбавки к цене полотна");
+            "Полотно и опции полотна", "Короб и обрамление", "Наличники и доборы", "Декоративные элементы", "Фурнитура",
+            "Надбавки к цене полотна");
 
     @Mock
     private DoorConfigurationPricingService pricingService;
@@ -132,16 +134,56 @@ class SpecificationExportServiceTest {
                 new ReferenceDto(300L, "HardwareCategory-300", "HardwareCategory 300", null),
                 new ReferenceDto(301L, "HardwareType-301", "HardwareType 301", null),
                 "хром", 2, BigDecimal.valueOf(2000), BigDecimal.valueOf(1400));
+        DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
+                new ReferenceDto(400L, "DEC-001", "Плинтус", null),
+                new ReferenceDto(401L, "DET-001", "Плинтус Модо", null),
+                BigDecimal.valueOf(2400), 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
 
         SpecificationComponents components = new SpecificationComponents(
-                leaf, null, null, frame, doorCasing, frameExtensions, List.of(hardware));
+                leaf, null, null, frame, doorCasing, frameExtensions, List.of(hardware), List.of(decorativeElement));
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
 
         byte[] file = service.export(emptyRequest());
 
         List<String> sectionTitles = sectionTitles(file);
         assertThat(sectionTitles).containsExactly(
-                "Полотно и опции полотна", "Короб и обрамление", "Наличники и доборы", "Фурнитура");
+                "Полотно и опции полотна", "Короб и обрамление", "Наличники и доборы", "Декоративные элементы", "Фурнитура");
+    }
+
+    @Test
+    void раздел_декоративных_элементов_содержит_длину_и_цену_с_учётом_количества() throws IOException {
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
+                new ReferenceDto(400L, "DEC-001", "Плинтус", null),
+                new ReferenceDto(401L, "DET-001", "Плинтус Модо", null),
+                BigDecimal.valueOf(2400), 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
+
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, null, null, List.of(), List.of(decorativeElement));
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        byte[] file = service.export(emptyRequest());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row decorativeElementRow = null;
+            for (Row row : sheet) {
+                Cell firstCell = row.getCell(0);
+                if (firstCell != null && firstCell.getCellType() == CellType.STRING
+                        && firstCell.getStringCellValue().contains("Плинтус Модо")) {
+                    decorativeElementRow = row;
+                    break;
+                }
+            }
+            assertThat(decorativeElementRow).isNotNull();
+            assertThat(decorativeElementRow.getCell(0).getStringCellValue()).isEqualTo("Плинтус Модо");
+            assertThat(decorativeElementRow.getCell(1).getStringCellValue()).isEqualTo("2400");
+            assertThat(decorativeElementRow.getCell(3).getNumericCellValue()).isEqualTo(2);
+            assertThat(decorativeElementRow.getCell(4).getNumericCellValue()).isEqualTo(5222);
+            assertThat(decorativeElementRow.getCell(6).getNumericCellValue()).isEqualTo(2984);
+        }
     }
 
     @Test

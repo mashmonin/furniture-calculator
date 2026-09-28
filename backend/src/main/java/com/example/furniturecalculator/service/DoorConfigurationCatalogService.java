@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.furniturecalculator.domain.CatalogType;
 import com.example.furniturecalculator.domain.CollectionDimensionRange;
 import com.example.furniturecalculator.domain.ColourOption;
+import com.example.furniturecalculator.domain.DecorativeElementOption;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
@@ -32,6 +33,7 @@ import com.example.furniturecalculator.dto.LinerDimensionOptionDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
+import com.example.furniturecalculator.repository.DecorativeElementOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
@@ -51,6 +53,7 @@ public class DoorConfigurationCatalogService {
     private final MirrorFinishOptionRepository mirrorFinishOptionRepository;
     private final GlazingOptionRepository glazingOptionRepository;
     private final CollectionDimensionRangeRepository collectionDimensionRangeRepository;
+    private final DecorativeElementOptionRepository decorativeElementOptionRepository;
 
     // Каталог отдаёт до нескольких тысяч door_configuration, многие из которых ссылаются на одни и те же
     // leaf_type/frame_type/edge_type/door_casing_type/frame_extensions_type — buildXxxComponent(...) в 5-6 раз
@@ -125,6 +128,10 @@ public class DoorConfigurationCatalogService {
                 .findByCollectionId(leafType.getCollection().getId()).stream()
                 .map(this::toDto)
                 .toList();
+        List<ReferenceDto> decorativeElements = decorativeElementOptionRepository.findByLeafTypeId(leafType.getId()).stream()
+                .map(DecorativeElementOption::getDecorativeElementType)
+                .map(ReferenceDto::from)
+                .toList();
         return new ComponentCatalogDto(
                 component.type(),
                 ReferenceDto.from(leafType.getCollection()),
@@ -134,7 +141,8 @@ public class DoorConfigurationCatalogService {
                 mirrorFinishOptions,
                 leafType.getPanelType(),
                 glazingOptions,
-                dimensionRanges);
+                dimensionRanges,
+                decorativeElements);
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -147,7 +155,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
-                List.of(), null, List.of(), List.of());
+                List.of(), null, List.of(), List.of(), List.of());
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -162,7 +170,8 @@ public class DoorConfigurationCatalogService {
                 .map(this::toDto)
                 .toList();
         return new ComponentCatalogDto(
-                ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of(), List.of());
+                ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of(), List.of(),
+                List.of());
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {

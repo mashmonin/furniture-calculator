@@ -12,6 +12,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.example.furniturecalculator.domain.DecorativeElementCategory;
+import com.example.furniturecalculator.domain.DecorativeElementType;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
 import com.example.furniturecalculator.domain.EdgeType;
@@ -24,6 +26,7 @@ import com.example.furniturecalculator.domain.LinerDimensionType;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
+import com.example.furniturecalculator.repository.DecorativeElementOptionRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
 import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
@@ -48,6 +51,8 @@ class DoorConfigurationCatalogServiceTest {
     private GlazingOptionRepository glazingOptionRepository;
     @Mock
     private CollectionDimensionRangeRepository collectionDimensionRangeRepository;
+    @Mock
+    private DecorativeElementOptionRepository decorativeElementOptionRepository;
 
     @InjectMocks
     private DoorConfigurationCatalogService service;
@@ -84,6 +89,31 @@ class DoorConfigurationCatalogServiceTest {
         assertThat(dto.edge()).isNull();
         assertThat(dto.doorCasing()).isNull();
         assertThat(dto.frameExtensions()).isNull();
+        assertThat(dto.leaf().decorativeElements()).isEmpty();
+    }
+
+    // Допустимые декоративные элементы (см. change add-decorative-elements-plinth) — заполняются только
+    // для leaf-компонента, по образцу mirrorFinishOptions/glazingOptions.
+    @Test
+    void допустимые_декоративные_элементы_отдаются_для_leaf_компонента() {
+        LeafType leafType = TestEntities.leafType(1L);
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findAllWithTypes()).thenReturn(List.of(configuration));
+        when(linerDimensionOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(colourOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(mirrorFinishOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(glazingOptionRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementOptionRepository.findByLeafTypeId(1L))
+                .thenReturn(List.of(TestEntities.decorativeElementOption(500L, type, leafType)));
+
+        List<DoorConfigurationDto> result = service.getAllConfigurations();
+
+        assertThat(result.get(0).leaf().decorativeElements()).hasSize(1);
+        assertThat(result.get(0).leaf().decorativeElements().get(0).id()).isEqualTo(401L);
     }
 
     // Тесты на атрибут «Четверть» (см. change add-leaf-quarter-attribute) — независим от is_reverse,

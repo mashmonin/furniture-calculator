@@ -18,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
+import com.example.furniturecalculator.domain.DecorativeElementCategory;
+import com.example.furniturecalculator.domain.DecorativeElementType;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -38,6 +40,10 @@ import com.example.furniturecalculator.domain.MirrorFinishType;
 import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
+import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
+import com.example.furniturecalculator.dto.DecorativeElementPricingRequestDto;
+import com.example.furniturecalculator.dto.DecorativeElementPricingResponseDto;
+import com.example.furniturecalculator.dto.DecorativeElementSelectionDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingRequestDto;
 import com.example.furniturecalculator.dto.FrameGroupPricingResponseDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
@@ -58,6 +64,7 @@ import com.example.furniturecalculator.repository.FramePostRepository;
 import com.example.furniturecalculator.repository.FrameTypeRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
+import com.example.furniturecalculator.repository.DecorativeElementTypeRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
@@ -93,6 +100,8 @@ class DoorConfigurationPricingServiceTest {
     private GlazingOptionRepository glazingOptionRepository;
     @Mock
     private HardwareOptionRepository hardwareOptionRepository;
+    @Mock
+    private DecorativeElementTypeRepository decorativeElementTypeRepository;
     @Mock
     private LeafTypeRepository leafTypeRepository;
     @Mock
@@ -3941,6 +3950,29 @@ class DoorConfigurationPricingServiceTest {
     }
 
     @Test
+    void расчёт_отдельного_полотна_суммирует_декоративные_элементы() {
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(leafTypeRepository.findById(1L)).thenReturn(Optional.of(leafType));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, 1)));
+
+        PricingResponseDto response = service.calculateForLeaf(1L, request);
+
+        assertThat(response.decorativeElements()).hasSize(1);
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("3611");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("2392");
+    }
+
+    @Test
     void расчёт_отдельного_полотна_несуществующий_тип_возвращает_404() {
         when(leafTypeRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -4209,6 +4241,184 @@ class DoorConfigurationPricingServiceTest {
 
         assertThatThrownBy(() -> service.calculateHardware(
                 new HardwarePricingRequestDto(List.of(new HardwareSelectionDto(999L, 1)))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    // Декоративные элементы (см. change add-decorative-elements-plinth) — тем же принципом, что и
+    // фурнитура выше: независимы от door_configuration, без надбавок, отдельное слагаемое итога.
+    @Test
+    void одна_позиция_декоративного_элемента_добавляется_к_итогу() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, 2)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("5222");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("2984");
+        assertThat(response.decorativeElements()).hasSize(1);
+        DecorativeElementPriceDto price = response.decorativeElements().get(0);
+        assertThat(price.quantity()).isEqualTo(2);
+        assertThat(price.lengthMm()).isEqualByComparingTo("2400");
+        assertThat(price.retailPrice()).isEqualByComparingTo("5222");
+        assertThat(price.dealerPrice()).isEqualByComparingTo("2984");
+    }
+
+    @Test
+    void количество_декоративного_элемента_по_умолчанию_равно_1() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, null)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.decorativeElements().get(0).quantity()).isEqualTo(1);
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("2611");
+    }
+
+    @Test
+    void несколько_позиций_декоративных_элементов_с_одинаковым_типом_суммируются_независимо() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, 1), new DecorativeElementSelectionDto(401L, 3)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        assertThat(response.decorativeElements()).hasSize(2);
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("10444");
+    }
+
+    @Test
+    void несуществующий_тип_декоративного_элемента_возвращает_400() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementTypeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(999L, 1)));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void нулевое_или_отрицательное_количество_декоративного_элемента_недопустимо() {
+        DoorConfiguration configuration = TestEntities.doorConfiguration(10L, leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of());
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, null, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, 0)));
+
+        assertThatThrownBy(() -> service.calculate(10L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void декоративный_элемент_не_получает_надбавку_за_реверс_в_отличие_от_полотна() {
+        FrameType frameType = TestEntities.frameType(3L);
+        DoorConfiguration configuration = TestEntities.doorConfigurationReverse(10L, leafType, frameType, null, null, null);
+        ConfigurationPrice leafPrice = TestEntities.configurationPrice(
+                1L, BigDecimal.valueOf(1000), BigDecimal.valueOf(900), leafType, null, null, null, null);
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+
+        when(doorConfigurationRepository.findById(10L)).thenReturn(Optional.of(configuration));
+        when(configurationPriceRepository.findByLeafTypeId(1L)).thenReturn(List.of(leafPrice));
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        PricingRequestDto request = new PricingRequestDto(
+                ComponentSelectionDto.EMPTY, ComponentSelectionDto.EMPTY, null, null, null, null, null, null,
+                List.of(new DecorativeElementSelectionDto(401L, 1)));
+
+        PricingResponseDto response = service.calculate(10L, request);
+
+        ComponentPriceDto leaf = response.components().stream()
+                .filter(c -> c.component().equals("leaf"))
+                .findFirst()
+                .orElseThrow();
+        // Полотно получает надбавку за реверс (1000 -> 1100), декоративный элемент — нет (остаётся 2611).
+        assertThat(leaf.retailPrice()).isEqualByComparingTo("1100");
+        assertThat(response.decorativeElements().get(0).retailPrice()).isEqualByComparingTo("2611");
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_возвращает_итог() {
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(400L);
+        DecorativeElementType type = TestEntities.decorativeElementType(
+                401L, BigDecimal.valueOf(2400), BigDecimal.valueOf(2611), BigDecimal.valueOf(1492), category);
+        when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
+
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(401L, 2))));
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("5222");
+        assertThat(response.totalDealerPrice()).isEqualByComparingTo("2984");
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_пустой_список_возвращает_ноль() {
+        DecorativeElementPricingResponseDto response =
+                service.calculateDecorativeElements(new DecorativeElementPricingRequestDto(List.of()));
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("0");
+        assertThat(response.decorativeElements()).isEmpty();
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_null_запрос_возвращает_ноль() {
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(null);
+
+        assertThat(response.totalRetailPrice()).isEqualByComparingTo("0");
+        assertThat(response.decorativeElements()).isEmpty();
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_несуществующий_тип_возвращает_400() {
+        when(decorativeElementTypeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(999L, 1)))))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
     }

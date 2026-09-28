@@ -1,5 +1,5 @@
 import { List, Space, Typography } from 'antd'
-import type { ComponentKey, ComponentPriceDto, HardwarePriceDto } from './api/types'
+import type { ComponentKey, ComponentPriceDto, DecorativeElementPriceDto, HardwarePriceDto } from './api/types'
 import { formatMoney } from './format'
 
 export interface SurchargeBreakdownItem {
@@ -18,6 +18,7 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
 interface ComponentBreakdownListProps {
   components: ComponentPriceDto[]
   hardware: HardwarePriceDto[]
+  decorativeElements: DecorativeElementPriceDto[]
   quantities?: Partial<Record<ComponentKey, number>>
   surchargesByComponent?: Partial<Record<ComponentKey, SurchargeBreakdownItem[]>>
 }
@@ -28,7 +29,13 @@ interface ComponentBreakdownListProps {
 // order-cart-ui, «Разворачиваемая детализация позиции корзины») — выделена сюда, чтобы не дублировать
 // разметку между ConfiguratorScreen и CartScreen. quantities/surchargesByComponent опциональны: у позиции
 // корзины (замороженный `pricingSnapshot`) surcharges не хранятся отдельно — только базовая/итоговая цена.
-export function ComponentBreakdownList({ components, hardware, quantities, surchargesByComponent }: ComponentBreakdownListProps) {
+export function ComponentBreakdownList({
+  components,
+  hardware,
+  decorativeElements,
+  quantities,
+  surchargesByComponent,
+}: ComponentBreakdownListProps) {
   return (
     <>
       <List
@@ -65,6 +72,21 @@ export function ComponentBreakdownList({ components, hardware, quantities, surch
           )
         }}
       />
+      {decorativeElements.length > 0 && (
+        <List
+          style={{ marginTop: 16 }}
+          size="small"
+          bordered
+          header={<Typography.Text type="secondary">Декоративные элементы</Typography.Text>}
+          dataSource={decorativeElements}
+          renderItem={(item) => (
+            <List.Item>
+              {item.type.name} ({item.lengthMm} мм) × {item.quantity} шт.:{' '}
+              {formatMoney(item.retailPrice)} / {formatMoney(item.dealerPrice)} (дилер)
+            </List.Item>
+          )}
+        />
+      )}
       {hardware.length > 0 && (
         <List
           style={{ marginTop: 16 }}

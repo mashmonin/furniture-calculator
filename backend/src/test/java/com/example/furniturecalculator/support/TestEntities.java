@@ -9,6 +9,9 @@ import com.example.furniturecalculator.domain.CatalogType;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ColourType;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
+import com.example.furniturecalculator.domain.DecorativeElementCategory;
+import com.example.furniturecalculator.domain.DecorativeElementOption;
+import com.example.furniturecalculator.domain.DecorativeElementType;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -292,6 +295,28 @@ public final class TestEntities {
         ReflectionTestUtils.setField(option, "retailPrice", retailPrice);
         ReflectionTestUtils.setField(option, "dealerPrice", dealerPrice);
         ReflectionTestUtils.setField(option, "hardwareType", type);
+        return option;
+    }
+
+    public static DecorativeElementCategory decorativeElementCategory(long id) {
+        return referenceType(DecorativeElementCategory.class, id);
+    }
+
+    public static DecorativeElementType decorativeElementType(
+            long id, BigDecimal lengthMm, BigDecimal retailPrice, BigDecimal dealerPrice, DecorativeElementCategory category) {
+        DecorativeElementType type = referenceType(DecorativeElementType.class, id);
+        ReflectionTestUtils.setField(type, "lengthMm", lengthMm);
+        ReflectionTestUtils.setField(type, "retailPrice", retailPrice);
+        ReflectionTestUtils.setField(type, "dealerPrice", dealerPrice);
+        ReflectionTestUtils.setField(type, "decorativeElementCategory", category);
+        return type;
+    }
+
+    public static DecorativeElementOption decorativeElementOption(long id, DecorativeElementType type, LeafType leafType) {
+        DecorativeElementOption option = instantiate(DecorativeElementOption.class);
+        ReflectionTestUtils.setField(option, "id", id);
+        ReflectionTestUtils.setField(option, "decorativeElementType", type);
+        ReflectionTestUtils.setField(option, "leafType", leafType);
         return option;
     }
 

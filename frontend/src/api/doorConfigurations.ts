@@ -1,4 +1,7 @@
 import type {
+  DecorativeElementCategoryDto,
+  DecorativeElementPricingRequestDto,
+  DecorativeElementPricingResponseDto,
   DoorConfigurationDto,
   FrameGroupPricingRequestDto,
   FrameGroupPricingResponseDto,
@@ -26,6 +29,16 @@ export async function fetchHardwareCatalog(): Promise<HardwareCategoryDto[]> {
     throw new Error(`Не удалось загрузить каталог фурнитуры (HTTP ${response.status})`)
   }
   return (await response.json()) as HardwareCategoryDto[]
+}
+
+// Каталог декоративных элементов (см. change add-decorative-elements-plinth) — тем же принципом, что и
+// fetchHardwareCatalog.
+export async function fetchDecorativeElementsCatalog(): Promise<DecorativeElementCategoryDto[]> {
+  const response = await fetch('/api/decorative-elements-catalog')
+  if (!response.ok) {
+    throw new Error(`Не удалось загрузить каталог декоративных элементов (HTTP ${response.status})`)
+  }
+  return (await response.json()) as DecorativeElementCategoryDto[]
 }
 
 export async function fetchPricingSurcharges(): Promise<PricingSurchargesDto> {
@@ -85,6 +98,22 @@ export async function calculateHardwarePrice(
     throw new Error(`Не удалось рассчитать стоимость (HTTP ${response.status})`)
   }
   return (await response.json()) as HardwarePricingResponseDto
+}
+
+// Расчёт этапа «Декоративные элементы» независимо от door_configuration и её компонентов (см. change
+// add-decorative-elements-plinth) — тем же принципом, что и calculateHardwarePrice.
+export async function calculateDecorativeElementsPrice(
+  request: DecorativeElementPricingRequestDto,
+): Promise<DecorativeElementPricingResponseDto> {
+  const response = await fetch('/api/decorative-elements/price', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`Не удалось рассчитать стоимость (HTTP ${response.status})`)
+  }
+  return (await response.json()) as DecorativeElementPricingResponseDto
 }
 
 const DEFAULT_SPECIFICATION_FILENAME = 'specification.xlsx'
