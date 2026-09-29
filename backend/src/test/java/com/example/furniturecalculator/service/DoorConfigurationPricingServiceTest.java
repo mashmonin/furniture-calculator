@@ -65,6 +65,7 @@ import com.example.furniturecalculator.repository.FrameTypeRepository;
 import com.example.furniturecalculator.repository.GlazingOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.DecorativeElementTypeRepository;
+import com.example.furniturecalculator.repository.DecorativeElementWidthOptionRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
 import com.example.furniturecalculator.repository.LeafTypeRepository;
 import com.example.furniturecalculator.repository.LinerDimensionOptionRepository;
@@ -102,6 +103,8 @@ class DoorConfigurationPricingServiceTest {
     private HardwareOptionRepository hardwareOptionRepository;
     @Mock
     private DecorativeElementTypeRepository decorativeElementTypeRepository;
+    @Mock
+    private DecorativeElementWidthOptionRepository decorativeElementWidthOptionRepository;
     @Mock
     private LeafTypeRepository leafTypeRepository;
     @Mock
@@ -4390,7 +4393,7 @@ class DoorConfigurationPricingServiceTest {
         when(decorativeElementTypeRepository.findById(401L)).thenReturn(Optional.of(type));
 
         DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
-                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(401L, 2))));
+                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(401L, 2)), null));
 
         assertThat(response.totalRetailPrice()).isEqualByComparingTo("5222");
         assertThat(response.totalDealerPrice()).isEqualByComparingTo("2984");
@@ -4399,7 +4402,7 @@ class DoorConfigurationPricingServiceTest {
     @Test
     void расчёт_декоративных_элементов_standalone_пустой_список_возвращает_ноль() {
         DecorativeElementPricingResponseDto response =
-                service.calculateDecorativeElements(new DecorativeElementPricingRequestDto(List.of()));
+                service.calculateDecorativeElements(new DecorativeElementPricingRequestDto(List.of(), null));
 
         assertThat(response.totalRetailPrice()).isEqualByComparingTo("0");
         assertThat(response.decorativeElements()).isEmpty();
@@ -4418,9 +4421,76 @@ class DoorConfigurationPricingServiceTest {
         when(decorativeElementTypeRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.calculateDecorativeElements(
-                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(999L, 1)))))
+                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(999L, 1)), null)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_длина_полотна_резолвит_ширину_сандрика() {
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(410L);
+        DecorativeElementType sandrik = TestEntities.decorativeElementType(
+                411L, BigDecimal.valueOf(200), BigDecimal.valueOf(16755), BigDecimal.valueOf(9574), category);
+        when(decorativeElementTypeRepository.findById(411L)).thenReturn(Optional.of(sandrik));
+        when(decorativeElementWidthOptionRepository.findByDecorativeElementTypeId(411L)).thenReturn(List.of(
+                TestEntities.decorativeElementWidthOption(1L, sandrik, null, BigDecimal.valueOf(800), BigDecimal.valueOf(1150)),
+                TestEntities.decorativeElementWidthOption(2L, sandrik, BigDecimal.valueOf(801), BigDecimal.valueOf(900), BigDecimal.valueOf(1250)),
+                TestEntities.decorativeElementWidthOption(3L, sandrik, BigDecimal.valueOf(901), BigDecimal.valueOf(1200), BigDecimal.valueOf(1554))));
+
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(
+                        List.of(new DecorativeElementSelectionDto(411L, 1)), BigDecimal.valueOf(700)));
+
+        assertThat(response.decorativeElements().get(0).widthMm()).isEqualByComparingTo("1150");
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_без_длины_полотна_ширина_сандрика_не_резолвится() {
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(410L);
+        DecorativeElementType sandrik = TestEntities.decorativeElementType(
+                411L, BigDecimal.valueOf(200), BigDecimal.valueOf(16755), BigDecimal.valueOf(9574), category);
+        when(decorativeElementTypeRepository.findById(411L)).thenReturn(Optional.of(sandrik));
+        when(decorativeElementWidthOptionRepository.findByDecorativeElementTypeId(411L)).thenReturn(List.of(
+                TestEntities.decorativeElementWidthOption(1L, sandrik, null, BigDecimal.valueOf(800), BigDecimal.valueOf(1150))));
+
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(List.of(new DecorativeElementSelectionDto(411L, 1)), null));
+
+        assertThat(response.decorativeElements().get(0).widthMm()).isNull();
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_длина_полотна_вне_диапазонов_ширина_не_резолвится() {
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(410L);
+        DecorativeElementType sandrik = TestEntities.decorativeElementType(
+                411L, BigDecimal.valueOf(200), BigDecimal.valueOf(16755), BigDecimal.valueOf(9574), category);
+        when(decorativeElementTypeRepository.findById(411L)).thenReturn(Optional.of(sandrik));
+        when(decorativeElementWidthOptionRepository.findByDecorativeElementTypeId(411L)).thenReturn(List.of(
+                TestEntities.decorativeElementWidthOption(1L, sandrik, null, BigDecimal.valueOf(800), BigDecimal.valueOf(1150)),
+                TestEntities.decorativeElementWidthOption(2L, sandrik, BigDecimal.valueOf(801), BigDecimal.valueOf(900), BigDecimal.valueOf(1250)),
+                TestEntities.decorativeElementWidthOption(3L, sandrik, BigDecimal.valueOf(901), BigDecimal.valueOf(1200), BigDecimal.valueOf(1554))));
+
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(
+                        List.of(new DecorativeElementSelectionDto(411L, 1)), BigDecimal.valueOf(1500)));
+
+        assertThat(response.decorativeElements().get(0).widthMm()).isNull();
+    }
+
+    @Test
+    void расчёт_декоративных_элементов_standalone_длина_полотна_не_влияет_на_тип_без_диапазонов() {
+        DecorativeElementCategory category = TestEntities.decorativeElementCategory(420L);
+        DecorativeElementType blok = TestEntities.decorativeElementType(
+                421L, BigDecimal.valueOf(90), BigDecimal.valueOf(2021), BigDecimal.valueOf(1154), category);
+        org.springframework.test.util.ReflectionTestUtils.setField(blok, "widthMm", BigDecimal.valueOf(90));
+        when(decorativeElementTypeRepository.findById(421L)).thenReturn(Optional.of(blok));
+        when(decorativeElementWidthOptionRepository.findByDecorativeElementTypeId(421L)).thenReturn(List.of());
+
+        DecorativeElementPricingResponseDto response = service.calculateDecorativeElements(
+                new DecorativeElementPricingRequestDto(
+                        List.of(new DecorativeElementSelectionDto(421L, 1)), BigDecimal.valueOf(700)));
+
+        assertThat(response.decorativeElements().get(0).widthMm()).isEqualByComparingTo("90");
     }
 
     // resolveSpecificationComponents (см. change add-specification-export) — та же валидация, что и у

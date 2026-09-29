@@ -139,6 +139,11 @@ export interface DecorativeElementPriceDto {
   category: ReferenceDto
   type: ReferenceDto
   lengthMm: number
+  // Ширина не задана у всех типов напрямую — у сандрика она резолвится backend по диапазону длины
+  // полотна (см. change add-decorative-element-sandriks) и может быть null, если длина полотна не
+  // передана/не попала в диапазон.
+  widthMm: number | null
+  thicknessMm: number | null
   quantity: number
   retailPrice: number
   dealerPrice: number
@@ -240,6 +245,10 @@ export interface HardwareCategoryDto {
 // add-decorative-elements-plinth) — тем же принципом, что и HardwarePricingRequestDto/ResponseDto.
 export interface DecorativeElementPricingRequestDto {
   decorativeElements?: DecorativeElementSelectionDto[]
+  // Длина выбранного полотна — используется backend только для резолва ширины позиций, чей тип
+  // зависит от диапазона длины полотна (см. change add-decorative-element-sandriks); не влияет на
+  // расчёт стоимости.
+  leafLengthMm?: number
 }
 
 export interface DecorativeElementPricingResponseDto {

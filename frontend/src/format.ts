@@ -13,3 +13,10 @@ export function formatMoney(value: number): string {
 export function formatMoneyWithCurrency(value: number): string {
   return `${formatMoney(value)} ₽`
 }
+
+// Объединяет применимые измерения через « × », пропуская отсутствующие (null/undefined) — тот же принцип,
+// что и у объединения размеров полотна (длина × высота × толщина) и у формата колонки «Измерения» в
+// backend-выгрузке (см. change add-decorative-element-sandriks).
+export function formatDimensions(...values: Array<number | null | undefined>): string {
+  return values.filter((value): value is number => value !== null && value !== undefined).join(' × ')
+}

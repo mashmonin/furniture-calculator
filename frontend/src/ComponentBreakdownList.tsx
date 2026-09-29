@@ -1,6 +1,6 @@
 import { List, Space, Typography } from 'antd'
 import type { ComponentKey, ComponentPriceDto, DecorativeElementPriceDto, HardwarePriceDto } from './api/types'
-import { formatMoney } from './format'
+import { formatDimensions, formatMoney } from './format'
 
 export interface SurchargeBreakdownItem {
   label: string
@@ -81,7 +81,7 @@ export function ComponentBreakdownList({
           dataSource={decorativeElements}
           renderItem={(item) => (
             <List.Item>
-              {item.type.name} ({item.lengthMm} мм) × {item.quantity} шт.:{' '}
+              {item.type.name} ({formatDimensions(item.lengthMm, item.widthMm, item.thicknessMm)} мм) × {item.quantity} шт.:{' '}
               {formatMoney(item.retailPrice)} / {formatMoney(item.dealerPrice)} (дилер)
             </List.Item>
           )}

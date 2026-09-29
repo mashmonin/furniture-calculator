@@ -56,7 +56,7 @@ import type {
 import { OptionGroup } from './components/OptionGroup'
 import { ComponentBreakdownList, type SurchargeBreakdownItem } from './ComponentBreakdownList'
 import type { CartDetailRow, CartItem, CartItemContent } from './cart'
-import { formatMoney, formatMoneyWithCurrency } from './format'
+import { formatDimensions, formatMoney, formatMoneyWithCurrency } from './format'
 import './App.css'
 
 const COMPONENT_ORDER: ComponentKey[] = ['leaf', 'frame', 'edge', 'doorCasing', 'frameExtensions']
@@ -1404,12 +1404,19 @@ function ConfiguratorScreen({
       return
     }
 
+    // Длина уже выбранного (на этом же экране) полотна — не участвует в расчёте стоимости, нужна backend
+    // только для резолва ширины позиций вроде сандрика, зависящих от диапазона длины полотна (см. change
+    // add-decorative-element-sandriks).
+    const leafLengthValue =
+      selection.leaf.customLengthValueMm ??
+      leafComponent?.dimensionOptions.find((option) => option.id === selection.leaf.lengthOptionId)?.value
+
     setDecorativeElementsPricingLoading(true)
     const requestId = ++decorativeElementsRequestSeqRef.current
     let cancelled = false
 
     const timer = window.setTimeout(() => {
-      calculateDecorativeElementsPrice({ decorativeElements: decorativeElementSelections })
+      calculateDecorativeElementsPrice({ decorativeElements: decorativeElementSelections, leafLengthMm: leafLengthValue })
         .then((result) => {
           if (!cancelled && requestId === decorativeElementsRequestSeqRef.current) {
             setDecorativeElementsPricingResult(result)
@@ -1434,7 +1441,7 @@ function ConfiguratorScreen({
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leafTypeId, decorativeElementLines, leafComponent])
+  }, [leafTypeId, decorativeElementLines, leafComponent, selection.leaf.lengthOptionId, selection.leaf.customLengthValueMm])
 
   // Объединение результатов трёх этапов в единый результат для sticky-панели (см. specs/door-configurator-ui,
   // «Объединение результатов трёх этапов расчёта») — намеренно названо так же, как раньше называлось
@@ -1642,7 +1649,7 @@ function ConfiguratorScreen({
         // Только название типа, без категории (см. правку пользователя) — в отличие от фурнитуры, для
         // декоративных элементов категория не несёт дополнительной информации в наименовании.
         name: item.type.name,
-        size: `${item.lengthMm}`,
+        size: formatDimensions(item.lengthMm, item.widthMm, item.thicknessMm) || null,
         colour: null,
         quantity: item.quantity,
         dealerPrice: item.dealerPrice / item.quantity,
