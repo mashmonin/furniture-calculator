@@ -18,6 +18,7 @@ import com.example.furniturecalculator.domain.CollectionDimensionRange;
 import com.example.furniturecalculator.domain.ColourOption;
 import com.example.furniturecalculator.domain.ConfigurationPrice;
 import com.example.furniturecalculator.domain.DecorativeElementType;
+import com.example.furniturecalculator.domain.DecorativeElementWidthOption;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -52,6 +53,7 @@ import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
 import com.example.furniturecalculator.repository.ConfigurationPriceRepository;
 import com.example.furniturecalculator.repository.DecorativeElementTypeRepository;
+import com.example.furniturecalculator.repository.DecorativeElementWidthOptionRepository;
 import com.example.furniturecalculator.repository.DimensionSurchargeRuleRepository;
 import com.example.furniturecalculator.repository.DoorCasingTypeRepository;
 import com.example.furniturecalculator.repository.DoorConfigurationRepository;
@@ -156,6 +158,7 @@ public class DoorConfigurationPricingService {
     private final GlazingOptionRepository glazingOptionRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
     private final DecorativeElementTypeRepository decorativeElementTypeRepository;
+    private final DecorativeElementWidthOptionRepository decorativeElementWidthOptionRepository;
     private final LeafTypeRepository leafTypeRepository;
     private final EdgeTypeRepository edgeTypeRepository;
     private final FrameTypeRepository frameTypeRepository;
@@ -193,6 +196,12 @@ public class DoorConfigurationPricingService {
         // Значение высоты полотна нужно для сверки диапазона кромки независимо от того, выбрана ли
         // каталожная опция или введено произвольное значение (см. change add-dimension-surcharge-rules).
         BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
+        // Значение длины полотна — тем же способом, что и leafHeightValue выше; нужно для резолва ширины
+        // декоративных элементов, зависящих от диапазона длины полотна (см. change
+        // add-decorative-element-sandriks).
+        LinerDimensionOption leafLengthOption =
+                validatedDimensionOption("leaf", configuration.getLeafType(), leafSelection.lengthOptionId());
+        BigDecimal leafLengthValue = leafLengthOption != null ? leafLengthOption.getValue() : leafSelection.customLengthValueMm();
         boolean reverseFrameSelected = configuration.isReverse();
         validateThicknessRequiresQuarter(leafSelection, configuration.isHasQuarter());
 
@@ -203,7 +212,7 @@ public class DoorConfigurationPricingService {
         addComponentIfPresent(components, "doorCasing", configuration.getDoorCasingType(), selectionOf(request, PricingRequestDto::doorCasing), leafHeightValue, false, null);
         addComponentIfPresent(components, "frameExtensions", configuration.getFrameExtensionsType(), selectionOf(request, PricingRequestDto::frameExtensions), leafHeightValue, false, null);
 
-        return finalizeResponse(components, request);
+        return finalizeResponse(components, request, leafLengthValue);
     }
 
     // Расчёт стоимости одного полотна (leaf_type), опционально вместе с кромкой (см. change
@@ -224,6 +233,10 @@ public class DoorConfigurationPricingService {
         // (см. change add-staged-pricing-endpoints).
         LinerDimensionOption leafHeightOption = validatedDimensionOption("leaf", leafType, leafSelection.heightOptionId());
         BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
+        // Значение длины полотна — тем же способом, что и leafHeightValue выше (см. change
+        // add-decorative-element-sandriks).
+        LinerDimensionOption leafLengthOption = validatedDimensionOption("leaf", leafType, leafSelection.lengthOptionId());
+        BigDecimal leafLengthValue = leafLengthOption != null ? leafLengthOption.getValue() : leafSelection.customLengthValueMm();
         // У отдельного полотна нет door_configuration.is_reverse — клиент передаёт признак реверса
         // явно (см. change add-standalone-leaf-pricing); отсутствие поля равносильно false.
         boolean applyReverseSurcharge = request != null && Boolean.TRUE.equals(request.isReverse());
@@ -245,7 +258,7 @@ public class DoorConfigurationPricingService {
             addComponentIfPresent(components, "edge", edgeType, selectionOf(request, PricingRequestDto::edge), leafHeightValue, false, null);
         }
 
-        return finalizeResponse(components, request);
+        return finalizeResponse(components, request, leafLengthValue);
     }
 
     // Расчёт стоимости короба и, опционально, наличника/добора независимо от полотна, кромки и
@@ -312,7 +325,8 @@ public class DoorConfigurationPricingService {
     @Transactional(readOnly = true)
     public DecorativeElementPricingResponseDto calculateDecorativeElements(DecorativeElementPricingRequestDto request) {
         List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
-                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of());
+                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of(),
+                request != null ? request.leafLengthMm() : null);
         BigDecimal totalRetail = decorativeElements.stream()
                 .map(DecorativeElementPriceDto::retailPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -341,6 +355,10 @@ public class DoorConfigurationPricingService {
         ComponentSelectionDto leafSelection = request.leaf() != null ? request.leaf() : ComponentSelectionDto.EMPTY;
         LinerDimensionOption leafHeightOption = validatedDimensionOption("leaf", leafType, leafSelection.heightOptionId());
         BigDecimal leafHeightValue = leafHeightOption != null ? leafHeightOption.getValue() : leafSelection.customHeightValueMm();
+        // Значение длины полотна — для резолва ширины декоративных элементов, зависящих от диапазона длины
+        // полотна (см. change add-decorative-element-sandriks).
+        LinerDimensionOption leafLengthOption = validatedDimensionOption("leaf", leafType, leafSelection.lengthOptionId());
+        BigDecimal leafLengthValue = leafLengthOption != null ? leafLengthOption.getValue() : leafSelection.customLengthValueMm();
         boolean applyReverseSurcharge = Boolean.TRUE.equals(request.isReverse());
         Long edgeTypeId = request.edgeTypeId();
         Boolean hasQuarter = hasQuarterFromEdgeTypeId(edgeTypeId);
@@ -399,7 +417,7 @@ public class DoorConfigurationPricingService {
 
         List<HardwarePriceDto> hardware = priceHardwareSelections(request.hardware() != null ? request.hardware() : List.of());
         List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
-                request.decorativeElements() != null ? request.decorativeElements() : List.of());
+                request.decorativeElements() != null ? request.decorativeElements() : List.of(), leafLengthValue);
 
         return new SpecificationComponents(
                 leafResolved, leafHeightValue, edgeResolved, frameResolved, doorCasingResolved, frameExtensionsResolved,
@@ -409,7 +427,8 @@ public class DoorConfigurationPricingService {
     // Итоговые суммы и фурнитура не зависят от того, найдены ли компоненты через door_configuration
     // или напрямую по leaf_type — общий хвост для calculate() и calculateForLeaf() (см. change
     // add-standalone-leaf-pricing, design.md).
-    private PricingResponseDto finalizeResponse(List<ComponentPriceDto> components, PricingRequestDto request) {
+    private PricingResponseDto finalizeResponse(
+            List<ComponentPriceDto> components, PricingRequestDto request, BigDecimal leafLengthValue) {
         // Фурнитура не привязана к door_configuration и не участвует в надбавках компонентов —
         // прибавляется к итогу последним слагаемым (см. change add-hardware-catalog, design.md).
         List<HardwarePriceDto> hardware = priceHardwareSelections(
@@ -425,7 +444,8 @@ public class DoorConfigurationPricingService {
         // add-decorative-elements-plinth): не привязаны к door_configuration, без надбавок, отдельное
         // последнее слагаемое итога.
         List<DecorativeElementPriceDto> decorativeElements = priceDecorativeElementSelections(
-                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of());
+                request != null && request.decorativeElements() != null ? request.decorativeElements() : List.of(),
+                leafLengthValue);
         BigDecimal decorativeElementsRetailTotal = decorativeElements.stream()
                 .map(DecorativeElementPriceDto::retailPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -485,11 +505,13 @@ public class DoorConfigurationPricingService {
     // add-decorative-elements-plinth) — decorative_element_type может повторяться несколькими независимыми
     // строками. Допустимость типа для коллекции/leaf_type (decorative_element_option) здесь не проверяется —
     // как и у фурнитуры, это чисто фронтенд-уровня ограничение (см. design.md, Non-Goals).
-    private List<DecorativeElementPriceDto> priceDecorativeElementSelections(List<DecorativeElementSelectionDto> selections) {
-        return selections.stream().map(this::priceDecorativeElementSelection).toList();
+    private List<DecorativeElementPriceDto> priceDecorativeElementSelections(
+            List<DecorativeElementSelectionDto> selections, BigDecimal leafLengthValue) {
+        return selections.stream().map(selection -> priceDecorativeElementSelection(selection, leafLengthValue)).toList();
     }
 
-    private DecorativeElementPriceDto priceDecorativeElementSelection(DecorativeElementSelectionDto selection) {
+    private DecorativeElementPriceDto priceDecorativeElementSelection(
+            DecorativeElementSelectionDto selection, BigDecimal leafLengthValue) {
         DecorativeElementType type = decorativeElementTypeRepository.findById(selection.decorativeElementTypeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "decorative_element_type с id=" + selection.decorativeElementTypeId() + " не найден"));
@@ -504,11 +526,32 @@ public class DoorConfigurationPricingService {
                 ReferenceDto.from(type.getDecorativeElementCategory()),
                 ReferenceDto.from(type),
                 type.getLengthMm(),
-                type.getWidthMm(),
+                resolveDecorativeElementWidth(type, leafLengthValue),
                 type.getThicknessMm(),
                 resolvedQuantity,
                 type.getRetailPrice().multiply(quantityMultiplier),
                 type.getDealerPrice().multiply(quantityMultiplier));
+    }
+
+    // Сандрики (см. change add-decorative-element-sandriks) не имеют собственной фиксированной ширины —
+    // она зависит от диапазона длины полотна (decorative_element_width_option, по образцу
+    // liner_dimension_option). Для типов без строк этой таблицы (плинтус, блок, база) поведение не
+    // меняется — используется их собственный width_mm.
+    private BigDecimal resolveDecorativeElementWidth(DecorativeElementType type, BigDecimal leafLengthValue) {
+        List<DecorativeElementWidthOption> widthOptions =
+                decorativeElementWidthOptionRepository.findByDecorativeElementTypeId(type.getId());
+        if (widthOptions.isEmpty()) {
+            return type.getWidthMm();
+        }
+        if (leafLengthValue == null) {
+            return null;
+        }
+        return widthOptions.stream()
+                .filter(option -> (option.getMinValue() == null || leafLengthValue.compareTo(option.getMinValue()) >= 0)
+                        && (option.getMaxValue() == null || leafLengthValue.compareTo(option.getMaxValue()) <= 0))
+                .findFirst()
+                .map(DecorativeElementWidthOption::getWidthMm)
+                .orElse(null);
     }
 
     private ComponentSelectionDto selectionOf(

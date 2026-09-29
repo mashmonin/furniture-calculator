@@ -12,6 +12,7 @@ import com.example.furniturecalculator.domain.ConfigurationPrice;
 import com.example.furniturecalculator.domain.DecorativeElementCategory;
 import com.example.furniturecalculator.domain.DecorativeElementOption;
 import com.example.furniturecalculator.domain.DecorativeElementType;
+import com.example.furniturecalculator.domain.DecorativeElementWidthOption;
 import com.example.furniturecalculator.domain.DimensionSurchargeRule;
 import com.example.furniturecalculator.domain.DoorCasingType;
 import com.example.furniturecalculator.domain.DoorConfiguration;
@@ -310,6 +311,17 @@ public final class TestEntities {
         ReflectionTestUtils.setField(type, "dealerPrice", dealerPrice);
         ReflectionTestUtils.setField(type, "decorativeElementCategory", category);
         return type;
+    }
+
+    public static DecorativeElementWidthOption decorativeElementWidthOption(
+            long id, DecorativeElementType type, BigDecimal minValue, BigDecimal maxValue, BigDecimal widthMm) {
+        DecorativeElementWidthOption option = instantiate(DecorativeElementWidthOption.class);
+        ReflectionTestUtils.setField(option, "id", id);
+        ReflectionTestUtils.setField(option, "decorativeElementType", type);
+        ReflectionTestUtils.setField(option, "minValue", minValue);
+        ReflectionTestUtils.setField(option, "maxValue", maxValue);
+        ReflectionTestUtils.setField(option, "widthMm", widthMm);
+        return option;
     }
 
     public static DecorativeElementOption decorativeElementOption(long id, DecorativeElementType type, LeafType leafType) {

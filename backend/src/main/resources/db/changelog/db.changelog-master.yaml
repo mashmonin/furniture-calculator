@@ -371,3 +371,6 @@ databaseChangeLog:
   - include:
       file: changes/0109-decorative-element-width-thickness.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0110-decorative-element-sandriks.yaml
+      relativeToChangelogFile: true

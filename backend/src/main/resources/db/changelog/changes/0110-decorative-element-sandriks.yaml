@@ -1,0 +1,94 @@
+databaseChangeLog:
+  # Сандрики (см. change add-decorative-element-sandriks) — новая категория «Сандрики» в дополнение к
+  # «Плинтус» и «Блок и база». В отличие от них ширина не фиксирована на типе (width_mm = NULL) — она
+  # зависит от диапазона длины полотна, см. новую таблицу decorative_element_width_option (по образцу
+  # liner_dimension_option). Applicability — только для leaf_type коллекций «Элегант» (LC-003) и
+  # «Гармония» (LC-004).
+  - changeSet:
+      id: 0110-1-create-decorative-element-width-option
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: decorative_element_width_option
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: decorative_element_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decorative_element_width_option_type
+                    references: decorative_element_type(id)
+              - column:
+                  name: min_value
+                  type: DECIMAL
+              - column:
+                  name: max_value
+                  type: DECIMAL
+              - column:
+                  name: width_mm
+                  type: DECIMAL
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0110-2-insert-sandriks-category-and-types
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: decorative_element_category
+            columns:
+              - column: { name: name, value: "Сандрики" }
+              - column: { name: code, value: "DEC-003" }
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_type (name, code, length_mm, thickness_mm, retail_price, dealer_price, decorative_element_category_id)
+              SELECT v.name, v.code, v.length_mm, v.thickness_mm, v.retail_price, v.dealer_price, dec.id
+              FROM decorative_element_category dec
+              CROSS JOIN (VALUES
+                ('Сандрик Левия', 'DET-008', 200, 67, 16755, 9574),
+                ('Сандрик Арно', 'DET-009', 188, 64.5, 10915, 6237),
+                ('Сандрик Адела', 'DET-010', 93, 59, 9166, 5237)
+              ) AS v(name, code, length_mm, thickness_mm, retail_price, dealer_price)
+              WHERE dec.code = 'DEC-003'
+
+  - changeSet:
+      id: 0110-3-insert-sandriks-width-ranges
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_width_option (decorative_element_type_id, min_value, max_value, width_mm)
+              SELECT det.id, v.min_value, v.max_value, v.width_mm
+              FROM decorative_element_type det
+              JOIN (VALUES
+                ('DET-008', NULL::numeric, 800, 1150),
+                ('DET-008', 801, 900, 1250),
+                ('DET-008', 901, 1200, 1554),
+                ('DET-009', NULL::numeric, 800, 1140),
+                ('DET-009', 801, 900, 1240),
+                ('DET-009', 901, 1200, 1554),
+                ('DET-010', NULL::numeric, 800, 1110),
+                ('DET-010', 801, 900, 1240),
+                ('DET-010', 901, 1200, 1514)
+              ) AS v(code, min_value, max_value, width_mm) ON v.code = det.code
+
+  - changeSet:
+      id: 0110-4-insert-sandriks-options-for-elegant-and-garmoniya
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_option (decorative_element_type_id, leaf_type_id)
+              SELECT det.id, lt.id
+              FROM decorative_element_type det
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE det.code IN ('DET-008', 'DET-009', 'DET-010')
+                AND c.code IN ('LC-003', 'LC-004')
