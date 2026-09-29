@@ -504,6 +504,8 @@ public class DoorConfigurationPricingService {
                 ReferenceDto.from(type.getDecorativeElementCategory()),
                 ReferenceDto.from(type),
                 type.getLengthMm(),
+                type.getWidthMm(),
+                type.getThicknessMm(),
                 resolvedQuantity,
                 type.getRetailPrice().multiply(quantityMultiplier),
                 type.getDealerPrice().multiply(quantityMultiplier));

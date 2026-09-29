@@ -215,7 +215,8 @@ public class SpecificationExportService {
             String name = item.type().name();
             BigDecimal retailUnit = perUnit(item.retailPrice(), item.quantity());
             BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
-            rows.add(new DetailRow("Декоративные элементы", name, plainNumber(item.lengthMm()), null, item.quantity(), true,
+            rows.add(new DetailRow("Декоративные элементы", name,
+                    formatDimensions(item.lengthMm(), item.widthMm(), item.thicknessMm()), null, item.quantity(), true,
                     retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice()));
         }
 
@@ -517,7 +518,7 @@ public class SpecificationExportService {
         for (DecorativeElementPriceDto item : decorativeElements) {
             // Только название типа, без категории (см. правку пользователя) — в отличие от фурнитуры.
             String name = item.type().name();
-            String dimensions = plainNumber(item.lengthMm());
+            String dimensions = formatDimensions(item.lengthMm(), item.widthMm(), item.thicknessMm());
             // У декоративных элементов надбавок никогда не бывает — базовая цена совпадает с итоговой (уже
             // с учётом количества, как и в ответе POST /api/decorative-elements/price); цвета нет.
             rows.add(new SpecRow(name, dimensions, null, item.quantity(), true,
@@ -566,8 +567,8 @@ public class SpecificationExportService {
         return front != null ? front : back;
     }
 
-    // Объединяет применимые измерения в одну колонку через «*» в порядке длина-высота-толщина (например,
-    // «900*2400*44»), пропуская неприменимые — вместо отдельной колонки на каждую ось.
+    // Объединяет применимые измерения в одну колонку через « × » в порядке длина-высота-толщина
+    // (например, «900 × 2400 × 44»), пропуская неприменимые — вместо отдельной колонки на каждую ось.
     private String formatDimensions(BigDecimal length, BigDecimal height, BigDecimal thickness) {
         List<BigDecimal> values = new ArrayList<>();
         if (length != null) {
@@ -582,7 +583,7 @@ public class SpecificationExportService {
         if (values.isEmpty()) {
             return null;
         }
-        return values.stream().map(value -> value.stripTrailingZeros().toPlainString()).collect(Collectors.joining("*"));
+        return values.stream().map(value -> value.stripTrailingZeros().toPlainString()).collect(Collectors.joining(" × "));
     }
 
     private CellStyle sectionStyle(XSSFWorkbook workbook) {

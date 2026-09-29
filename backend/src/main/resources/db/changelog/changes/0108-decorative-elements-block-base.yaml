@@ -1,0 +1,47 @@
+databaseChangeLog:
+  # Каталог декоративных элементов (см. change add-decorative-elements-block-base) — новая
+  # категория «Блок и база» в дополнение к «Плинтус» (0107-decorative-elements-plinth.yaml).
+  # Каждый тип сразу хранит длину и обе цены (см. decorative_element_type в 0107). Applicability
+  # (decorative_element_option) — только для leaf_type коллекций «Элегант» (LC-003) и «Гармония»
+  # (LC-004).
+  - changeSet:
+      id: 0108-1-insert-block-base-category
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: decorative_element_category
+            columns:
+              - column: { name: name, value: "Блок и база" }
+              - column: { name: code, value: "DEC-002" }
+
+  - changeSet:
+      id: 0108-2-insert-block-base-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_type (name, code, length_mm, retail_price, dealer_price, decorative_element_category_id)
+              SELECT v.name, v.code, v.length_mm, v.retail_price, v.dealer_price, dec.id
+              FROM decorative_element_category dec
+              CROSS JOIN (VALUES
+                ('Блок А', 'DET-003', 90, 2021, 1154),
+                ('База А', 'DET-004', 252, 3203, 1830),
+                ('Блок В', 'DET-005', 91, 2021, 1154),
+                ('База В', 'DET-006', 200, 3203, 1830),
+                ('База В КОМПЛАНАР', 'DET-007', 200, 3203, 1830)
+              ) AS v(name, code, length_mm, retail_price, dealer_price)
+              WHERE dec.code = 'DEC-002'
+
+  - changeSet:
+      id: 0108-3-insert-block-base-options-for-elegant-and-garmoniya
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO decorative_element_option (decorative_element_type_id, leaf_type_id)
+              SELECT det.id, lt.id
+              FROM decorative_element_type det
+              CROSS JOIN leaf_type lt
+              JOIN collection c ON c.id = lt.collection_id
+              WHERE det.code IN ('DET-003', 'DET-004', 'DET-005', 'DET-006', 'DET-007')
+                AND c.code IN ('LC-003', 'LC-004')

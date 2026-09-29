@@ -1,0 +1,34 @@
+databaseChangeLog:
+  # Ширина и толщина decorative_element_type (см. change add-decorative-element-width-thickness) —
+  # необязательные поля (nullable), заданы только для типов категории «Блок и база» (0108-...yaml).
+  # У плинтуса (DEC-001) эти размеры не ведутся и остаются NULL.
+  - changeSet:
+      id: 0109-1-add-decorative-element-type-width-thickness-columns
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: decorative_element_type
+            columns:
+              - column:
+                  name: width_mm
+                  type: DECIMAL
+              - column:
+                  name: thickness_mm
+                  type: DECIMAL
+
+  - changeSet:
+      id: 0109-2-update-block-base-width-thickness
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE decorative_element_type
+              SET width_mm = v.width_mm, thickness_mm = v.thickness_mm
+              FROM (VALUES
+                ('DET-003', 90, 30),
+                ('DET-004', 90, 30),
+                ('DET-005', 91, 30),
+                ('DET-006', 91, 31),
+                ('DET-007', 91, 31)
+              ) AS v(code, width_mm, thickness_mm)
+              WHERE decorative_element_type.code = v.code
