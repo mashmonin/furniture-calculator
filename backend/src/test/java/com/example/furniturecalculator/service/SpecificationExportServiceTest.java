@@ -137,7 +137,7 @@ class SpecificationExportServiceTest {
         DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
                 new ReferenceDto(400L, "DEC-001", "Плинтус", null),
                 new ReferenceDto(401L, "DET-001", "Плинтус Модо", null),
-                BigDecimal.valueOf(2400), 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
+                BigDecimal.valueOf(2400), null, null, 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
 
         SpecificationComponents components = new SpecificationComponents(
                 leaf, null, null, frame, doorCasing, frameExtensions, List.of(hardware), List.of(decorativeElement));
@@ -158,7 +158,7 @@ class SpecificationExportServiceTest {
         DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
                 new ReferenceDto(400L, "DEC-001", "Плинтус", null),
                 new ReferenceDto(401L, "DET-001", "Плинтус Модо", null),
-                BigDecimal.valueOf(2400), 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
+                BigDecimal.valueOf(2400), null, null, 2, BigDecimal.valueOf(5222), BigDecimal.valueOf(2984));
 
         SpecificationComponents components =
                 new SpecificationComponents(leaf, null, null, null, null, null, List.of(), List.of(decorativeElement));
@@ -183,6 +183,39 @@ class SpecificationExportServiceTest {
             assertThat(decorativeElementRow.getCell(3).getNumericCellValue()).isEqualTo(2);
             assertThat(decorativeElementRow.getCell(4).getNumericCellValue()).isEqualTo(5222);
             assertThat(decorativeElementRow.getCell(6).getNumericCellValue()).isEqualTo(2984);
+        }
+    }
+
+    @Test
+    void раздел_декоративных_элементов_с_шириной_и_толщиной_объединяет_измерения_через_крестик() throws IOException {
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
+                new ReferenceDto(410L, "DEC-002", "Блок и база", null),
+                new ReferenceDto(411L, "DET-003", "Блок А", null),
+                BigDecimal.valueOf(90), BigDecimal.valueOf(90), BigDecimal.valueOf(30),
+                1, BigDecimal.valueOf(2021), BigDecimal.valueOf(1154));
+
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, null, null, null, null, List.of(), List.of(decorativeElement));
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        byte[] file = service.export(emptyRequest());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row decorativeElementRow = null;
+            for (Row row : sheet) {
+                Cell firstCell = row.getCell(0);
+                if (firstCell != null && firstCell.getCellType() == CellType.STRING
+                        && firstCell.getStringCellValue().contains("Блок А")) {
+                    decorativeElementRow = row;
+                    break;
+                }
+            }
+            assertThat(decorativeElementRow).isNotNull();
+            assertThat(decorativeElementRow.getCell(1).getStringCellValue()).isEqualTo("90 × 90 × 30");
         }
     }
 
@@ -310,7 +343,7 @@ class SpecificationExportServiceTest {
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
             Sheet sheet = workbook.getSheetAt(0);
             Row leafRow = sheet.getRow(2);
-            assertThat(leafRow.getCell(1).getStringCellValue()).isEqualTo("900*2400*44");
+            assertThat(leafRow.getCell(1).getStringCellValue()).isEqualTo("900 × 2400 × 44");
             assertThat(leafRow.getCell(4).getNumericCellValue()).isEqualTo(1400.0);
             assertThat(leafRow.getCell(5).getNumericCellValue()).isEqualTo(1000.0);
             assertThat(leafRow.getCell(6).getNumericCellValue()).isEqualTo(1260.0);

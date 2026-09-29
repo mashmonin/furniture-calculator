@@ -37,6 +37,12 @@ public class DecorativeElementType implements CatalogType {
     @Column(name = "length_mm", nullable = false)
     private BigDecimal lengthMm;
 
+    @Column(name = "width_mm")
+    private BigDecimal widthMm;
+
+    @Column(name = "thickness_mm")
+    private BigDecimal thicknessMm;
+
     @Column(name = "retail_price", nullable = false)
     private BigDecimal retailPrice;
 
