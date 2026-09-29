@@ -11,16 +11,19 @@ interface OptionGroupProps {
   selectedId?: number
   onChange: (id: number | undefined) => void
   variant?: 'buttons' | 'select'
-  // Сокращает отображаемое значение выбранного пункта до первого слова + «…» (список в открытом
-  // выпадающем меню остаётся полным — сокращается только закрытый контрол). Используется точечно
-  // там, где выпадающий список зажат по ширине (см. блок «Фурнитура», change
+  // Обрезает отображаемое значение выбранного пункта многоточием только если оно не помещается по
+  // ширине закрытого контрола (список в открытом выпадающем меню остаётся полным). Используется
+  // точечно там, где выпадающий список зажат по ширине (см. блок «Фурнитура», change
   // restyle-configurator-per-figma), а не глобально для всех OptionGroup.
   truncateSelectedLabel?: boolean
 }
 
-function truncateAfterFirstWord(label: string): string {
-  const firstSpaceIndex = label.indexOf(' ')
-  return firstSpaceIndex === -1 ? label : `${label.slice(0, firstSpaceIndex)}…`
+function TruncatedLabel({ label }: { label: string }) {
+  return (
+    <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {label}
+    </span>
+  )
 }
 
 export function OptionGroup({
@@ -47,7 +50,7 @@ export function OptionGroup({
             onChange={(id) => onChange(id ?? undefined)}
             onClear={() => onChange(undefined)}
             options={options.map((option) => ({ value: option.id, label: option.label }))}
-            labelRender={truncateSelectedLabel ? (props) => truncateAfterFirstWord(String(props.label ?? '')) : undefined}
+            labelRender={truncateSelectedLabel ? (props) => <TruncatedLabel label={String(props.label ?? '')} /> : undefined}
           />
         ) : (
           // block — растягивает группу на всю ширину (antd добавляет ant-radio-group-block:

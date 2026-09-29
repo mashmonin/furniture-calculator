@@ -2471,7 +2471,7 @@ function ConfiguratorScreen({
           {hardwareLines.map((line) => (
             <Card size="small" key={line.key}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <OptionGroup
                     label="Категория"
                     options={hardwareCatalog.map((category) => ({ id: category.category.id, label: category.category.name }))}
@@ -2481,7 +2481,7 @@ function ConfiguratorScreen({
                     truncateSelectedLabel
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <OptionGroup
                     label="Тип"
                     options={hardwareTypesFor(hardwareCatalog, line.categoryId).map((type) => ({
@@ -2494,7 +2494,7 @@ function ConfiguratorScreen({
                     truncateSelectedLabel
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <OptionGroup
                     label="Цвет"
                     // Один и тот же цветовой вариант (hardwareOptionId) нельзя выбрать в двух позициях
@@ -2571,7 +2571,7 @@ function ConfiguratorScreen({
           {decorativeElementLines.map((line) => (
             <Card size="small" key={line.key}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <OptionGroup
                     label="Категория"
                     options={availableDecorativeElementsCatalog.map((category) => ({
@@ -2586,7 +2586,7 @@ function ConfiguratorScreen({
                     truncateSelectedLabel
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <OptionGroup
                     label="Тип"
                     // Один и тот же тип нельзя выбрать в двух позициях одновременно — тем же принципом,
