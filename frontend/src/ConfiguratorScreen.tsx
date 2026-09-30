@@ -780,6 +780,10 @@ interface ConfiguratorScreenProps {
   // editingItemId в App.tsx, возвращая обычный режим.
   editingItemId: string | null
   onSyncEditedItem: (id: string, content: CartItemContent) => void
+  // onSyncEditedItemTags — частичная синхронизация: обновляет только attributeTags позиции, не дожидаясь
+  // валидного content от buildCartItemContent() (см. «Живая синхронизация» ниже и change
+  // sync-cart-tags-immediately-on-cascade-reset).
+  onSyncEditedItemTags: (id: string, tags: string[]) => void
   onStopEditing: () => void
 }
 
@@ -790,6 +794,7 @@ function ConfiguratorScreen({
   resetSignal,
   editingItemId,
   onSyncEditedItem,
+  onSyncEditedItemTags,
   onStopEditing,
 }: ConfiguratorScreenProps) {
   // Ref на кнопку «Добавить в корзину» — только чтобы прочитать её координаты в момент клика
@@ -1113,6 +1118,25 @@ function ConfiguratorScreen({
   const mirrorFinishStep = resolvedMirrorFinishNeeded ? resolveMirrorFinishStep(mirrorFilteredConfigurations) : { visible: false, options: [] }
   const glazingStep =
     resolvedPanelType === 'GLAZED' ? resolveGlazingStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
+
+  // Подмножество тегов атрибутов конфигурации (см. order-cart-ui, «Теги атрибутов конфигурации»),
+  // вычислимое ещё до выбора модели полотна — не зависит от leafComponent/pricingResult, в отличие от
+  // «ТОЛЩИНА 59»/«ДВУСТОРОННЯЯ» (см. buildCartItemContent). Нужно отдельно от buildCartItemContent, чтобы
+  // «Живая синхронизация» могла обновлять эти теги сразу при переключении «Реверс»/«Четверть»/«Тип
+  // полотна», даже пока сама позиция ещё не стала снова валидной после сброса каскада (см. change
+  // sync-cart-tags-immediately-on-cascade-reset, правку пользователя).
+  const cascadeIndependentAttributeTags: string[] = []
+  if (resolvedReverse) {
+    cascadeIndependentAttributeTags.push('РЕВЕРС')
+  }
+  if (resolvedPanelType === 'GLAZED') {
+    cascadeIndependentAttributeTags.push('ОСТЕКЛЕНИЕ')
+  } else if (resolvedMirrorFinishNeeded) {
+    cascadeIndependentAttributeTags.push('ЗЕРКАЛО')
+  }
+  if (resolvedHasQuarter) {
+    cascadeIndependentAttributeTags.push('ЧЕТВЕРТЬ')
+  }
 
   const collectionOptions = uniqueById(
     mirrorFilteredConfigurations
@@ -1593,21 +1617,11 @@ function ConfiguratorScreen({
       .join(' × ')
 
     // Теги атрибутов конфигурации для столбца «Конфигурация» на экране корзины (см. order-cart-ui, «Теги
-    // атрибутов конфигурации») — только применимые к этой позиции, из уже вычисленных здесь же значений;
-    // «ОСТЕКЛЕНИЕ»/«ЗЕРКАЛО» взаимоисключающие по построению — зеркало доступно только глухим полотнам
-    // (см. change mirror-boolean-for-blind-leaf), остеклённые и глухие с зеркалом не пересекаются.
-    const attributeTags: string[] = []
-    if (resolvedReverse) {
-      attributeTags.push('РЕВЕРС')
-    }
-    if (resolvedPanelType === 'GLAZED') {
-      attributeTags.push('ОСТЕКЛЕНИЕ')
-    } else if (resolvedMirrorFinishNeeded) {
-      attributeTags.push('ЗЕРКАЛО')
-    }
-    if (resolvedHasQuarter) {
-      attributeTags.push('ЧЕТВЕРТЬ')
-    }
+    // атрибутов конфигурации») — четыре кросс-модельных уже посчитаны в cascadeIndependentAttributeTags
+    // (доступны и без выбранной модели, см. правку пользователя); «ТОЛЩИНА 59»/«ДВУСТОРОННЯЯ» зависят от
+    // опций именно выбранной модели полотна — leafThicknessValue/selection.leaf доступны только здесь,
+    // внутри buildCartItemContent, поэтому добавляются отдельно.
+    const attributeTags: string[] = [...cascadeIndependentAttributeTags]
     if (leafThicknessValue === THICKNESS_REQUIRING_QUARTER_MM) {
       attributeTags.push('ТОЛЩИНА 59')
     }
@@ -1800,6 +1814,13 @@ function ConfiguratorScreen({
       skipNextSyncRef.current = false
       return
     }
+    // Частичная синхронизация тегов (см. onSyncEditedItemTags, проп) — вызывается безусловно, независимо
+    // от того, вернула ли buildCartItemContent() результат: «РЕВЕРС»/«ЧЕТВЕРТЬ»/«ОСТЕКЛЕНИЕ»/«ЗЕРКАЛО»
+    // должны обновляться немедленно даже во время сброса каскада (см. change
+    // sync-cart-tags-immediately-on-cascade-reset). Порядок вызовов ниже не важен для консистентности:
+    // когда content не null, его attributeTags (полный набор из шести тегов) полностью перезаписывает
+    // то, что запишет эта частичная синхронизация (см. design.md, Risks).
+    onSyncEditedItemTags(editingItemId, cascadeIndependentAttributeTags)
     const content = buildCartItemContent()
     if (content) {
       onSyncEditedItem(editingItemId, content)
@@ -1815,6 +1836,8 @@ function ConfiguratorScreen({
     cascadeSelection,
     resolvedReverse,
     resolvedHasQuarter,
+    resolvedPanelType,
+    resolvedMirrorFinishNeeded,
     mirrorFinishTypeId,
     glazingTypeId,
     hardwareLines,

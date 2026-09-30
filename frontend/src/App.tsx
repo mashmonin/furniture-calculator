@@ -105,6 +105,15 @@ function App() {
     setCartSaveError(!saveCart(next))
   }
 
+  // Частичная синхронизация — только attributeTags, без ожидания валидного content (см. change
+  // sync-cart-tags-immediately-on-cascade-reset): переключатели «Реверс»/«Четверть»/«Тип полотна» сбрасывают
+  // каскад, и syncEditedCartItem выше в этот момент ничего не вызывает, пока модель не выбрана заново.
+  function syncEditedCartItemTags(id: string, tags: string[]) {
+    const next = cart.map((item) => (item.id === id ? { ...item, attributeTags: tags } : item))
+    setCart(next)
+    setCartSaveError(!saveCart(next))
+  }
+
   function stopEditingCartItem() {
     setEditingCartItemId(null)
   }
@@ -207,6 +216,7 @@ function App() {
             resetSignal={configuratorResetKey}
             editingItemId={editingCartItemId}
             onSyncEditedItem={syncEditedCartItem}
+            onSyncEditedItemTags={syncEditedCartItemTags}
             onStopEditing={stopEditingCartItem}
           />
         </div>
