@@ -28,7 +28,7 @@ export interface FramePostDto {
   dealerPrice: number
 }
 
-export type LeafPanelType = 'BLIND' | 'GLAZED' | 'MIRRORED'
+export type LeafPanelType = 'BLIND' | 'GLAZED'
 
 export interface DimensionRangeDto {
   dimensionType: ReferenceDto

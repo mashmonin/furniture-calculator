@@ -106,17 +106,18 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
 
 // Тип полотна (панель leaf_type) — пред-коллекционный псевдо-шаг каскада (см. resolvePanelTypeStep),
 // сегментированный переключатель в стиле макета Figma (те же радио-кнопки, что у «Кромки»/«Короба»/
-// «Толщины»). Сужает каталог и заменяет прежний переключатель «Нужно зеркало» (см. change
-// filter-by-leaf-panel-type, show-leaf-panel-type, add-leaf-panel-type). Синтетические id нужны только
+// «Толщины»). Бинарный: «Зеркальное» упразднено как значение panelType (см. change
+// mirror-boolean-for-blind-leaf) — зеркало теперь отдельный переключатель «Нужно зеркало»
+// (см. resolveMirrorFinishNeededStep), вложенный в ветку «Глухое». Синтетические id нужны только
 // для OptionGroup.
 const LEAF_PANEL_TYPE_OPTIONS: { code: LeafPanelType; id: number; label: string }[] = [
   { code: 'BLIND', id: 1, label: 'Глухое' },
   { code: 'GLAZED', id: 2, label: 'С остеклением' },
-  { code: 'MIRRORED', id: 3, label: 'Зеркальное' },
 ]
 
 const COLLECTION_LABEL = 'Коллекция'
 const MIRROR_FINISH_LABEL = 'Вид зеркала'
+const MIRROR_FINISH_NEEDED_LABEL = 'Нужно зеркало'
 const GLAZING_LABEL = 'Вид остекления'
 
 // Синтетический id варианта «без этого компонента» — реальные id из БД начинаются с 1.
@@ -367,11 +368,10 @@ interface PanelTypeStep {
 }
 
 // Тип полотна — пред-коллекционный псевдо-шаг, симметричный resolveReverseStep: идёт сразу после реверса
-// и до коллекции, оценивается по configurations, суженным реверсом. Заменяет прежний переключатель
-// «Нужно зеркало» (см. design.md, change filter-by-leaf-panel-type) — выбор «Зеркальное» даёт то же
-// сужение и раскрывает тот же шаг выбора исполнения. Показывается, только если среди кандидатов
-// встречается более одного значения panelType; по умолчанию выбрано «Глухое», если оно есть среди
-// вариантов, иначе — первый встречающийся.
+// и до коллекции, оценивается по configurations, суженным реверсом. Бинарный («Глухое»/«С остеклением») —
+// зеркало не значение этого шага (см. change mirror-boolean-for-blind-leaf, resolveMirrorFinishNeededStep).
+// Показывается, только если среди кандидатов встречается более одного значения panelType; по умолчанию
+// выбрано «Глухое», если оно есть среди вариантов, иначе — первый встречающийся.
 function resolvePanelTypeStep(
   configurations: DoorConfigurationDto[],
   panelTypeSelection: LeafPanelType | undefined,
@@ -389,13 +389,39 @@ function resolvePanelTypeStep(
   return { panelTypeStep: { visible: true, options: panelTypes, value: resolved }, resolvedPanelType: resolved }
 }
 
+interface MirrorFinishNeededStep {
+  visible: boolean
+  value: boolean
+}
+
+// «Нужно зеркало» — булев переключатель по образцу resolveReverseStep/resolveHasQuarterStep, но, в отличие
+// от них, каскадно вложенный в ветку «Глухое»: раскрывается только после того, как клиент явно выбрал
+// «Глухое» (blindChosen), а не сразу, до выбора коллекции и модели (см. правку пользователя). Видимость не
+// требует более одного встречающегося значения — зеркало не хранимый атрибут строки door_configuration, а
+// производное свойство leaf_type (наличие mirror_finish_option, см. resolveMirrorFinishStep) — поэтому
+// показывается уже при первом подходящем leaf_type среди panelTypeFilteredConfigurations.
+function resolveMirrorFinishNeededStep(
+  panelTypeFilteredConfigurations: DoorConfigurationDto[],
+  blindChosen: boolean,
+  mirrorFinishNeededSelection: boolean | undefined,
+): { mirrorFinishNeededStep?: MirrorFinishNeededStep; resolvedMirrorFinishNeeded: boolean } {
+  const anySupportsMirror =
+    blindChosen && panelTypeFilteredConfigurations.some((configuration) => configuration.leaf.mirrorFinishOptions.length > 0)
+  if (!anySupportsMirror) {
+    return { resolvedMirrorFinishNeeded: false }
+  }
+  const resolved = mirrorFinishNeededSelection ?? false
+  return { mirrorFinishNeededStep: { visible: true, value: resolved }, resolvedMirrorFinishNeeded: resolved }
+}
+
 interface MirrorFinishStep {
   visible: boolean
   options: ReferenceDto[]
 }
 
-// Выбор конкретного исполнения зеркала — раскрывается только когда resolvedPanelType === 'MIRRORED'
-// (см. resolvePanelTypeStep), от configurations, уже суженных по типу полотна.
+// Выбор конкретного исполнения зеркала — раскрывается только когда resolvedMirrorFinishNeeded === true
+// (см. resolveMirrorFinishNeededStep), от configurations, уже суженных типом полотна и переключателем
+// «Нужно зеркало».
 function resolveMirrorFinishStep(configurations: DoorConfigurationDto[]): MirrorFinishStep {
   const options = uniqueById(configurations.flatMap((configuration) => configuration.leaf.mirrorFinishOptions))
   return { visible: options.length > 0, options }
@@ -793,6 +819,7 @@ function ConfiguratorScreen({
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [hasQuarterSelection, setHasQuarterSelection] = useState<boolean | undefined>(undefined)
   const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
+  const [mirrorFinishNeededSelection, setMirrorFinishNeededSelection] = useState<boolean | undefined>(undefined)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
   const [glazingTypeId, setGlazingTypeId] = useState<number | undefined>(undefined)
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined)
@@ -957,6 +984,7 @@ function ConfiguratorScreen({
         : undefined
     setHasQuarterSelection(edgeCode === 'ET-002' ? true : edgeCode === 'ET-001' ? false : (request.isReverse ?? undefined))
     setPanelTypeSelection(leafCatalogEntry.panelType ?? undefined)
+    setMirrorFinishNeededSelection(request.leaf?.mirrorFinishTypeId !== undefined)
     setSelectedCollectionId(leafCatalogEntry.collection?.id)
 
     const nextCascadeSelection: Partial<Record<ComponentKey, number>> = { leaf: request.leafTypeId }
@@ -1057,28 +1085,44 @@ function ConfiguratorScreen({
   )
 
   const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(hasQuarterFilteredConfigurations, panelTypeSelection)
-  // «Глухое» — не отдельная непересекающаяся категория моделей, а базовое исполнение, доступное любому
-  // полотну (в том числе тем, что дополнительно поддерживают зеркало/остекление) — поэтому оно не сужает
-  // каталог, в отличие от «Зеркальное»/«С остеклением», которые сужают точным совпадением panelType до
-  // моделей, дополнительно это поддерживающих (см. обратную связь после первой реализации, design.md).
+  // Коллекция (и всё, что после неё) показывается только когда выбор типа полотна либо не нужен (один
+  // вариант — panelTypeStep не отображается), либо клиент уже кликнул явно (см. правку пользователя) —
+  // до этого момента resolvedPanelType уже молча резолвится в «Глухое» по умолчанию (см. ниже), но
+  // соответствующий этому умолчанию список коллекций больше не показывается без явного действия.
+  const panelTypeChosen = !panelTypeStep?.visible || panelTypeSelection !== undefined
+  // Глухое и остеклённое — взаимоисключающие конструктивные типы полотна, оба симметрично сужают каталог
+  // (см. change mirror-boolean-for-blind-leaf) — асимметрия «Глухое не сужает» отменена вместе с
+  // упразднением «Зеркальное» как значения panelType: зеркало больше не претендует на роль третьей
+  // конструктивной категории наравне с «Глухое», а «Глухое» вновь ведёт себя как обычный вариант каскада.
   const panelTypeFilteredConfigurations =
-    resolvedPanelType === 'BLIND'
+    resolvedPanelType === undefined
       ? hasQuarterFilteredConfigurations
       : hasQuarterFilteredConfigurations.filter((configuration) => configuration.leaf.panelType === resolvedPanelType)
-  const mirrorFinishStep =
-    resolvedPanelType === 'MIRRORED' ? resolveMirrorFinishStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
+  // «Нужно зеркало» раскрывается сразу после того, как клиент явно выбрал «Глухое» (panelTypeChosen &&
+  // resolvedPanelType === 'BLIND') — до выбора коллекции и модели (см. правку пользователя), а не после
+  // модели, как в предыдущей версии. Включение сужает дальше, до leaf_type, поддерживающих зеркало, точно
+  // так же, как раньше сужало упразднённое «Зеркальное».
+  const { mirrorFinishNeededStep, resolvedMirrorFinishNeeded } = resolveMirrorFinishNeededStep(
+    panelTypeFilteredConfigurations,
+    panelTypeChosen && resolvedPanelType === 'BLIND',
+    mirrorFinishNeededSelection,
+  )
+  const mirrorFilteredConfigurations = resolvedMirrorFinishNeeded
+    ? panelTypeFilteredConfigurations.filter((configuration) => configuration.leaf.mirrorFinishOptions.length > 0)
+    : panelTypeFilteredConfigurations
+  const mirrorFinishStep = resolvedMirrorFinishNeeded ? resolveMirrorFinishStep(mirrorFilteredConfigurations) : { visible: false, options: [] }
   const glazingStep =
     resolvedPanelType === 'GLAZED' ? resolveGlazingStep(panelTypeFilteredConfigurations) : { visible: false, options: [] }
 
   const collectionOptions = uniqueById(
-    panelTypeFilteredConfigurations
+    mirrorFilteredConfigurations
       .map((configuration) => configuration.leaf.collection)
       .filter((type): type is ReferenceDto => Boolean(type)),
   )
   const collectionFilteredConfigurations =
     selectedCollectionId === undefined
       ? []
-      : panelTypeFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
+      : mirrorFilteredConfigurations.filter((configuration) => configuration.leaf.collection?.id === selectedCollectionId)
 
   // Первый проход — только чтобы узнать leafHeightValue (шаг leaf не зависит от неё, поэтому второй
   // проход её не меняет). Второй проход использует эту высоту, чтобы исключить короб «НЕО» из шага
@@ -1550,14 +1594,15 @@ function ConfiguratorScreen({
 
     // Теги атрибутов конфигурации для столбца «Конфигурация» на экране корзины (см. order-cart-ui, «Теги
     // атрибутов конфигурации») — только применимые к этой позиции, из уже вычисленных здесь же значений;
-    // «ОСТЕКЛЕНИЕ»/«ЗЕРКАЛО» взаимоисключающие по построению — resolvedPanelType одно значение из трёх.
+    // «ОСТЕКЛЕНИЕ»/«ЗЕРКАЛО» взаимоисключающие по построению — зеркало доступно только глухим полотнам
+    // (см. change mirror-boolean-for-blind-leaf), остеклённые и глухие с зеркалом не пересекаются.
     const attributeTags: string[] = []
     if (resolvedReverse) {
       attributeTags.push('РЕВЕРС')
     }
     if (resolvedPanelType === 'GLAZED') {
       attributeTags.push('ОСТЕКЛЕНИЕ')
-    } else if (resolvedPanelType === 'MIRRORED') {
+    } else if (resolvedMirrorFinishNeeded) {
       attributeTags.push('ЗЕРКАЛО')
     }
     if (resolvedHasQuarter) {
@@ -1776,8 +1821,22 @@ function ConfiguratorScreen({
 
   function handlePanelTypeChange(value: LeafPanelType) {
     setPanelTypeSelection(value)
+    setMirrorFinishNeededSelection(undefined)
     setMirrorFinishTypeId(undefined)
     setGlazingTypeId(undefined)
+    setSelectedCollectionId(undefined)
+    setCascadeSelection({})
+    setSelection(emptySelection())
+    setCustomLengthMode(false)
+    setCustomHeightMode(false)
+  }
+
+  // Симметрично handleHasQuarterChange/handlePanelTypeChange: переключатель сужает каталог дальше внутри
+  // ветки «Глухое» (см. resolveMirrorFinishNeededStep), до выбора коллекции и модели, поэтому его
+  // изменение, как и смена типа полотна, сбрасывает коллекцию и весь последующий каскад.
+  function handleMirrorFinishNeededChange(value: boolean) {
+    setMirrorFinishNeededSelection(value)
+    setMirrorFinishTypeId(undefined)
     setSelectedCollectionId(undefined)
     setCascadeSelection({})
     setSelection(emptySelection())
@@ -1911,6 +1970,7 @@ function ConfiguratorScreen({
     setReverseSelection(undefined)
     setHasQuarterSelection(undefined)
     setPanelTypeSelection(undefined)
+    setMirrorFinishNeededSelection(undefined)
     setMirrorFinishTypeId(undefined)
     setGlazingTypeId(undefined)
     setSelectedCollectionId(undefined)
@@ -2393,7 +2453,10 @@ function ConfiguratorScreen({
 
   const leafPanelContent = (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      {(reverseStep?.visible || hasQuarterStep?.visible || (leafComponent?.colourOptions.length ?? 0) > 0) && (
+      {(mirrorFinishNeededStep?.visible ||
+        reverseStep?.visible ||
+        hasQuarterStep?.visible ||
+        (leafComponent?.colourOptions.length ?? 0) > 0) && (
         <Space align="center" size="large">
           {reverseStep?.visible && (
             <Space align="center">
@@ -2409,6 +2472,16 @@ function ConfiguratorScreen({
             <Space align="center">
               <Typography.Text>Четверть</Typography.Text>
               <Switch checked={hasQuarterStep.value} onChange={handleHasQuarterChange} />
+            </Space>
+          )}
+          {mirrorFinishNeededStep?.visible && (
+            // «Нужно зеркало» — в отличие от «Реверс»/«Четверть», показывается не всегда, а только после
+            // того, как клиент явно выбрал тип полотна «Глухое» (см. resolveMirrorFinishNeededStep, правку
+            // пользователя) — до выбора коллекции и модели, поэтому выводится последним в этом ряду
+            // переключателей, сразу после «Четверть».
+            <Space align="center">
+              <Typography.Text>{MIRROR_FINISH_NEEDED_LABEL}</Typography.Text>
+              <Switch checked={mirrorFinishNeededStep.value} onChange={handleMirrorFinishNeededChange} />
             </Space>
           )}
           {(leafComponent?.colourOptions.length ?? 0) > 0 && (
@@ -2449,15 +2522,17 @@ function ConfiguratorScreen({
             />
           </div>
         )}
-        <div style={{ flex: 1 }}>
-          <OptionGroup
-            label={COLLECTION_LABEL}
-            options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
-            selectedId={selectedCollectionId}
-            onChange={handleCollectionChange}
-            variant="select"
-          />
-        </div>
+        {panelTypeChosen && (
+          <div style={{ flex: 1 }}>
+            <OptionGroup
+              label={COLLECTION_LABEL}
+              options={collectionOptions.map((type) => ({ id: type.id, label: type.name }))}
+              selectedId={selectedCollectionId}
+              onChange={handleCollectionChange}
+              variant="select"
+            />
+          </div>
+        )}
       </div>
       {cascadeSteps.filter((step) => LEAF_PANEL_STEP_KEYS.includes(step.key)).map(renderCascadeStep)}
     </Space>

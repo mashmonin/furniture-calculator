@@ -374,3 +374,6 @@ databaseChangeLog:
   - include:
       file: changes/0110-decorative-element-sandriks.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0111-mirror-boolean-for-blind-leaf.yaml
+      relativeToChangelogFile: true
