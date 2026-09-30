@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
+import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.OrderLineExportRequestDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.support.TestEntities;
@@ -51,8 +52,26 @@ class OrderExportServiceTest {
                 null, null, null, null, null, null, 1, List.of(), List.of(), null);
     }
 
+    // Тот же leaf, но с непустым selectedOptions() — имитирует выбранное исполнение зеркала или вид
+    // остекления (см. DoorConfigurationPricingService.leafSelectedOptions), для проверки новой строки под
+    // «Полотно» (см. change show-mirror-glazing-in-order-detail-rows).
+    private ResolvedComponent leafComponentWithSelectedOption(BigDecimal retailPrice, String optionName) {
+        return new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, retailPrice, retailPrice, retailPrice, retailPrice),
+                null, null, null, null, null, null, 1, List.of(), List.of(optionName), null);
+    }
+
     private SpecificationExportRequestDto request() {
         return new SpecificationExportRequestDto(1L, null, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    private SpecificationExportRequestDto requestWithMirrorFinish() {
+        ComponentSelectionDto leaf = new ComponentSelectionDto(null, null, null, null, null, null, null, 5L, null, null, null);
+        return new SpecificationExportRequestDto(1L, leaf, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    private SpecificationExportRequestDto requestWithGlazing() {
+        ComponentSelectionDto leaf = new ComponentSelectionDto(null, null, null, null, null, null, null, null, 7L, null, null);
+        return new SpecificationExportRequestDto(1L, leaf, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private OrderLineExportRequestDto line(String displayName, int quantity) {
@@ -61,6 +80,10 @@ class OrderExportServiceTest {
 
     private OrderLineExportRequestDto lineWithTags(String displayName, int quantity, List<String> attributeTags) {
         return new OrderLineExportRequestDto(displayName, quantity, request(), attributeTags);
+    }
+
+    private OrderLineExportRequestDto lineWithRequest(String displayName, int quantity, SpecificationExportRequestDto request) {
+        return new OrderLineExportRequestDto(displayName, quantity, request, List.of());
     }
 
     // Жирный шрифт ячейки — через индекс шрифта в её стиле (POI не даёт прямого Cell.isBold()).
@@ -169,6 +192,70 @@ class OrderExportServiceTest {
             assertThat(leafDetailRow.getCell(6).getNumericCellValue()).isEqualTo(1000.0);
             assertThat(leafDetailRow.getCell(7).getNumericCellValue()).isEqualTo(1000.0);
             assertThat(leafDetailRow.getCell(8).getNumericCellValue()).isEqualTo(1000.0);
+        }
+    }
+
+    @Test
+    void исполнение_зеркала_показано_отдельной_строкой_под_полотном() throws IOException {
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(
+                new SpecificationComponents(leafComponentWithSelectedOption(BigDecimal.valueOf(1000), "Базовое"),
+                        null, null, null, null, null, List.of()));
+
+        byte[] file = service.export(List.of(lineWithRequest("Вертикаль 01", 1, requestWithMirrorFinish())));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheet("Заказ");
+            // Строка 3 — «Полотно», строка 4 — новая строка «Исполнение зеркала» сразу под ней (см. правку
+            // пользователя), строка 5 — «Итого» (сдвинута с 4 на 5).
+            Row leafDetailRow = sheet.getRow(3);
+            assertThat(leafDetailRow.getCell(0).getStringCellValue()).isEqualTo("Полотно");
+            Row optionRow = sheet.getRow(4);
+            assertThat(optionRow.getCell(0).getStringCellValue()).isEqualTo("Исполнение зеркала");
+            assertThat(optionRow.getCell(1).getStringCellValue()).isEqualTo("Базовое");
+            assertThat(optionRow.getCell(2)).isNull();
+            assertThat(optionRow.getCell(3)).isNull();
+            // Цена неприменима (не «не найдена») — ячейки пусты, без прочерка (см. правку пользователя —
+            // лишние прочерки мешают восприятию).
+            assertThat(optionRow.getCell(5)).isNull();
+            assertThat(optionRow.getCell(6)).isNull();
+            assertThat(optionRow.getCell(7)).isNull();
+            assertThat(optionRow.getCell(8)).isNull();
+            Row totalsRow = sheet.getRow(5);
+            assertThat(totalsRow.getCell(1).getStringCellValue()).isEqualTo("Итого");
+            // Строка исполнения зеркала не добавляет ничего к сумме — «Итого» равно только цене полотна.
+            assertThat(totalsRow.getCell(7).getNumericCellValue()).isEqualTo(1000.0);
+            assertThat(totalsRow.getCell(8).getNumericCellValue()).isEqualTo(1000.0);
+        }
+    }
+
+    @Test
+    void вид_остекления_показан_отдельной_строкой_под_полотном() throws IOException {
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(
+                new SpecificationComponents(leafComponentWithSelectedOption(BigDecimal.valueOf(1000), "Прозрачное серое"),
+                        null, null, null, null, null, List.of()));
+
+        byte[] file = service.export(List.of(lineWithRequest("Вертикаль 01V", 1, requestWithGlazing())));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheet("Заказ");
+            Row optionRow = sheet.getRow(4);
+            assertThat(optionRow.getCell(0).getStringCellValue()).isEqualTo("Вид остекления");
+            assertThat(optionRow.getCell(1).getStringCellValue()).isEqualTo("Прозрачное серое");
+        }
+    }
+
+    @Test
+    void полотно_без_зеркала_и_остекления_не_добавляет_строку() throws IOException {
+        when(pricingService.resolveSpecificationComponents(any()))
+                .thenReturn(new SpecificationComponents(leafComponent(BigDecimal.valueOf(1000)), null, null, null, null, null, List.of()));
+
+        byte[] file = service.export(List.of(line("Вертикаль 01", 1)));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheet("Заказ");
+            // Без зеркала/остекления «Итого» идёт сразу за «Полотно» (строка 4), как и до этого изменения.
+            Row totalsRow = sheet.getRow(4);
+            assertThat(totalsRow.getCell(1).getStringCellValue()).isEqualTo("Итого");
         }
     }
 

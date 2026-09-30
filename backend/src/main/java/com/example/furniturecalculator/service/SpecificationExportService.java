@@ -176,6 +176,18 @@ public class SpecificationExportService {
         ResolvedComponent leaf = components.leaf();
         rows.add(detailRow("Полотно", leaf.type().getName(), leafDimensionsLabel, formatColour(leaf), 1, leaf.price()));
 
+        // Исполнение зеркала/вид остекления сразу под полотном — тот же источник (leaf.selectedOptions(),
+        // резолвится один раз в DoorConfigurationPricingService), что и у leafSectionRows одиночной выгрузки
+        // (см. change show-mirror-glazing-in-order-detail-rows). Полотно не может иметь выбранными оба
+        // одновременно (зеркало только для глухих, остекление только для остеклённых, см.
+        // door-configuration-catalog, «Владение mirror_finish_option»), поэтому selectedOptions() содержит
+        // не более одного значения — какое именно, определяется по id из запроса, а не по позиции в списке.
+        ComponentSelectionDto leafSelection = request.leaf() != null ? request.leaf() : ComponentSelectionDto.EMPTY;
+        if (!leaf.selectedOptions().isEmpty()) {
+            String optionLabel = leafSelection.mirrorFinishTypeId() != null ? "Исполнение зеркала" : "Вид остекления";
+            rows.add(leafOptionRow(optionLabel, leaf.selectedOptions().get(0)));
+        }
+
         if (components.edge() != null) {
             ResolvedComponent edge = components.edge();
             rows.add(detailRow("Кромка", edge.type().getName(), null, null, 1, edge.price()));
@@ -217,7 +229,7 @@ public class SpecificationExportService {
             BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
             rows.add(new DetailRow("Декоративные элементы", name,
                     formatDimensions(item.lengthMm(), item.widthMm(), item.thicknessMm()), null, item.quantity(), true,
-                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice()));
+                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice(), true));
         }
 
         for (HardwarePriceDto item : components.hardware()) {
@@ -225,7 +237,7 @@ public class SpecificationExportService {
             BigDecimal retailUnit = perUnit(item.retailPrice(), item.quantity());
             BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
             rows.add(new DetailRow("Фурнитура", name, null, item.colourName(), item.quantity(), true,
-                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice()));
+                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice(), true));
         }
 
         return rows;
@@ -236,12 +248,19 @@ public class SpecificationExportService {
     // обратно на quantity (для leaf/edge/frame/postов quantity=1, деление не требуется).
     private DetailRow detailRow(String element, String name, String size, String colour, int quantity, ComponentPriceDto price) {
         if (!price.priced()) {
-            return new DetailRow(element, name, size, colour, quantity, false, null, null, null, null);
+            return new DetailRow(element, name, size, colour, quantity, false, null, null, null, null, true);
         }
         BigDecimal retailSum = price.retailPrice();
         BigDecimal dealerSum = price.dealerPrice();
-        return new DetailRow(
-                element, name, size, colour, quantity, true, perUnit(retailSum, quantity), perUnit(dealerSum, quantity), retailSum, dealerSum);
+        return new DetailRow(element, name, size, colour, quantity, true, perUnit(retailSum, quantity), perUnit(dealerSum, quantity),
+                retailSum, dealerSum, true);
+    }
+
+    // Строка без применимой цены (исполнение зеркала/вид остекления под полотном, см. buildDetailRows) —
+    // priceApplicable=false, ценовые ячейки остаются пустыми, а не «—» (см. правку пользователя — лишние
+    // прочерки мешают восприятию; тот же принцип, что и у SpecRow.priceApplicable в одиночной выгрузке).
+    private DetailRow leafOptionRow(String element, String name) {
+        return new DetailRow(element, name, null, null, 1, false, null, null, null, null, false);
     }
 
     private BigDecimal perUnit(BigDecimal total, int quantity) {
@@ -382,7 +401,10 @@ public class SpecificationExportService {
     // retailPrice/dealerPrice здесь уже цена ЗА ЕДИНИЦУ (в отличие от ComponentPriceDto/HardwarePriceDto,
     // где для doorCasing/frameExtensions/фурнитуры цена уже умножена на quantity), retailSum/dealerSum — с
     // учётом quantity этой строки. priced=false — цена не найдена, все ценовые поля null (см. OrderExportService,
-    // где это превращается в «—», тем же принципом, что и в writeRow/SpecRow выше).
+    // где это превращается в «—», тем же принципом, что и в writeRow/SpecRow выше). priceApplicable=false —
+    // цена в принципе неприменима к этой строке (например, исполнение зеркала/вид остекления под полотном,
+    // см. leafOptionRow) — в отличие от priced=false, ценовые ячейки остаются пустыми, а не «—» (тот же
+    // принцип, что и SpecRow.priceApplicable в одиночной выгрузке, см. правку пользователя).
     record DetailRow(
             String element,
             String name,
@@ -393,7 +415,8 @@ public class SpecificationExportService {
             BigDecimal retailPrice,
             BigDecimal dealerPrice,
             BigDecimal retailSum,
-            BigDecimal dealerSum) {
+            BigDecimal dealerSum,
+            boolean priceApplicable) {
     }
 
     // Итог по одной конфигурации заказа для OrderExportService: displayName/dimensionsLabel — для строки
@@ -443,12 +466,16 @@ public class SpecificationExportService {
         // add-specification-export): тип открывания, если реверс (по умолчанию — «Прямое», ничего не
         // показываем), затем исполнение зеркала/вид остекления, если выбраны (см.
         // DoorConfigurationPricingService.leafSelectedOptions — резолвятся один раз там же, где и множители
-        // надбавок, не заново). Сами надбавки (проценты) — отдельным разделом внизу файла (см. export()).
+        // надбавок, не заново — но голым наименованием, без префикса-категории; префикс добавляется здесь,
+        // потому что у этой (одиночной) выгрузки строка — единственная ячейка «Наименование: значение», в
+        // отличие от двухколоночной детализации заказа, см. buildDetailRows). Сами надбавки (проценты) —
+        // отдельным разделом внизу файла (см. export()).
         if (Boolean.TRUE.equals(request.isReverse())) {
             rows.add(labelRow("Тип открывания: Реверс"));
         }
-        for (String option : components.leaf().selectedOptions()) {
-            rows.add(labelRow(option));
+        if (!components.leaf().selectedOptions().isEmpty()) {
+            String optionPrefix = leafSelection.mirrorFinishTypeId() != null ? "Исполнение зеркала: " : "Вид остекления: ";
+            rows.add(labelRow(optionPrefix + components.leaf().selectedOptions().get(0)));
         }
         if (components.edge() != null) {
             ComponentSelectionDto edgeSelection = request.edge() != null ? request.edge() : ComponentSelectionDto.EMPTY;
