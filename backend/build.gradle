@@ -167,7 +167,11 @@ tasks.register('desktopFrontendBuild', Exec) {
 	group = 'desktop packaging'
 	description = 'Прод-сборка фронтенда (npm run build) для вложения в desktop-дистрибутив'
 	workingDir = layout.projectDirectory.dir('../frontend')
-	commandLine 'npm', 'run', 'build'
+	// Exec (в отличие от шага workflow) не идёт через shell — на Windows "npm" сам по
+	// себе не исполняемый файл (это npm.cmd), ProcessBuilder не подставляет расширение
+	// сам, как это сделал бы shell ("A problem occurred starting process 'command
+	// 'npm''").
+	commandLine isWindows ? 'npm.cmd' : 'npm', 'run', 'build'
 }
 
 tasks.register('desktopFrontendJar', Jar) {
