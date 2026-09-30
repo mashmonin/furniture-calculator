@@ -34,6 +34,7 @@ import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
 import com.example.furniturecalculator.dto.HardwarePriceDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
+import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.example.furniturecalculator.support.TestEntities;
 
@@ -372,11 +373,14 @@ class SpecificationExportServiceTest {
     }
 
     @Test
-    void выбранные_опции_полотна_выгружаются_строками_между_полотном_и_кромкой() throws IOException {
+    void выбранное_исполнение_зеркала_выгружается_строкой_между_полотном_и_кромкой() throws IOException {
         EdgeType edgeType = TestEntities.edgeType(3L);
+        // selectedOptions() — голое наименование, без префикса-категории (см. change
+        // show-mirror-glazing-in-order-detail-rows, правку пользователя) — префикс добавляет сама
+        // leafSectionRows, определяя категорию по mirrorFinishTypeId/glazingTypeId запроса, а не по тексту.
         ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
                         BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
-                null, null, null, null, null, null, 1, List.of(), List.of("Исполнение зеркала: С фацетом", "Вид остекления: Сатинированное"), null);
+                null, null, null, null, null, null, 1, List.of(), List.of("С фацетом"), null);
         ResolvedComponent edge = new ResolvedComponent(edgeType, new ComponentPriceDto("edge", true, BigDecimal.valueOf(500), BigDecimal.valueOf(400),
                         BigDecimal.valueOf(500), BigDecimal.valueOf(400)),
                 null, null, null, null, null, null, 1, List.of(), List.of(), null);
@@ -384,13 +388,40 @@ class SpecificationExportServiceTest {
                 new SpecificationComponents(leaf, null, edge, null, null, null, List.of());
         when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
 
-        byte[] file = service.export(emptyRequest());
+        ComponentSelectionDto leafSelection = new ComponentSelectionDto(null, null, null, null, null, null, null, 5L, null, null, null);
+        SpecificationExportRequestDto request =
+                new SpecificationExportRequestDto(1L, leafSelection, null, null, null, null, null, null, null, null, null, null, null);
+        byte[] file = service.export(request);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
             Sheet sheet = workbook.getSheetAt(0);
             assertThat(sheet.getRow(3).getCell(0).getStringCellValue()).isEqualTo("  Исполнение зеркала: С фацетом");
-            assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("  Вид остекления: Сатинированное");
-            assertThat(sheet.getRow(5).getCell(0).getStringCellValue()).isEqualTo("EdgeType 3");
+            assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("EdgeType 3");
+        }
+    }
+
+    @Test
+    void выбранный_вид_остекления_выгружается_строкой_между_полотном_и_кромкой() throws IOException {
+        EdgeType edgeType = TestEntities.edgeType(3L);
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1400), BigDecimal.valueOf(1260),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of("Сатинированное"), null);
+        ResolvedComponent edge = new ResolvedComponent(edgeType, new ComponentPriceDto("edge", true, BigDecimal.valueOf(500), BigDecimal.valueOf(400),
+                        BigDecimal.valueOf(500), BigDecimal.valueOf(400)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        SpecificationComponents components =
+                new SpecificationComponents(leaf, null, edge, null, null, null, List.of());
+        when(pricingService.resolveSpecificationComponents(any())).thenReturn(components);
+
+        ComponentSelectionDto leafSelection = new ComponentSelectionDto(null, null, null, null, null, null, null, null, 7L, null, null);
+        SpecificationExportRequestDto request =
+                new SpecificationExportRequestDto(1L, leafSelection, null, null, null, null, null, null, null, null, null, null, null);
+        byte[] file = service.export(request);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getRow(3).getCell(0).getStringCellValue()).isEqualTo("  Вид остекления: Сатинированное");
+            assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("EdgeType 3");
         }
     }
 

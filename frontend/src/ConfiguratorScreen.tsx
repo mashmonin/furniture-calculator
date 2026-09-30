@@ -1644,6 +1644,24 @@ function ConfiguratorScreen({
         dealerPrice: dealerTotal !== null ? dealerTotal / quantity : null,
         retailSum: retailTotal,
         dealerSum: dealerTotal,
+        priceApplicable: true,
+      }
+    }
+    // Строка без применимой цены (исполнение зеркала/вид остекления под полотном, см. buildDetailRows на
+    // backend) — priceApplicable=false, отображается без прочерков в ценовых/размерных ячейках (см. правку
+    // пользователя, CartScreen.DetailTable).
+    function optionRow(element: string, name: string): CartDetailRow {
+      return {
+        element,
+        name,
+        size: null,
+        colour: null,
+        quantity: 1,
+        retailPrice: null,
+        dealerPrice: null,
+        retailSum: null,
+        dealerSum: null,
+        priceApplicable: false,
       }
     }
     function colourOf(component: ComponentCatalogDto, colourOptionId: number | undefined): string | undefined {
@@ -1660,6 +1678,20 @@ function ConfiguratorScreen({
     detailRows.push(
       detailRow('Полотно', leafComponent.type.name, dimensionsLabel || null, leafColour, 1, priceByComponent('leaf')),
     )
+    // Исполнение зеркала/вид остекления сразу под полотном (см. change show-mirror-glazing-in-order-detail-rows);
+    // полотно не может иметь выбранными оба одновременно (см. door-configuration-catalog, «Владение
+    // mirror_finish_option»).
+    if (mirrorFinishTypeId !== undefined) {
+      const selectedMirrorFinish = mirrorFinishStep.options.find((option) => option.id === mirrorFinishTypeId)
+      if (selectedMirrorFinish) {
+        detailRows.push(optionRow('Исполнение зеркала', selectedMirrorFinish.name))
+      }
+    } else if (glazingTypeId !== undefined) {
+      const selectedGlazing = glazingStep.options.find((option) => option.id === glazingTypeId)
+      if (selectedGlazing) {
+        detailRows.push(optionRow('Вид остекления', selectedGlazing.name))
+      }
+    }
     if (edgeComponent) {
       detailRows.push(detailRow('Кромка', edgeComponent.type.name, null, null, 1, priceByComponent('edge')))
     }
@@ -1701,6 +1733,7 @@ function ConfiguratorScreen({
         retailPrice: item.retailPrice / item.quantity,
         dealerSum: item.dealerPrice,
         retailSum: item.retailPrice,
+        priceApplicable: true,
       })
     })
     pricingResult.hardware.forEach((item) => {
@@ -1714,6 +1747,7 @@ function ConfiguratorScreen({
         retailPrice: item.retailPrice / item.quantity,
         dealerSum: item.dealerPrice,
         retailSum: item.retailPrice,
+        priceApplicable: true,
       })
     })
 

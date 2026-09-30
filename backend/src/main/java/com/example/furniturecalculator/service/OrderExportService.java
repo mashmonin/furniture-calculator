@@ -141,6 +141,13 @@ public class OrderExportService {
             row.createCell(3).setCellValue(detailRow.colour());
         }
         row.createCell(4).setCellValue(detailRow.quantity());
+        if (!detailRow.priceApplicable()) {
+            // Цена неприменима вовсе (например, исполнение зеркала/вид остекления под полотном) — ячейки
+            // остаются пустыми, в отличие от прочерка, означающего именно ненайденную цену компонента (см.
+            // правку пользователя — лишние прочерки мешают восприятию; тот же принцип, что и в
+            // SpecificationExportService.writeRow/SpecRow.priceApplicable).
+            return;
+        }
         if (detailRow.priced()) {
             row.createCell(5).setCellValue(detailRow.dealerPrice().doubleValue());
             row.createCell(6).setCellValue(detailRow.retailPrice().doubleValue());

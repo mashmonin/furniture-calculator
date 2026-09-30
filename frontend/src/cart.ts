@@ -17,6 +17,11 @@ export interface CartDetailRow {
   retailPrice: number | null
   dealerSum: number | null
   retailSum: number | null
+  // false — цена в принципе неприменима к этой строке (например, исполнение зеркала/вид остекления под
+  // полотном, см. change show-mirror-glazing-in-order-detail-rows) — ценовые ячейки остаются пустыми при
+  // отображении, а не «—» (в отличие от «цена не найдена», где dealerPrice/retailPrice тоже null, но
+  // priceApplicable=true, см. CartScreen.DetailTable).
+  priceApplicable: boolean
 }
 
 // Содержимое позиции корзины, которое описывает саму конфигурацию (в отличие от id/addedAt/quantity —

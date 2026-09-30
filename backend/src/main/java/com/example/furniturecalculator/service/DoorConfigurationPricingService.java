@@ -781,7 +781,7 @@ public class DoorConfigurationPricingService {
                         "исполнение зеркала с id=" + mirrorFinishTypeId + " недопустимо для этого полотна"));
         BigDecimal multiplier =
                 BigDecimal.ONE.add(option.getMirrorFinishType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
-        return new OptionSurcharge(multiplier, "Исполнение зеркала: " + option.getMirrorFinishType().getName());
+        return new OptionSurcharge(multiplier, option.getMirrorFinishType().getName());
     }
 
     // Вид остекления допустим только для leaf (см. change add-glazing-price-surcharge), по тому же принципу, что и
@@ -804,13 +804,17 @@ public class DoorConfigurationPricingService {
                         "вид остекления с id=" + glazingTypeId + " недопустим для этого полотна"));
         BigDecimal multiplier =
                 BigDecimal.ONE.add(option.getGlazingType().getSurchargePercent().divide(BigDecimal.valueOf(100)));
-        return new OptionSurcharge(multiplier, "Вид остекления: " + option.getGlazingType().getName());
+        return new OptionSurcharge(multiplier, option.getGlazingType().getName());
     }
 
-    // Множитель надбавки вместе с наименованием выбранной опции (если она предполагает выбор — исполнение
-    // зеркала/вид остекления) — нужно и для расчёта цены (multiplier), и для строки «выбранные опции» под
-    // полотном в выгрузке спецификации (selectedLabel, см. change add-specification-export), чтобы не резолвить
-    // MirrorFinishOption/GlazingOption заново отдельным путём.
+    // Множитель надбавки вместе с ГОЛЫМ наименованием выбранной опции, без префикса-категории (если она
+    // предполагает выбор — исполнение зеркала/вид остекления) — нужно и для расчёта цены (multiplier), и для
+    // строки «выбранные опции» под полотном в выгрузке спецификации (selectedLabel, см. change
+    // add-specification-export), чтобы не резолвить MirrorFinishOption/GlazingOption заново отдельным путём.
+    // Префикс-категория («Исполнение зеркала: »/«Вид остекления: ») добавляется вызывающей стороной там, где
+    // он нужен (см. SpecificationExportService.leafSectionRows) — не здесь, чтобы buildDetailRows (см. change
+    // show-mirror-glazing-in-order-detail-rows) мог использовать голое имя без дублирования категории в
+    // отдельном столбце «Наименование» (см. правку пользователя).
     private record OptionSurcharge(BigDecimal multiplier, String selectedLabel) {
         static final OptionSurcharge NONE = new OptionSurcharge(BigDecimal.ONE, null);
     }

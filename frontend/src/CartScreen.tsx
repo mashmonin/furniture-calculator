@@ -35,7 +35,13 @@ const ATTRIBUTE_TAG_COLORS: Record<string, string> = {
   'ДВУСТОРОННЯЯ': 'magenta',
 }
 
-function money(value: number | null): string {
+// priceApplicable=false (см. change show-mirror-glazing-in-order-detail-rows, правку пользователя) — ячейка
+// остаётся пустой, а не «—»: прочерк означает именно «цена не найдена» у применимого компонента, лишние
+// прочерки у строк вроде исполнения зеркала/вида остекления только мешают восприятию.
+function money(value: number | null, priceApplicable: boolean): string {
+  if (!priceApplicable) {
+    return ''
+  }
   return value !== null ? formatMoney(value) : '—'
 }
 
@@ -53,13 +59,21 @@ function DetailTable({ rows }: { rows: CartDetailRow[] }) {
       columns={[
         { title: 'Элемент', dataIndex: 'element' },
         { title: 'Наименование', dataIndex: 'name', width: 140 },
-        { title: 'Размеры', dataIndex: 'size', render: (value: string | null) => value ?? '—' },
-        { title: 'Цвет', dataIndex: 'colour', render: (value: string | null) => value ?? '—' },
+        {
+          title: 'Размеры',
+          dataIndex: 'size',
+          render: (value: string | null, record) => (record.priceApplicable ? (value ?? '—') : ''),
+        },
+        {
+          title: 'Цвет',
+          dataIndex: 'colour',
+          render: (value: string | null, record) => (record.priceApplicable ? (value ?? '—') : ''),
+        },
         { title: 'Кол-во', dataIndex: 'quantity' },
-        { title: 'Цена дилер', dataIndex: 'dealerPrice', render: money },
-        { title: 'Цена клиенту', dataIndex: 'retailPrice', render: money },
-        { title: 'Сумма дилер', dataIndex: 'dealerSum', render: money },
-        { title: 'Сумма клиенту', dataIndex: 'retailSum', render: money },
+        { title: 'Цена дилер', dataIndex: 'dealerPrice', render: (value: number | null, record) => money(value, record.priceApplicable) },
+        { title: 'Цена клиенту', dataIndex: 'retailPrice', render: (value: number | null, record) => money(value, record.priceApplicable) },
+        { title: 'Сумма дилер', dataIndex: 'dealerSum', render: (value: number | null, record) => money(value, record.priceApplicable) },
+        { title: 'Сумма клиенту', dataIndex: 'retailSum', render: (value: number | null, record) => money(value, record.priceApplicable) },
       ]}
       summary={(data) => {
         const dealerTotal = data.reduce((sum, row) => sum + (row.dealerSum ?? 0), 0)
