@@ -40,8 +40,16 @@ jobs:
         include:
           - os: macos-14
             arch: aarch64
+            ext: dmg
+            artifactName: release-macos-aarch64
           - os: macos-15-intel
             arch: x86_64
+            ext: dmg
+            artifactName: release-macos-x86_64
+          - os: windows-latest
+            arch: x86_64
+            ext: msi
+            artifactName: release-windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -62,15 +70,40 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # windows-latest поставляется с WiX Toolset v3 (нужен jpackage --type msi), но
+      # его bin-директория не добавлена в PATH по умолчанию — jpackage не найдёт
+      # candle.exe/light.exe без этого шага. Версия ищется через glob, не хардкодится,
+      # чтобы не повторить историю с выведенным из эксплуатации macos-13 (см. commit
+      # истории этого файла) — раннер может обновить минорную версию WiX сам.
+      - name: Добавить WiX Toolset в PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $wixDir = Get-ChildItem "C:\Program Files (x86)" -Directory -Filter "WiX Toolset v3*" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $wixDir) {
+            Write-Error "WiX Toolset не найден в C:\Program Files (x86)"
+            exit 1
+          }
+          $wixBin = Join-Path $wixDir.FullName "bin"
+          Add-Content -Path $env:GITHUB_PATH -Value $wixBin
+
+      # ./gradlew — shell-скрипт, на Windows нужен gradlew.bat (отдельный шаг, а не
+      # общая команда, — платформенно-специфичный исполняемый файл).
       - name: Собрать дистрибутив (jlink + jpackage)
+        if: runner.os != 'Windows'
         working-directory: backend
         run: ./gradlew desktopAppImage -PappVersion=${{ inputs.version }}
+
+      - name: Собрать дистрибутив (jlink + jpackage, Windows)
+        if: runner.os == 'Windows'
+        working-directory: backend
+        run: .\gradlew.bat desktopAppImage -PappVersion=${{ inputs.version }}
 
       - name: Загрузить артефакт
         uses: actions/upload-artifact@v4
         with:
-          name: dmg-${{ matrix.arch }}
-          path: backend/build/desktop/${{ matrix.arch }}/dmg/Я-Конфигуратор-${{ inputs.version }}-${{ matrix.arch }}.dmg
+          name: ${{ matrix.artifactName }}
+          path: backend/build/desktop/${{ matrix.arch }}/dmg/Я-Конфигуратор-${{ inputs.version }}-${{ matrix.arch }}.${{ matrix.ext }}
           if-no-files-found: error
 
   publish:
@@ -81,16 +114,16 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Скачать оба дистрибутива
+      - name: Скачать все дистрибутивы
         uses: actions/download-artifact@v4
         with:
-          pattern: dmg-*
+          pattern: release-*
           path: dist
           merge-multiple: true
 
       - name: Опубликовать релиз
         run: |
-          gh release create "v${{ inputs.version }}" dist/*.dmg \
+          gh release create "v${{ inputs.version }}" dist/* \
             --repo "${{ github.repository }}" \
             --title "v${{ inputs.version }}" \
             --notes ""
