@@ -92,4 +92,5 @@ jobs:
         run: |
           gh release create "v${{ inputs.version }}" dist/*.dmg \
             --repo "${{ github.repository }}" \
-            --title "v${{ inputs.version }}"
+            --title "v${{ inputs.version }}" \
+            --notes ""
