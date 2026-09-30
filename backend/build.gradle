@@ -270,7 +270,25 @@ tasks.register('desktopAppImage', Exec) {
 				// заменяет приложение, а не создаёт вторую копию (см. design.md).
 				'--mac-package-identifier', 'com.example.furniturecalculator',
 			]
-	commandLine commonArgs + platformArgs
+	if (isWindows) {
+		// ProcessBuilder на Windows кодирует argv через системную ANSI-кодовую
+		// страницу (sun.jnu.encoding), а не UTF-8 — кириллица в --name
+		// ("Я-Конфигуратор") превращалась в "?" ещё до того, как jpackage получал
+		// управление ("Invalid Application name: ?-????????????"). @argfile jpackage
+		// читает как обычный текст (UTF-8), в обход этого пути кодирования — сюда
+		// уходят все аргументы, кроме самого пути к exe (он ASCII, кодированию не
+		// подвержен).
+		def jpackageExe = commonArgs[0]
+		def argFileContent = (commonArgs.drop(1) + platformArgs)
+				.collect { it.contains(' ') ? "\"${it}\"" : it }
+				.join('\n')
+		File argFile = layout.buildDirectory.file("desktop/${desktopArch}/jpackage-args.txt").get().asFile
+		argFile.parentFile.mkdirs()
+		argFile.write(argFileContent, 'UTF-8')
+		commandLine jpackageExe, "@${argFile.absolutePath}"
+	} else {
+		commandLine commonArgs + platformArgs
+	}
 	doLast {
 		// jpackage сам называет файл "<name>-<version>.<type>" — добавляем архитектуру
 		// в имя файла (не в --name/CFBundleName выше, чтобы не менять то, что видит
