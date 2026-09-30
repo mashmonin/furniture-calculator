@@ -97,7 +97,10 @@ jobs:
       - name: Собрать дистрибутив (jlink + jpackage, Windows)
         if: runner.os == 'Windows'
         working-directory: backend
-        run: .\gradlew.bat desktopAppImage -PappVersion=${{ inputs.version }}
+        # -PappVersion=... обязательно в кавычках — без них PowerShell/cmd при вызове
+        # .bat может разбить аргумент на части (наблюдалось: "-PappVersion=5" и
+        # отдельно ".0.1", второе Gradle пытался выполнить как имя таска).
+        run: .\gradlew.bat desktopAppImage "-PappVersion=${{ inputs.version }}"
 
       - name: Загрузить артефакт
         uses: actions/upload-artifact@v4
