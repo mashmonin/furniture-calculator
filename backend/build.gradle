@@ -233,10 +233,18 @@ tasks.register('desktopAppImage', Exec) {
 	// создаёт вторую копию, см. design.md), но это два разных флага jpackage.
 	def packageType = isWindows ? 'msi' : 'dmg'
 	def iconFile = file("src/main/resources/desktop/app-icon.${isWindows ? 'ico' : 'icns'}")
+	// WiX собирает MSI-базу в кодовой странице 1252 (Western European) по умолчанию —
+	// кириллица в неё физически не помещается (jpackage/light.exe падает с
+	// "error LGHT0311: A string was provided with characters that are not available
+	// in the specified database code page '1252'"), это открытая нерешённая проблема
+	// в OpenJDK (JDK-8290471), не наша ошибка. На Windows используем латиницу — только
+	// там, macOS не затронут (см. design.md change add-windows-desktop-build-support,
+	// правку пользователя).
+	def jpackageName = isWindows ? 'YaKonfigurator' : desktopAppName
 	def commonArgs = [
 			"${jdkHome}/bin/jpackage",
 			'--type', packageType,
-			'--name', desktopAppName,
+			'--name', jpackageName,
 			'--app-version', desktopAppVersion,
 			'--vendor', 'Furniture Calculator',
 			'--icon', iconFile.absolutePath,
@@ -294,8 +302,8 @@ tasks.register('desktopAppImage', Exec) {
 		// в имя файла (не в --name/CFBundleName выше, чтобы не менять то, что видит
 		// пользователь в самом приложении), см. design.md.
 		File dmgDir = desktopDmgDir.get().asFile
-		File original = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}.${packageType}")
-		File renamed = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.${packageType}")
+		File original = new File(dmgDir, "${jpackageName}-${desktopAppVersion}.${packageType}")
+		File renamed = new File(dmgDir, "${jpackageName}-${desktopAppVersion}-${desktopArch}.${packageType}")
 		if (!original.renameTo(renamed)) {
 			throw new GradleException("Не удалось переименовать ${original} в ${renamed}")
 		}

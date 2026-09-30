@@ -42,14 +42,21 @@ jobs:
             arch: aarch64
             ext: dmg
             artifactName: release-macos-aarch64
+            appName: Я-Конфигуратор
           - os: macos-15-intel
             arch: x86_64
             ext: dmg
             artifactName: release-macos-x86_64
+            appName: Я-Конфигуратор
           - os: windows-latest
             arch: x86_64
             ext: msi
             artifactName: release-windows-x86_64
+            # Кириллица не помещается в кодовую страницу 1252 MSI-базы WiX (открытая
+            # проблема JDK-8290471) — на Windows используется латинское имя, см.
+            # backend/build.gradle (jpackageName) и design.md change
+            # add-windows-desktop-build-support.
+            appName: YaKonfigurator
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifactName }}
-          path: backend/build/desktop/${{ matrix.arch }}/dmg/Я-Конфигуратор-${{ inputs.version }}-${{ matrix.arch }}.${{ matrix.ext }}
+          path: backend/build/desktop/${{ matrix.arch }}/dmg/${{ matrix.appName }}-${{ inputs.version }}-${{ matrix.arch }}.${{ matrix.ext }}
           if-no-files-found: error
 
   publish:
