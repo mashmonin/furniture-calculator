@@ -204,7 +204,10 @@ tasks.register('desktopJlinkRuntime', Exec) {
 	}
 	def jdkHome = javaLauncher.get().metadata.installationPath
 	commandLine "${jdkHome}/bin/jlink",
-			'--module-path', "${jdkHome}/jmods:${desktopFxLibsDir.get().asFile}",
+			// Разделитель путей в --module-path платформенный (":" на macOS/Linux,
+			// ";" на Windows, где ":" зарезервирован под букву диска) — File.pathSeparator
+			// подставляет нужный, хардкод ":" ломал сборку на Windows.
+			'--module-path', "${jdkHome}/jmods${File.pathSeparator}${desktopFxLibsDir.get().asFile}",
 			'--add-modules', desktopRuntimeModules,
 			'--output', desktopRuntimeDir.get().asFile.absolutePath,
 			'--strip-debug', '--no-header-files', '--no-man-pages', '--compress', 'zip-6'
