@@ -100,6 +100,11 @@ def desktopArch = {
 	return raw
 }.call()
 
+// Определяет ветку упаковки (тип пакета, иконка, идентификатор для замены версии) в
+// desktopAppImage/desktopVerifyArch ниже — см. design.md change
+// add-windows-desktop-build-support.
+def isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows()
+
 // Версия для CFBundleVersion (задача 4.3) и для Implementation-Version в манифесте
 // jar'а (используется UpdateCheckService для сравнения с latestVersion — задача 5.2):
 // без "-SNAPSHOT", и с первой цифрой не меньше 1 (иначе macOS отказывается собирать
@@ -203,7 +208,7 @@ tasks.register('desktopJlinkRuntime', Exec) {
 
 tasks.register('desktopAppImage', Exec) {
 	group = 'desktop packaging'
-	description = 'Собирает .dmg (jpackage) со встроенным JRE и JavaFX WebView-обёрткой'
+	description = 'Собирает установщик (.dmg на macOS, .msi на Windows) через jpackage со встроенным JRE и JavaFX WebView-обёрткой'
 	dependsOn tasks.named('desktopFrontendAssets'), tasks.named('desktopFxLibs'), tasks.named('desktopJlinkRuntime')
 	inputs.dir(desktopAppLibDir)
 	inputs.dir(desktopFxLibsDir)
@@ -216,32 +221,56 @@ tasks.register('desktopAppImage', Exec) {
 	def jdkHome = javaLauncher.get().metadata.installationPath
 	def mainJarName = tasks.named('jar').get().archiveFileName.get()
 	inputs.property('appVersion', desktopAppVersion)
-	commandLine "${jdkHome}/bin/jpackage",
-			'--type', 'dmg',
+	// Тип пакета и иконка различаются по ОС; --win-upgrade-uuid/--mac-package-identifier —
+	// оба решают одну и ту же задачу (повторная установка заменяет приложение, а не
+	// создаёт вторую копию, см. design.md), но это два разных флага jpackage.
+	def packageType = isWindows ? 'msi' : 'dmg'
+	def iconFile = file("src/main/resources/desktop/app-icon.${isWindows ? 'ico' : 'icns'}")
+	def commonArgs = [
+			"${jdkHome}/bin/jpackage",
+			'--type', packageType,
 			'--name', desktopAppName,
 			'--app-version', desktopAppVersion,
 			'--vendor', 'Furniture Calculator',
-			// Стабильный между сборками — повторная установка .dmg поверх старой
-			// заменяет приложение, а не создаёт вторую копию (см. design.md).
-			'--mac-package-identifier', 'com.example.furniturecalculator',
-			'--icon', file('src/main/resources/desktop/app-icon.icns').absolutePath,
+			'--icon', iconFile.absolutePath,
 			'--input', desktopAppLibDir.get().asFile.absolutePath,
 			'--main-jar', mainJarName,
 			'--main-class', 'com.example.furniturecalculator.desktop.DesktopLauncher',
 			'--runtime-image', desktopRuntimeDir.get().asFile.absolutePath,
 			'--app-content', desktopFxLibsDir.get().asFile.absolutePath,
-			// $APPDIR у jpackage на macOS — это Contents/app, а --app-content
-			// кладёт свою директорию рядом, в Contents/fxlibs (не внутрь app/) —
-			// отсюда "..".
+			// $APPDIR у jpackage — это <install>/app (Contents/app на macOS), а
+			// --app-content кладёт свою директорию рядом, в <install>/fxlibs
+			// (Contents/fxlibs на macOS) — отсюда "..". На Windows раскладка ожидается
+			// такой же (не проверено вживую на момент написания — см. design.md change
+			// add-windows-desktop-build-support, Decisions/Risks; если WebView не
+			// находит модули, поправить путь здесь для Windows-ветки).
 			'--java-options', '--module-path $APPDIR/../fxlibs --add-modules javafx.controls,javafx.web',
-			'--dest', desktopDmgDir.get().asFile.absolutePath
+			'--dest', desktopDmgDir.get().asFile.absolutePath,
+	]
+	def platformArgs = isWindows
+			? [
+				// НЕ МЕНЯТЬ это значение — стабильный между сборками GUID, как и
+				// --mac-package-identifier ниже: повторная установка .msi поверх старой
+				// версии заменяет приложение, а не создаёт вторую копию. Смена UUID
+				// равносильна потере этого механизма для уже установивших пользователей
+				// (см. design.md change add-windows-desktop-build-support).
+				'--win-upgrade-uuid', '426abc10-ac1d-454f-b9fc-7b344800e814',
+				'--win-menu',
+				'--win-shortcut',
+			]
+			: [
+				// Стабильный между сборками — повторная установка .dmg поверх старой
+				// заменяет приложение, а не создаёт вторую копию (см. design.md).
+				'--mac-package-identifier', 'com.example.furniturecalculator',
+			]
+	commandLine commonArgs + platformArgs
 	doLast {
-		// jpackage сам называет файл "<name>-<version>.dmg" — добавляем архитектуру
+		// jpackage сам называет файл "<name>-<version>.<type>" — добавляем архитектуру
 		// в имя файла (не в --name/CFBundleName выше, чтобы не менять то, что видит
 		// пользователь в самом приложении), см. design.md.
 		File dmgDir = desktopDmgDir.get().asFile
-		File original = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}.dmg")
-		File renamed = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.dmg")
+		File original = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}.${packageType}")
+		File renamed = new File(dmgDir, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.${packageType}")
 		if (!original.renameTo(renamed)) {
 			throw new GradleException("Не удалось переименовать ${original} в ${renamed}")
 		}
@@ -250,9 +279,16 @@ tasks.register('desktopAppImage', Exec) {
 
 tasks.register('desktopVerifyArch') {
 	group = 'desktop packaging'
-	description = 'Проверяет, что бинарник внутри собранного .dmg соответствует ожидаемой архитектуре (aarch64/x86_64)'
+	description = 'Проверяет, что бинарник внутри собранного .dmg соответствует ожидаемой архитектуре (aarch64/x86_64) — только на macOS, задействует hdiutil/file, которых нет на Windows'
 	dependsOn tasks.named('desktopAppImage')
 	doLast {
+		if (isWindows) {
+			// hdiutil/file — macOS-специфичные утилиты, аналога этой проверки под
+			// Windows пока нет (см. design.md change add-windows-desktop-build-support,
+			// задача 2.3) — не считается ошибкой, просто не выполняется.
+			logger.lifecycle('desktopVerifyArch пропущен: проверка архитектуры через hdiutil/file специфична для macOS.')
+			return
+		}
 		File dmgFile = new File(desktopDmgDir.get().asFile, "${desktopAppName}-${desktopAppVersion}-${desktopArch}.dmg")
 		File mountPoint = layout.buildDirectory.dir("desktop/${desktopArch}/dmg-mount").get().asFile
 		mountPoint.mkdirs()
