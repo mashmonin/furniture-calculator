@@ -182,6 +182,25 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     @Test
+    void leaf_type_с_упразднённым_типом_полотна_с_зеркалом_отклоняется() {
+        Long collectionId = insertLeafCollection("COLL-IT-PANEL-TYPE-MIRRORED-1");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO leaf_type (code, name, collection_id, panel_type) VALUES (?, ?, ?, ?)",
+                "IT-PANEL-TYPE-MIRRORED-1", "IT-PANEL-TYPE-MIRRORED-1", collectionId, "MIRRORED"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void mirror_finish_option_для_остеклённого_leaf_type_отклоняется() {
+        Long leafTypeId = insertLeafType("IT-MIRROR-GLAZED-1", "GLAZED");
+        Long mirrorFinishTypeId = insertMirrorFinishType("IT-MIRROR-GLAZED-FINISH-1", BigDecimal.valueOf(30));
+
+        assertThatThrownBy(() -> insertMirrorFinishOption(mirrorFinishTypeId, leafTypeId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void расчёт_стоимости_суммирует_найденные_компоненты() throws Exception {
         Long leafTypeId = insertLeafType("IT-PRICE-LEAF-1");
         Long frameTypeId = insertFrameType("IT-PRICE-FRAME-1");
