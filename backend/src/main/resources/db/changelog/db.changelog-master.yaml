@@ -380,3 +380,6 @@ databaseChangeLog:
   - include:
       file: changes/0112-atmosphere-no-edge-configurations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0113-edge-colours-price-list-update.yaml
+      relativeToChangelogFile: true
