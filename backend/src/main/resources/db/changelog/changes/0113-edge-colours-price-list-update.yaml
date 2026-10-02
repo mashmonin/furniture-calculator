@@ -1,0 +1,135 @@
+databaseChangeLog:
+  # Обновление прайс-листа на кромки (ET-001, ET-002): цвет «Бронза» (CT-024) снимается,
+  # добавляются «Шоколад» (CT-030), «Шампань» (CT-031), «Никель» (CT-032), цена «Золото матовое»
+  # (CT-026) снижается; новые цвета оцениваются так же, как «Золото матовое».
+  # Запись colour_type CT-024 не удаляется. Только переносимый SQL — файл выполняется и на H2 (desktop).
+  - changeSet:
+      id: 0113-1-insert-edge-colour-types
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шоколад" }
+              - column: { name: code, value: "CT-030" }
+              - column: { name: surcharge_percent, valueNumeric: 0 }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Шампань" }
+              - column: { name: code, value: "CT-031" }
+              - column: { name: surcharge_percent, valueNumeric: 0 }
+        - insert:
+            tableName: colour_type
+            columns:
+              - column: { name: name, value: "Никель" }
+              - column: { name: code, value: "CT-032" }
+              - column: { name: surcharge_percent, valueNumeric: 0 }
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM colour_type WHERE code IN ('CT-030', 'CT-031', 'CT-032')
+
+  - changeSet:
+      id: 0113-2-remove-bronze-from-edge-colours
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM configuration_price
+              WHERE colour_option_id IN (
+                SELECT co.id FROM colour_option co
+                JOIN colour_type ct ON ct.id = co.colour_type_id
+                WHERE ct.code = 'CT-024' AND co.edge_type_id IS NOT NULL
+              )
+        - sql:
+            sql: >-
+              DELETE FROM colour_option
+              WHERE edge_type_id IS NOT NULL
+                AND colour_type_id = (SELECT id FROM colour_type WHERE code = 'CT-024')
+      rollback:
+        - sql:
+            sql: >-
+              SELECT 1
+
+  - changeSet:
+      id: 0113-3-insert-edge-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, edge_type_id)
+              SELECT ct.id, et.id
+              FROM (VALUES ('ET-001'), ('ET-002')) AS e(edge_code)
+              JOIN edge_type et ON et.code = e.edge_code
+              CROSS JOIN colour_type ct
+              WHERE ct.code IN ('CT-030', 'CT-031', 'CT-032')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM colour_option
+              WHERE edge_type_id IS NOT NULL
+                AND colour_type_id IN (SELECT id FROM colour_type WHERE code IN ('CT-030', 'CT-031', 'CT-032'))
+
+  - changeSet:
+      id: 0113-4-update-edge-colour-prices
+      author: furniture-calculator
+      comment: >-
+        Цены «Золото матовое» (CT-026) пересоздаются по новому прайсу, для «Шоколад», «Шампань»,
+        «Никель» заводятся те же цены. Цены «Хром матовый», «Чёрный» и «Покраска по RAL» не
+        менялись и не затрагиваются. retail_price — розничная, dealer_price — дилерская цена комплекта.
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM configuration_price
+              WHERE colour_option_id IN (
+                SELECT co.id FROM colour_option co
+                JOIN colour_type ct ON ct.id = co.colour_type_id
+                WHERE ct.code = 'CT-026' AND co.edge_type_id IS NOT NULL
+              )
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, edge_type_id, height_option_id, colour_option_id)
+              SELECT v.retail_price, v.dealer_price, et.id, ldo.id, co.id
+              FROM (VALUES
+                ('ET-001', 2100::numeric, 'CT-026', 15703, 8973),
+                ('ET-001', 2400::numeric, 'CT-026', 16979, 9702),
+                ('ET-001', 2700::numeric, 'CT-026', 18435, 10534),
+                ('ET-001', 2950::numeric, 'CT-026', 19870, 11354),
+                ('ET-001', 2100::numeric, 'CT-030', 15703, 8973),
+                ('ET-001', 2400::numeric, 'CT-030', 16979, 9702),
+                ('ET-001', 2700::numeric, 'CT-030', 18435, 10534),
+                ('ET-001', 2950::numeric, 'CT-030', 19870, 11354),
+                ('ET-001', 2100::numeric, 'CT-031', 15703, 8973),
+                ('ET-001', 2400::numeric, 'CT-031', 16979, 9702),
+                ('ET-001', 2700::numeric, 'CT-031', 18435, 10534),
+                ('ET-001', 2950::numeric, 'CT-031', 19870, 11354),
+                ('ET-001', 2100::numeric, 'CT-032', 15703, 8973),
+                ('ET-001', 2400::numeric, 'CT-032', 16979, 9702),
+                ('ET-001', 2700::numeric, 'CT-032', 18435, 10534),
+                ('ET-001', 2950::numeric, 'CT-032', 19870, 11354),
+                ('ET-002', 2100::numeric, 'CT-026', 17943, 10253),
+                ('ET-002', 2400::numeric, 'CT-026', 19555, 11174),
+                ('ET-002', 2700::numeric, 'CT-026', 21145, 12083),
+                ('ET-002', 2950::numeric, 'CT-026', 22759, 13005),
+                ('ET-002', 2100::numeric, 'CT-030', 17943, 10253),
+                ('ET-002', 2400::numeric, 'CT-030', 19555, 11174),
+                ('ET-002', 2700::numeric, 'CT-030', 21145, 12083),
+                ('ET-002', 2950::numeric, 'CT-030', 22759, 13005),
+                ('ET-002', 2100::numeric, 'CT-031', 17943, 10253),
+                ('ET-002', 2400::numeric, 'CT-031', 19555, 11174),
+                ('ET-002', 2700::numeric, 'CT-031', 21145, 12083),
+                ('ET-002', 2950::numeric, 'CT-031', 22759, 13005),
+                ('ET-002', 2100::numeric, 'CT-032', 17943, 10253),
+                ('ET-002', 2400::numeric, 'CT-032', 19555, 11174),
+                ('ET-002', 2700::numeric, 'CT-032', 21145, 12083),
+                ('ET-002', 2950::numeric, 'CT-032', 22759, 13005)
+              ) AS v(edge_code, height_value, colour_code, retail_price, dealer_price)
+              JOIN edge_type et ON et.code = v.edge_code
+              JOIN liner_dimension_option ldo ON ldo.edge_type_id = et.id AND ldo.value = v.height_value
+              JOIN colour_type ct ON ct.code = v.colour_code
+              JOIN colour_option co ON co.edge_type_id = et.id AND co.colour_type_id = ct.id
+      rollback:
+        - sql:
+            sql: >-
+              SELECT 1
