@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0112-1-remove-edge-from-atmosphere-configurations
+      author: furniture-calculator
+      comment: >-
+        Коллекция «Атмосфера» (LC-002) больше не комплектуется с кромкой. Удаляются все
+        door_configuration с edge_type_id у leaf_type этой коллекции (они появились
+        из общих наборов для реверсивных конфигураций — changeset'ы 0041 и 0059).
+        Конфигурации без кромки не затрагиваются.
+      changes:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration dc
+              USING leaf_type lt, collection c
+              WHERE lt.id = dc.leaf_type_id
+                AND c.id = lt.collection_id
+                AND c.code = 'LC-002'
+                AND dc.edge_type_id IS NOT NULL
