@@ -10,9 +10,10 @@ databaseChangeLog:
       changes:
         - sql:
             sql: >-
-              DELETE FROM door_configuration dc
-              USING leaf_type lt, collection c
-              WHERE lt.id = dc.leaf_type_id
-                AND c.id = lt.collection_id
-                AND c.code = 'LC-002'
-                AND dc.edge_type_id IS NOT NULL
+              DELETE FROM door_configuration
+              WHERE edge_type_id IS NOT NULL
+                AND leaf_type_id IN (
+                  SELECT lt.id FROM leaf_type lt
+                  JOIN collection c ON c.id = lt.collection_id
+                  WHERE c.code = 'LC-002'
+                )
