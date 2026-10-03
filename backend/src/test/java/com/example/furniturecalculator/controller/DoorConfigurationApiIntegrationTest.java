@@ -50,6 +50,9 @@ class DoorConfigurationApiIntegrationTest {
         assertThat(created.leaf()).isNotNull();
         assertThat(created.leaf().type().id()).isEqualTo(leafTypeId);
         assertThat(created.leaf().collection()).isNotNull();
+        assertThat(created.leaf().priceList()).isNotNull();
+        assertThat(created.leaf().priceList().code()).isEqualTo("PL-001");
+        assertThat(created.leaf().priceList().name()).isEqualTo("hausdoors_emal_i_shpon_rf_07_09_2026");
         assertThat(created.frame()).isNull();
         assertThat(created.edge()).isNull();
         assertThat(created.doorCasing()).isNull();
@@ -71,6 +74,7 @@ class DoorConfigurationApiIntegrationTest {
 
         DoorConfigurationDto created = findById(configurations, configurationId);
         assertThat(created.frame()).isNotNull();
+        assertThat(created.frame().priceList()).isNull();
         assertThat(created.frame().posts()).hasSize(2);
         assertThat(created.frame().posts())
                 .extracting(post -> post.postType().id())
@@ -383,7 +387,7 @@ class DoorConfigurationApiIntegrationTest {
 
     private Long insertLeafCollection(String code) {
         return jdbcTemplate.queryForObject(
-                "INSERT INTO collection (code, name) VALUES (?, ?) RETURNING id", Long.class, code, code);
+                "INSERT INTO collection (code, name, price_list_id) VALUES (?, ?, (SELECT id FROM price_list WHERE code = 'PL-001')) RETURNING id", Long.class, code, code);
     }
 
     private Long insertFrameType(String code) {
