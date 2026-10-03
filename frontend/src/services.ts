@@ -22,7 +22,7 @@ export interface ServiceDef {
 
 export const SERVICES: ServiceDef[] = [
   { key: 'emal-i-shpon', label: 'Эмаль и шпон', priceListCode: 'PL-001', cartTag: 'ЭМАЛЬ И ШПОН' },
-  { key: 'emal-layt', label: 'Эмаль Лайт', priceListCode: 'PL-002', cartTag: 'ЭМАЛЬ ЛАЙТ', defaultThicknessMm: 44, fixedPanelType: 'BLIND', allowDoubleSided: false },
+  { key: 'emal-layt', label: 'Эмаль лайт', priceListCode: 'PL-002', cartTag: 'ЭМАЛЬ ЛАЙТ', defaultThicknessMm: 44, fixedPanelType: 'BLIND', allowDoubleSided: false },
 ]
 
 export const DEFAULT_SERVICE: ServiceDef = SERVICES[0]
