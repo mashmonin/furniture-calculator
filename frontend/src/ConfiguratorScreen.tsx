@@ -190,6 +190,14 @@ interface HardwareLine {
   quantity?: number
 }
 
+// Каталог фурнитуры сервиса: только типы с прайс-листом сервиса (см. services.ts, priceListCode), категории без
+// таких типов отбрасываются (см. change add-emal-layt-hardware). Каталог с сервера приходит целиком.
+function hardwareCatalogForPriceList(catalog: HardwareCategoryDto[], priceListCode: string): HardwareCategoryDto[] {
+  return catalog
+    .map((category) => ({ ...category, types: category.types.filter((type) => type.priceList.code === priceListCode) }))
+    .filter((category) => category.types.length > 0)
+}
+
 function hardwareTypesFor(catalog: HardwareCategoryDto[], categoryId: number | undefined): HardwareTypeDto[] {
   if (categoryId === undefined) {
     return []
@@ -950,7 +958,7 @@ function ConfiguratorScreen({
     fetchHardwareCatalog()
       .then((data) => {
         if (!cancelled) {
-          setHardwareCatalog(data)
+          setHardwareCatalog(hardwareCatalogForPriceList(data, priceListCode))
         }
       })
       .catch((error: unknown) => {
@@ -966,7 +974,7 @@ function ConfiguratorScreen({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [priceListCode])
 
   useEffect(() => {
     let cancelled = false

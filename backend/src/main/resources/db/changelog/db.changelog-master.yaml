@@ -426,3 +426,9 @@ databaseChangeLog:
   - include:
       file: changes/0124-emal-layt-colour-kremovaya.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0125-hardware-brand-article.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0126-emal-layt-hardware.yaml
+      relativeToChangelogFile: true

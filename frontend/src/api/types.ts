@@ -244,11 +244,15 @@ export interface HardwareOptionDto {
   colourName: string
   retailPrice: number
   dealerPrice: number
+  // Артикул цветового варианта (см. change add-emal-layt-hardware); null — не задан (прайс «Эмаль и шпон»).
+  article: string | null
 }
 
 export interface HardwareTypeDto {
   type: ReferenceDto
   unit: string
+  // Бренд позиции (см. change add-emal-layt-hardware); null — не задан (прайс «Эмаль и шпон»).
+  brand: string | null
   // Прайс-лист, которому принадлежит тип фурнитуры (см. change add-price-list-source).
   priceList: PriceListDto
   options: HardwareOptionDto[]

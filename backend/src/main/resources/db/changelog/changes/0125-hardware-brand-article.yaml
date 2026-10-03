@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # Бренд типа фурнитуры и артикул цветового варианта (change add-emal-layt-hardware): необязательные поля;
+  # у существующей фурнитуры остаются пустыми. Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0125-1-add-hardware-brand-and-article
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: hardware_type
+            columns:
+              - column:
+                  name: brand
+                  type: VARCHAR(255)
+        - addColumn:
+            tableName: hardware_option
+            columns:
+              - column:
+                  name: article
+                  type: VARCHAR(255)
+      rollback:
+        - dropColumn:
+            tableName: hardware_option
+            columnName: article
+        - dropColumn:
+            tableName: hardware_type
+            columnName: brand
