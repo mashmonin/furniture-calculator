@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Alert, Badge, Menu, Space, Typography } from 'antd'
 import { HomeOutlined, ShoppingCartOutlined } from '@ant-design/icons'
 import { fetchUpdateCheck } from './api/updateCheck'
+import { fetchDoorConfigurations } from './api/doorConfigurations'
+import { DEFAULT_SERVICE, SERVICES, serviceByKey } from './services'
 import type { UpdateCheckDto } from './api/types'
 import ConfiguratorScreen, { type ConfiguratorLoadRequest } from './ConfiguratorScreen'
 import CartScreen from './CartScreen'
@@ -29,9 +31,12 @@ type AppScreen = 'configurator' | 'cart'
 function App() {
   const [screen, setScreen] = useState<AppScreen>('configurator')
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckDto | null>(null)
-  // Название файла прайс-листа текущего сервиса — приходит из каталога, загружаемого ConfiguratorScreen;
-  // null, пока каталог не загружен или пуст (подпись в шапке тогда не показывается).
-  const [priceListName, setPriceListName] = useState<string | null>(null)
+  // Сервис, открытый на экране конфигуратора (см. services.ts). Конфигуратор каждого сервиса смонтирован
+  // всегда (переключается видимость), поэтому незавершённый выбор не теряется при смене сервиса.
+  const [activeServiceKey, setActiveServiceKey] = useState(DEFAULT_SERVICE.key)
+  // Названия файлов прайс-листов по их коду — из общего (кэшированного) каталога конфигураций; пока каталог
+  // не загружен или пуст, подпись прайс-листа в шапке не показывается.
+  const [priceListNames, setPriceListNames] = useState<Record<string, string>>({})
   // Инициализация из localStorage один раз при монтировании (см. cart.ts, loadCart) — не эффектом, чтобы
   // не было промежуточного рендера с пустой корзиной перед первым чтением.
   const [cart, setCart] = useState<CartItem[]>(() => loadCart())
@@ -44,10 +49,10 @@ function App() {
   // изменения в эту же позицию (см. order-cart-ui, «Живая синхронизация конфигурации, открытой из корзины»)
   // и блокирует кнопку «Добавить в корзину». Сбрасывается по «Очистить» (см. ConfiguratorScreen.onStopEditing).
   const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null)
-  // Растёт на 1 при каждом клике по пункту меню «Эмаль и шпон» (см. правку пользователя) — сигнал для
-  // ConfiguratorScreen принудительно очистить форму тем же способом, что и кнопка «Очистить», независимо
-  // от того, был ли уже открыт этот экран.
-  const [configuratorResetKey, setConfiguratorResetKey] = useState(0)
+  // Растёт на 1 при каждом клике по пункту меню сервиса (см. правку пользователя) — сигнал для
+  // ConfiguratorScreen этого сервиса принудительно очистить форму тем же способом, что и кнопка «Очистить»,
+  // независимо от того, был ли уже открыт этот экран. Счётчик у каждого сервиса свой.
+  const [configuratorResetKeys, setConfiguratorResetKeys] = useState<Record<string, number>>({})
 
   // Визуальный эффект «полёта» добавленной конфигурации к пункту «Корзина заказа» в левом меню (см. правку
   // пользователя) — cartMenuItemRef даёт координаты цели (пункт меню всегда в DOM, независимо от текущего
@@ -94,7 +99,10 @@ function App() {
   }
 
   function editCartItem(item: CartItem) {
-    setLoadRequest({ request: item.exportRequest, requestedAt: Date.now() })
+    // Позиция открывается в своём сервисе (у старых позиций без serviceKey — «Эмаль и шпон»).
+    const service = serviceByKey(item.serviceKey)
+    setActiveServiceKey(service.key)
+    setLoadRequest({ request: item.exportRequest, requestedAt: Date.now(), serviceKey: service.key })
     setEditingCartItemId(item.id)
     setScreen('configurator')
   }
@@ -123,6 +131,30 @@ function App() {
 
   useEffect(() => {
     let cancelled = false
+    fetchDoorConfigurations()
+      .then((configurations) => {
+        if (cancelled) {
+          return
+        }
+        const names: Record<string, string> = {}
+        for (const configuration of configurations) {
+          const priceList = configuration.leaf.priceList
+          if (priceList) {
+            names[priceList.code] = priceList.name
+          }
+        }
+        setPriceListNames(names)
+      })
+      .catch(() => {
+        // Намеренно молча: ошибку каталога покажет сам конфигуратор, подпись прайс-листа просто не выводится.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     // Проверка обновлений не должна ничего блокировать — при ошибке просто не
     // показываем баннер (см. change add-desktop-app-packaging, раздел 5).
     fetchUpdateCheck()
@@ -139,6 +171,12 @@ function App() {
     }
   }, [])
 
+  const activeService = serviceByKey(activeServiceKey)
+  const activePriceListName = priceListNames[activeService.priceListCode] ?? null
+  // Режим редактирования позиции корзины действует только в конфигураторе её сервиса.
+  const editingItem = cart.find((item) => item.id === editingCartItemId)
+  const editingServiceKey = editingItem ? serviceByKey(editingItem.serviceKey).key : null
+
   return (
     <div className="page">
       <div className="app-header">
@@ -154,8 +192,8 @@ function App() {
           {/* Подпись прайс-листа относится к каталогу конфигуратора — показывается только на экране «Эмаль
               и шпон»; счётчик «Корзина» — только на экране «Корзина заказа» (см. правку пользователя;
               переключение между экранами по-прежнему доступно через левое меню на обоих экранах). */}
-          {screen === 'configurator' && priceListName && (
-            <Typography.Text strong>{`${PRICE_LIST_PREFIX}${priceListName}`}</Typography.Text>
+          {screen === 'configurator' && activePriceListName && (
+            <Typography.Text strong>{`${PRICE_LIST_PREFIX}${activePriceListName}`}</Typography.Text>
           )}
           {screen === 'cart' && (
             <Badge count={totalCartQuantity(cart)} showZero size="small" offset={[6, 0]}>
@@ -193,9 +231,9 @@ function App() {
           <Menu
             mode="inline"
             selectable={false}
-            selectedKeys={[screen === 'configurator' ? 'door-configurator' : 'cart']}
+            selectedKeys={[screen === 'configurator' ? activeService.key : 'cart']}
             items={[
-              { key: 'door-configurator', label: 'Эмаль и шпон' },
+              ...SERVICES.map((service) => ({ key: service.key, label: service.label })),
               // Обёрнуто в span с ref — не влияет на вид пункта меню, только даёт координаты цели для
               // эффекта «полёта» (см. addCartItem, flight выше); пункт всегда в DOM независимо от screen.
               { key: 'cart', label: <span ref={cartMenuItemRef}>Корзина</span> },
@@ -205,27 +243,36 @@ function App() {
                 setScreen('cart')
                 return
               }
-              // Клик по «Эмаль и шпон» принудительно очищает конфигуратор — тем же сбросом, что и кнопка
-              // «Очистить» (см. правку пользователя) — независимо от того, был ли уже открыт этот экран.
-              setConfiguratorResetKey((value) => value + 1)
+              // Клик по пункту сервиса принудительно очищает конфигуратор этого сервиса — тем же сбросом, что и
+              // кнопка «Очистить» (см. правку пользователя) — независимо от того, был ли уже открыт этот экран.
+              setActiveServiceKey(info.key)
+              setConfiguratorResetKeys((keys) => ({ ...keys, [info.key]: (keys[info.key] ?? 0) + 1 }))
               setScreen('configurator')
             }}
           />
         </div>
 
-        <div style={{ display: screen === 'configurator' ? 'contents' : 'none' }}>
-          <ConfiguratorScreen
-            onAddToCart={addCartItem}
-            cartSaveError={cartSaveError}
-            loadRequest={loadRequest}
-            resetSignal={configuratorResetKey}
-            editingItemId={editingCartItemId}
-            onSyncEditedItem={syncEditedCartItem}
-            onSyncEditedItemTags={syncEditedCartItemTags}
-            onStopEditing={stopEditingCartItem}
-            onPriceListChange={setPriceListName}
-          />
-        </div>
+        {SERVICES.map((service) => (
+          <div
+            key={service.key}
+            style={{ display: screen === 'configurator' && activeService.key === service.key ? 'contents' : 'none' }}
+          >
+            <ConfiguratorScreen
+              priceListCode={service.priceListCode}
+              defaultThicknessMm={service.defaultThicknessMm}
+              fixedPanelType={service.fixedPanelType}
+              allowDoubleSided={service.allowDoubleSided}
+              onAddToCart={(item, sourceRect) => addCartItem({ ...item, serviceKey: service.key }, sourceRect)}
+              cartSaveError={cartSaveError}
+              loadRequest={loadRequest?.serviceKey === service.key ? loadRequest : null}
+              resetSignal={configuratorResetKeys[service.key] ?? 0}
+              editingItemId={editingServiceKey === service.key ? editingCartItemId : null}
+              onSyncEditedItem={syncEditedCartItem}
+              onSyncEditedItemTags={syncEditedCartItemTags}
+              onStopEditing={stopEditingCartItem}
+            />
+          </div>
+        ))}
         <div style={{ display: screen === 'cart' ? 'contents' : 'none' }}>
           <CartScreen
             items={cart}

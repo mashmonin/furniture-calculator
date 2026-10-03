@@ -1,0 +1,44 @@
+databaseChangeLog:
+  # Цвета полотна «Эмаль Лайт» (change add-emal-layt-blind-type-colours): «Эмаль кремовая (NCS 1002-Y20R)»,
+  # «Серый вереск (RAL 7047)», «Белое облако (RAL 9003)» — надбавка за цвет 0 %, доступны всем шести моделям
+  # LT-046..LT-051. Названия новые, отдельные от существующих цветов других коллекций (например, RAL-9003
+  # «Матовый Снежный»). Цена полотна не зависит от цвета (строки цены без привязки к цвету). Тип полотна
+  # «Глухое» (panel_type = BLIND) у этих моделей уже задан в 0116. Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0122-1-insert-emal-layt-colour-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_type (name, code, surcharge_percent)
+              VALUES ('Эмаль кремовая (NCS 1002-Y20R)', 'CT-033', 0)
+        - sql:
+            sql: >-
+              INSERT INTO colour_type (name, code, surcharge_percent)
+              VALUES ('Серый вереск (RAL 7047)', 'CT-034', 0)
+        - sql:
+            sql: >-
+              INSERT INTO colour_type (name, code, surcharge_percent)
+              VALUES ('Белое облако (RAL 9003)', 'CT-035', 0)
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM colour_type WHERE code IN ('CT-033', 'CT-034', 'CT-035')
+
+  - changeSet:
+      id: 0122-2-insert-emal-layt-leaf-colour-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO colour_option (colour_type_id, leaf_type_id)
+              SELECT ct.id, lt.id
+              FROM colour_type ct
+              CROSS JOIN leaf_type lt
+              WHERE ct.code IN ('CT-033', 'CT-034', 'CT-035')
+                AND lt.code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM colour_option
+              WHERE colour_type_id IN (SELECT id FROM colour_type WHERE code IN ('CT-033', 'CT-034', 'CT-035'))

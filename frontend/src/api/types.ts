@@ -34,6 +34,8 @@ export interface FramePostDto {
   length: number | null
   retailPrice: number
   dealerPrice: number
+  // Опция высоты короба, к которой привязана позиция (см. change add-neo-75-frame); null — не зависит от высоты.
+  heightOptionId: number | null
 }
 
 export type LeafPanelType = 'BLIND' | 'GLAZED'
@@ -61,6 +63,9 @@ export interface ComponentCatalogDto {
   // Прайс-лист коллекции полотна — заполняется только для leaf-компонента (см. change add-price-list-source),
   // null для остальных компонентов.
   priceList: PriceListDto | null
+  // Допускает ли коллекция полотна произвольные размеры (длина/высота) помимо стандартных — заполняется только
+  // для leaf-компонента (см. change add-emal-layt-service); false — только стандартные варианты, без «Другое».
+  customDimensionsAllowed: boolean | null
 }
 
 export interface DoorConfigurationDto {

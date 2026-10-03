@@ -1,0 +1,31 @@
+databaseChangeLog:
+  # Признак коллекции «допускает произвольные (нестандартные) значения длины/высоты полотна» (change
+  # add-emal-layt-service). По умолчанию true — существующие коллекции сохраняют прежнее поведение; у коллекций
+  # «Эмаль Лайт» (MONO/QUADRO/VENEZIA/REFLEX) — false: доступны только стандартные размеры из прайса.
+  - changeSet:
+      id: 0117-1-add-collection-custom-dimensions-allowed
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: collection
+            columns:
+              - column:
+                  name: custom_dimensions_allowed
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0117-2-forbid-custom-dimensions-for-emal-layt
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE collection SET custom_dimensions_allowed = false
+              WHERE code IN ('LC-010', 'LC-011', 'LC-012', 'LC-013')
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE collection SET custom_dimensions_allowed = true
+              WHERE code IN ('LC-010', 'LC-011', 'LC-012', 'LC-013')

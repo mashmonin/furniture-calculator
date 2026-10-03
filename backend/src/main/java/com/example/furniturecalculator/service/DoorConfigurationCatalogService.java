@@ -144,7 +144,8 @@ public class DoorConfigurationCatalogService {
                 glazingOptions,
                 dimensionRanges,
                 decorativeElements,
-                PriceListDto.from(leafType.getCollection().getPriceList()));
+                PriceListDto.from(leafType.getCollection().getPriceList()),
+                leafType.getCollection().isCustomDimensionsAllowed());
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -157,7 +158,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
-                List.of(), null, List.of(), List.of(), List.of(), null);
+                List.of(), null, List.of(), List.of(), List.of(), null, null);
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -173,7 +174,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of(), List.of(),
-                List.of(), null);
+                List.of(), null, null);
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
@@ -240,6 +241,7 @@ public class DoorConfigurationCatalogService {
                 post.getQuantity(),
                 post.getLength(),
                 post.getRetailPrice(),
-                post.getDealerPrice());
+                post.getDealerPrice(),
+                post.getHeightOption() != null ? post.getHeightOption().getId() : null);
     }
 }

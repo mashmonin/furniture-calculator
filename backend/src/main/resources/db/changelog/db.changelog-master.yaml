@@ -394,3 +394,35 @@ databaseChangeLog:
   - include:
       file: changes/0115-price-list-source.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0116-emal-layt-service.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0117-collection-custom-dimensions-allowed.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0118-emal-layt-thickness-44.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0119-frame-post-height-option.yaml
+      relativeToChangelogFile: true
+      context: "!desktop"
+  - include:
+      file: changes-desktop-overrides/0119-frame-post-height-option.yaml
+      relativeToChangelogFile: true
+      context: "desktop"
+  - include:
+      file: changes/0120-neo-75-frame.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0121-emal-layt-casings-extensions.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0122-emal-layt-leaf-colours.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0123-emal-layt-colour-names-without-codes.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0124-emal-layt-colour-kremovaya.yaml
+      relativeToChangelogFile: true

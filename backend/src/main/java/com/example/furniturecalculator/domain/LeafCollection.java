@@ -35,4 +35,9 @@ public class LeafCollection implements CatalogType {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "price_list_id", nullable = false)
     private PriceList priceList;
+
+    // Допускает ли коллекция произвольные (нестандартные) значения длины/высоты полотна помимо стандартных
+    // каталожных (см. change add-emal-layt-service); false — только стандартные размеры.
+    @Column(name = "custom_dimensions_allowed", nullable = false)
+    private boolean customDimensionsAllowed;
 }

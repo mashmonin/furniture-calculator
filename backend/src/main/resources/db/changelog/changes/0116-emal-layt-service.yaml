@@ -1,0 +1,258 @@
+databaseChangeLog:
+  # Сервис «Эмаль Лайт» (change add-emal-layt-service): прайс-лист PL-002, коллекции MONO/QUADRO/VENEZIA/REFLEX
+  # (LC-010..LC-013), модели LT-046..LT-051 («Глухое»), стандартные размеры из прайса и явные цены по парам
+  # «ширина × высота» без надбавок. Конфигурации — только полотно (короб/наличник/добор/кромка/цвета — позже).
+  # Первая цифра цены в прайсе — дилерская, вторая — розничная. Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0116-1-insert-emal-layt-price-list
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: price_list
+            columns:
+              - column: { name: name, value: "hausdoors_emal_layt_tsfo_07_09_2026" }
+              - column: { name: code, value: "PL-002" }
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM price_list WHERE code = 'PL-002'
+
+  - changeSet:
+      id: 0116-2-insert-emal-layt-collections
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO collection (code, name, price_list_id)
+              SELECT v.code, v.name, pl.id
+              FROM (VALUES
+                ('LC-010', 'MONO'),
+                ('LC-011', 'QUADRO'),
+                ('LC-012', 'VENEZIA'),
+                ('LC-013', 'REFLEX')
+              ) AS v(code, name)
+              CROSS JOIN price_list pl
+              WHERE pl.code = 'PL-002'
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM collection WHERE code IN ('LC-010', 'LC-011', 'LC-012', 'LC-013')
+
+  - changeSet:
+      id: 0116-3-insert-emal-layt-leaf-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO leaf_type (code, name, collection_id, panel_type)
+              SELECT v.code, v.name, c.id, 'BLIND'
+              FROM (VALUES
+                ('LT-046', 'MONO MN 01', 'LC-010'),
+                ('LT-047', 'QUADRO QU 01', 'LC-011'),
+                ('LT-048', 'QUADRO QU 02', 'LC-011'),
+                ('LT-049', 'VENEZIA VN 01', 'LC-012'),
+                ('LT-050', 'VENEZIA VN 02', 'LC-012'),
+                ('LT-051', 'REFLEX RF 01', 'LC-013')
+              ) AS v(code, name, collection_code)
+              JOIN collection c ON c.code = v.collection_code
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+
+  - changeSet:
+      id: 0116-4-insert-emal-layt-length-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (400), (600), (700), (800), (900)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-001'
+                AND lt.code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM liner_dimension_option WHERE leaf_type_id IN (SELECT id FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051'))
+
+  - changeSet:
+      id: 0116-5-insert-emal-layt-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, v.value, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN (VALUES (2000), (2100), (2200), (2300)) AS v(value)
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-002'
+                AND lt.code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+      rollback:
+        - sql:
+            sql: >-
+              SELECT 1
+
+  - changeSet:
+      id: 0116-6-insert-emal-layt-door-configurations
+      author: furniture-calculator
+      comment: >-
+        Конфигурации только с полотном (без короба, наличника, добора, кромки, реверса и четверти) — чтобы
+        модели появились в каталоге. Остальные сочетания добавляются отдельным изменением.
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, is_reverse, has_quarter)
+              SELECT id, false, false FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration WHERE leaf_type_id IN (SELECT id FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051'))
+
+  - changeSet:
+      id: 0116-7-insert-emal-layt-leaf-prices
+      author: furniture-calculator
+      comment: >-
+        120 цен: 6 моделей × 5 ширин × 4 высоты. Классы цен прайса: ширина 400–800 / 900 и высота 2000 / 2100–2300
+        (MONO MN 01 — свой прайс, остальные модели — общий). retail_price — розничная, dealer_price — дилерская.
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO configuration_price (retail_price, dealer_price, leaf_type_id, length_option_id, height_option_id)
+              SELECT v.retail_price, v.dealer_price, lt.id, lo_len.id, lo_h.id
+              FROM (VALUES
+                ('LT-046', 400, 2000, 17761, 10764),
+                ('LT-046', 400, 2100, 19691, 11934),
+                ('LT-046', 400, 2200, 19691, 11934),
+                ('LT-046', 400, 2300, 19691, 11934),
+                ('LT-046', 600, 2000, 17761, 10764),
+                ('LT-046', 600, 2100, 19691, 11934),
+                ('LT-046', 600, 2200, 19691, 11934),
+                ('LT-046', 600, 2300, 19691, 11934),
+                ('LT-046', 700, 2000, 17761, 10764),
+                ('LT-046', 700, 2100, 19691, 11934),
+                ('LT-046', 700, 2200, 19691, 11934),
+                ('LT-046', 700, 2300, 19691, 11934),
+                ('LT-046', 800, 2000, 17761, 10764),
+                ('LT-046', 800, 2100, 19691, 11934),
+                ('LT-046', 800, 2200, 19691, 11934),
+                ('LT-046', 800, 2300, 19691, 11934),
+                ('LT-046', 900, 2000, 19541, 11843),
+                ('LT-046', 900, 2100, 21665, 13130),
+                ('LT-046', 900, 2200, 21665, 13130),
+                ('LT-046', 900, 2300, 21665, 13130),
+                ('LT-047', 400, 2000, 18726, 11349),
+                ('LT-047', 400, 2100, 20656, 12519),
+                ('LT-047', 400, 2200, 20656, 12519),
+                ('LT-047', 400, 2300, 20656, 12519),
+                ('LT-047', 600, 2000, 18726, 11349),
+                ('LT-047', 600, 2100, 20656, 12519),
+                ('LT-047', 600, 2200, 20656, 12519),
+                ('LT-047', 600, 2300, 20656, 12519),
+                ('LT-047', 700, 2000, 18726, 11349),
+                ('LT-047', 700, 2100, 20656, 12519),
+                ('LT-047', 700, 2200, 20656, 12519),
+                ('LT-047', 700, 2300, 20656, 12519),
+                ('LT-047', 800, 2000, 18726, 11349),
+                ('LT-047', 800, 2100, 20656, 12519),
+                ('LT-047', 800, 2200, 20656, 12519),
+                ('LT-047', 800, 2300, 20656, 12519),
+                ('LT-047', 900, 2000, 20613, 12493),
+                ('LT-047', 900, 2100, 22737, 13780),
+                ('LT-047', 900, 2200, 22737, 13780),
+                ('LT-047', 900, 2300, 22737, 13780),
+                ('LT-048', 400, 2000, 18726, 11349),
+                ('LT-048', 400, 2100, 20656, 12519),
+                ('LT-048', 400, 2200, 20656, 12519),
+                ('LT-048', 400, 2300, 20656, 12519),
+                ('LT-048', 600, 2000, 18726, 11349),
+                ('LT-048', 600, 2100, 20656, 12519),
+                ('LT-048', 600, 2200, 20656, 12519),
+                ('LT-048', 600, 2300, 20656, 12519),
+                ('LT-048', 700, 2000, 18726, 11349),
+                ('LT-048', 700, 2100, 20656, 12519),
+                ('LT-048', 700, 2200, 20656, 12519),
+                ('LT-048', 700, 2300, 20656, 12519),
+                ('LT-048', 800, 2000, 18726, 11349),
+                ('LT-048', 800, 2100, 20656, 12519),
+                ('LT-048', 800, 2200, 20656, 12519),
+                ('LT-048', 800, 2300, 20656, 12519),
+                ('LT-048', 900, 2000, 20613, 12493),
+                ('LT-048', 900, 2100, 22737, 13780),
+                ('LT-048', 900, 2200, 22737, 13780),
+                ('LT-048', 900, 2300, 22737, 13780),
+                ('LT-049', 400, 2000, 18726, 11349),
+                ('LT-049', 400, 2100, 20656, 12519),
+                ('LT-049', 400, 2200, 20656, 12519),
+                ('LT-049', 400, 2300, 20656, 12519),
+                ('LT-049', 600, 2000, 18726, 11349),
+                ('LT-049', 600, 2100, 20656, 12519),
+                ('LT-049', 600, 2200, 20656, 12519),
+                ('LT-049', 600, 2300, 20656, 12519),
+                ('LT-049', 700, 2000, 18726, 11349),
+                ('LT-049', 700, 2100, 20656, 12519),
+                ('LT-049', 700, 2200, 20656, 12519),
+                ('LT-049', 700, 2300, 20656, 12519),
+                ('LT-049', 800, 2000, 18726, 11349),
+                ('LT-049', 800, 2100, 20656, 12519),
+                ('LT-049', 800, 2200, 20656, 12519),
+                ('LT-049', 800, 2300, 20656, 12519),
+                ('LT-049', 900, 2000, 20613, 12493),
+                ('LT-049', 900, 2100, 22737, 13780),
+                ('LT-049', 900, 2200, 22737, 13780),
+                ('LT-049', 900, 2300, 22737, 13780),
+                ('LT-050', 400, 2000, 18726, 11349),
+                ('LT-050', 400, 2100, 20656, 12519),
+                ('LT-050', 400, 2200, 20656, 12519),
+                ('LT-050', 400, 2300, 20656, 12519),
+                ('LT-050', 600, 2000, 18726, 11349),
+                ('LT-050', 600, 2100, 20656, 12519),
+                ('LT-050', 600, 2200, 20656, 12519),
+                ('LT-050', 600, 2300, 20656, 12519),
+                ('LT-050', 700, 2000, 18726, 11349),
+                ('LT-050', 700, 2100, 20656, 12519),
+                ('LT-050', 700, 2200, 20656, 12519),
+                ('LT-050', 700, 2300, 20656, 12519),
+                ('LT-050', 800, 2000, 18726, 11349),
+                ('LT-050', 800, 2100, 20656, 12519),
+                ('LT-050', 800, 2200, 20656, 12519),
+                ('LT-050', 800, 2300, 20656, 12519),
+                ('LT-050', 900, 2000, 20613, 12493),
+                ('LT-050', 900, 2100, 22737, 13780),
+                ('LT-050', 900, 2200, 22737, 13780),
+                ('LT-050', 900, 2300, 22737, 13780),
+                ('LT-051', 400, 2000, 18726, 11349),
+                ('LT-051', 400, 2100, 20656, 12519),
+                ('LT-051', 400, 2200, 20656, 12519),
+                ('LT-051', 400, 2300, 20656, 12519),
+                ('LT-051', 600, 2000, 18726, 11349),
+                ('LT-051', 600, 2100, 20656, 12519),
+                ('LT-051', 600, 2200, 20656, 12519),
+                ('LT-051', 600, 2300, 20656, 12519),
+                ('LT-051', 700, 2000, 18726, 11349),
+                ('LT-051', 700, 2100, 20656, 12519),
+                ('LT-051', 700, 2200, 20656, 12519),
+                ('LT-051', 700, 2300, 20656, 12519),
+                ('LT-051', 800, 2000, 18726, 11349),
+                ('LT-051', 800, 2100, 20656, 12519),
+                ('LT-051', 800, 2200, 20656, 12519),
+                ('LT-051', 800, 2300, 20656, 12519),
+                ('LT-051', 900, 2000, 20613, 12493),
+                ('LT-051', 900, 2100, 22737, 13780),
+                ('LT-051', 900, 2200, 22737, 13780),
+                ('LT-051', 900, 2300, 22737, 13780)
+              ) AS v(leaf_code, width_value, height_value, retail_price, dealer_price)
+              JOIN leaf_type lt ON lt.code = v.leaf_code
+              JOIN liner_dimension_type dt_len ON dt_len.code = 'DT-001'
+              JOIN liner_dimension_type dt_h ON dt_h.code = 'DT-002'
+              JOIN liner_dimension_option lo_len ON lo_len.leaf_type_id = lt.id
+                AND lo_len.liner_dimension_type_id = dt_len.id AND lo_len.value = v.width_value
+              JOIN liner_dimension_option lo_h ON lo_h.leaf_type_id = lt.id
+                AND lo_h.liner_dimension_type_id = dt_h.id AND lo_h.value = v.height_value
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM configuration_price WHERE leaf_type_id IN (SELECT id FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051'))

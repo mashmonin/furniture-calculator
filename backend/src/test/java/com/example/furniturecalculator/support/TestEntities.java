@@ -53,6 +53,8 @@ public final class TestEntities {
     public static LeafCollection leafCollection(long id) {
         LeafCollection collection = referenceType(LeafCollection.class, id);
         ReflectionTestUtils.setField(collection, "priceList", priceList(1L));
+        // Как у существующих коллекций — нестандартные размеры разрешены.
+        ReflectionTestUtils.setField(collection, "customDimensionsAllowed", true);
         return collection;
     }
 

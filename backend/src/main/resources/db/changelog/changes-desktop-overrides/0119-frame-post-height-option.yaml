@@ -1,0 +1,49 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0119-frame-post-height-option.yaml. Оригинал не редактируется. Используется
+  # только для профиля desktop (context "desktop" на include в db.changelog-master.yaml). H2 не поддерживает
+  # индексы по выражению (COALESCE), поэтому, как в changes-desktop-overrides/0006-door-configuration-catalog.yaml,
+  # NULL схлопывается в 0 через generated-колонку *_norm, поверх которой строится обычный unique-индекс.
+  # Changeset 0119-1 идентичен оригиналу.
+  - changeSet:
+      id: 0119-1-add-frame-post-height-option
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_post
+            columns:
+              - column:
+                  name: height_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_frame_post_height_option
+                    references: liner_dimension_option(id)
+      rollback:
+        - dropColumn:
+            tableName: frame_post
+            columnName: height_option_id
+
+  - changeSet:
+      id: 0119-2-frame-post-unique-with-height
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DROP INDEX uk_frame_post_frame_type_post_type
+        - sql:
+            sql: >-
+              ALTER TABLE frame_post ADD COLUMN height_option_norm BIGINT GENERATED ALWAYS AS (COALESCE(height_option_id, 0))
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_frame_post_combination
+              ON frame_post (frame_type_id, post_type_id, height_option_norm)
+      rollback:
+        - sql:
+            sql: >-
+              DROP INDEX uk_frame_post_combination
+        - sql:
+            sql: >-
+              ALTER TABLE frame_post DROP COLUMN height_option_norm
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_frame_post_frame_type_post_type ON frame_post (frame_type_id, post_type_id)

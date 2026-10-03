@@ -1,0 +1,43 @@
+databaseChangeLog:
+  # Привязка позиции короба (frame_post) к опции высоты короба (change add-neo-75-frame): позиция без привязки
+  # действует при любой высоте (как у существующих коробов), с привязкой — только при выборе этой опции.
+  # Уникальность расширяется до (короб, тип позиции, высота), отсутствие привязки считается отдельным значением
+  # (COALESCE) — иначе NULL считались бы различными и пропала бы уникальность позиций без высоты.
+  # Эта версия — для PostgreSQL (индекс по выражению); H2-версия — changes-desktop-overrides/0119-….
+  - changeSet:
+      id: 0119-1-add-frame-post-height-option
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: frame_post
+            columns:
+              - column:
+                  name: height_option_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_frame_post_height_option
+                    references: liner_dimension_option(id)
+      rollback:
+        - dropColumn:
+            tableName: frame_post
+            columnName: height_option_id
+
+  - changeSet:
+      id: 0119-2-frame-post-unique-with-height
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              DROP INDEX uk_frame_post_frame_type_post_type
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_frame_post_combination
+              ON frame_post (frame_type_id, post_type_id, COALESCE(height_option_id, 0))
+      rollback:
+        - sql:
+            sql: >-
+              DROP INDEX uk_frame_post_combination
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uk_frame_post_frame_type_post_type ON frame_post (frame_type_id, post_type_id)

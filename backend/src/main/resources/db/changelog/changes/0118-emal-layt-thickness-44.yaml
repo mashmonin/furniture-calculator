@@ -1,0 +1,22 @@
+databaseChangeLog:
+  # Толщина полотна 44 мм — стандартная опция всех моделей «Эмаль Лайт» (change add-emal-layt-service).
+  # Цены полотна толщину не указывают, наценки у 44 нет; «по умолчанию» выбирается в интерфейсе сервиса.
+  - changeSet:
+      id: 0118-1-insert-emal-layt-thickness-44
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, is_standard, leaf_type_id)
+              SELECT dt.id, 44, true, lt.id
+              FROM liner_dimension_type dt
+              CROSS JOIN leaf_type lt
+              WHERE dt.code = 'DT-003'
+                AND lt.code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM liner_dimension_option
+              WHERE liner_dimension_type_id = (SELECT id FROM liner_dimension_type WHERE code = 'DT-003')
+                AND value = 44
+                AND leaf_type_id IN (SELECT id FROM leaf_type WHERE code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051'))

@@ -5,6 +5,7 @@ import { exportOrder } from './api/doorConfigurations'
 import type { CartDetailRow, CartItem } from './cart'
 import { totalCartQuantity } from './cart'
 import { formatMoney, formatMoneyWithCurrency } from './format'
+import { serviceByKey } from './services'
 
 interface CartScreenProps {
   items: CartItem[]
@@ -17,11 +18,9 @@ interface CartScreenProps {
 // В приложении сейчас единственный вид изделия — межкомнатные двери (сервис «Эмаль и шпон»); статус-тег
 // показывает фиксированный текст для всех позиций, без нового поля в данных (см. design.md, Non-Goals).
 const ITEM_STATUS_LABEL = 'МЕЖКОМНАТНАЯ ДВЕРЬ'
-// Тег сервиса/прайс-листа — сейчас в приложении единственный сервис (его прайс-лист приходит из каталога
-// и показывается в шапке, см. App.tsx, priceListName), поэтому тег проставляется всем позициям по
-// умолчанию, без отдельного поля в данных (по аналогии с ITEM_STATUS_LABEL выше). Показывается
-// перед тегом ITEM_STATUS_LABEL, но после наименования модели (см. правку пользователя).
-const SERVICE_TAG_LABEL = 'ЭМАЛЬ И ШПОН'
+// Тег сервиса — текст берётся по сервису позиции (см. services.ts, cartTag; у старых позиций без serviceKey —
+// «Эмаль и шпон»). Название прайс-листа в корзине не выводится. Показывается перед тегом ITEM_STATUS_LABEL,
+// но после наименования модели (см. правку пользователя).
 
 // Уникальный яркий цвет на каждый тег атрибута конфигурации (см. правку пользователя, order-cart-ui, «Теги
 // атрибутов конфигурации») — отличается и от зелёного SERVICE_TAG_LABEL, и от синего ITEM_STATUS_LABEL, и
@@ -227,7 +226,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
               <Space direction="vertical" size={4}>
                 <Typography.Text>{item.displayName}</Typography.Text>
                 <Space size={4} wrap>
-                  <Tag color="green">{SERVICE_TAG_LABEL}</Tag>
+                  <Tag color="green">{serviceByKey(item.serviceKey).cartTag}</Tag>
                   <Tag color="blue">{ITEM_STATUS_LABEL}</Tag>
                   {(item.attributeTags ?? []).map((tag) => (
                     <Tag key={tag} color={ATTRIBUTE_TAG_COLORS[tag] ?? 'default'}>
