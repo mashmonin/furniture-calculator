@@ -1,0 +1,13 @@
+databaseChangeLog:
+  # Цвет «Эмаль Лайт» CT-033 (NCS 1002-Y20R) называется «Кремовая» (change add-emal-layt-blind-type-colours).
+  - changeSet:
+      id: 0124-1-rename-emal-layt-colour-kremovaya
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Кремовая' WHERE code = 'CT-033'
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Эмаль кремовая' WHERE code = 'CT-033'

@@ -1,0 +1,83 @@
+databaseChangeLog:
+  # Короб «NEO 75» (FT-004) для моделей «Эмаль Лайт» (change add-neo-75-frame). Две высоты короба по высоте
+  # полотна: 2170 для полотна 2000, 2400 для полотна 2100–2300. Позиции — «Стойка незарезная» (PT-001, 1 шт)
+  # и «Комплект зарезных стоек» (PT-002, 2 шт, «стойки с фрезеровкой под петли») с явными ценами по высотам.
+  # Первая цифра цены в прайсе — дилерская, вторая — розничная. Процентных надбавок нет: правил
+  # pogonazh_surcharge_rule для FT-004 не заводится. Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0120-1-insert-neo-75-frame-type
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: frame_type
+            columns:
+              - column: { name: name, value: "NEO 75" }
+              - column: { name: code, value: "FT-004" }
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM frame_type WHERE code = 'FT-004'
+
+  - changeSet:
+      id: 0120-2-insert-neo-75-height-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO liner_dimension_option (liner_dimension_type_id, value, min_value, max_value, is_standard, frame_type_id)
+              SELECT ldt.id, v.value, v.min_value, v.max_value, true, ft.id
+              FROM (VALUES
+                (2170, 2000, 2000),
+                (2400, 2100, 2300)
+              ) AS v(value, min_value, max_value)
+              JOIN frame_type ft ON ft.code = 'FT-004'
+              CROSS JOIN liner_dimension_type ldt
+              WHERE ldt.code = 'DT-002'
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM liner_dimension_option WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')
+
+  - changeSet:
+      id: 0120-3-insert-neo-75-frame-posts
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO frame_post (frame_type_id, post_type_id, quantity, length, dealer_price, retail_price, height_option_id)
+              SELECT ft.id, pt.id, v.quantity, v.length, v.dealer_price, v.retail_price, lo.id
+              FROM (VALUES
+                ('PT-001', 1, CAST(NULL AS NUMERIC), 1404, 2317, 2170),
+                ('PT-002', 2, CAST(2170 AS NUMERIC), 2808, 4633, 2170),
+                ('PT-001', 1, CAST(NULL AS NUMERIC), 1586, 2617, 2400),
+                ('PT-002', 2, CAST(2400 AS NUMERIC), 3172, 5234, 2400)
+              ) AS v(post_code, quantity, length, dealer_price, retail_price, height_value)
+              JOIN frame_type ft ON ft.code = 'FT-004'
+              JOIN post_type pt ON pt.code = v.post_code
+              JOIN liner_dimension_type ldt ON ldt.code = 'DT-002'
+              JOIN liner_dimension_option lo ON lo.frame_type_id = ft.id
+                AND lo.liner_dimension_type_id = ldt.id AND lo.value = v.height_value
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM frame_post WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')
+
+  - changeSet:
+      id: 0120-4-insert-neo-75-door-configurations
+      author: furniture-calculator
+      comment: >-
+        По одной конфигурации с коробом «NEO 75» для каждой модели «Эмаль Лайт»: без реверса, четверти, кромки,
+        наличника и добора (они — отдельными изменениями). Конфигурации «только полотно» сохраняются.
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO door_configuration (leaf_type_id, frame_type_id, is_reverse, has_quarter)
+              SELECT lt.id, ft.id, false, false
+              FROM leaf_type lt
+              CROSS JOIN frame_type ft
+              WHERE lt.code IN ('LT-046', 'LT-047', 'LT-048', 'LT-049', 'LT-050', 'LT-051')
+                AND ft.code = 'FT-004'
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM door_configuration WHERE frame_type_id = (SELECT id FROM frame_type WHERE code = 'FT-004')

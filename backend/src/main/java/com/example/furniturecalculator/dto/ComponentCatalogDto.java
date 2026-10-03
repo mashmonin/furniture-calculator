@@ -31,5 +31,8 @@ public record ComponentCatalogDto(
         List<ReferenceDto> decorativeElements,
         // Прайс-лист (источник — название файла), которому принадлежит коллекция полотна — заполняется
         // только для leaf-компонента (см. change add-price-list-source); для остальных компонентов всегда null.
-        PriceListDto priceList) {
+        PriceListDto priceList,
+        // Допускает ли коллекция полотна произвольные размеры (collection.custom_dimensions_allowed) — заполняется
+        // только для leaf-компонента (см. change add-emal-layt-service); для остальных компонентов всегда null.
+        Boolean customDimensionsAllowed) {
 }

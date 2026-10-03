@@ -99,7 +99,7 @@ public class DoorConfigurationPricingService {
     // полотна: «НЕО» (см. change link-frame-neo-height-to-leaf-height) и «Компланар»
     // (см. change link-komplanar-height-to-leaf-height). Остальные типы короба (например, «Фантом»
     // FT-001) этому правилу не подчиняются.
-    private static final Set<String> HEIGHT_RANGE_FRAME_TYPE_CODES = Set.of("FT-002", "FT-003");
+    private static final Set<String> HEIGHT_RANGE_FRAME_TYPE_CODES = Set.of("FT-002", "FT-003", "FT-004");
 
     // Коды frame_type, для которых высота короба не выбирается из каталога, а всегда в точности равна
     // высоте полотна той же конфигурации (см. change mirror-fantom-frame-height-to-leaf-height) — короб
@@ -116,16 +116,20 @@ public class DoorConfigurationPricingService {
     // ни с одной door_configuration и недостижимы через UI.
     private static final Set<String> LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES = Set.of(
             "FET-004", "FET-005", "FET-006", "FET-007",
-            "FET-008", "FET-009", "FET-010", "FET-011", "FET-012", "FET-013");
+            "FET-008", "FET-009", "FET-010", "FET-011", "FET-012", "FET-013",
+            // «Neo 100/190 мм» для «Эмаль Лайт» (см. change add-emal-layt-casings-extensions).
+            "FET-014", "FET-015");
 
     // Коды door_casing_type наличников, для которых длина ограничена диапазоном высоты полотна —
     // «Модо»/«Онда» (см. change link-modo-onda-casing-length-to-leaf-height) и наличники короба
     // «Компланар»: «Эво», «Авеню»/«Авеню-реверс», «Аура»/«Аура-реверс», «Ария»/«Ария-реверс»
     // (см. change link-komplanar-casing-length-to-leaf-height) — по тому же принципу, что и
-    // LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES. Это все 9 существующих кодов door_casing_type —
-    // любой новый наличник, добавленный в будущем, потребует явного решения, входить ли в этот набор.
+    // LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES. Это все 9 существующих кодов door_casing_type и «Light»/«Modo»
+    // для «Эмаль Лайт» (см. change add-emal-layt-casings-extensions) — любой новый наличник, добавленный в
+    // будущем, потребует явного решения, входить ли в этот набор.
     private static final Set<String> LENGTH_RANGE_DOOR_CASING_TYPE_CODES = Set.of(
-            "DCT-001", "DCT-002", "DCT-003", "DCT-004", "DCT-005", "DCT-006", "DCT-007", "DCT-008", "DCT-009");
+            "DCT-001", "DCT-002", "DCT-003", "DCT-004", "DCT-005", "DCT-006", "DCT-007", "DCT-008", "DCT-009",
+            "DCT-010", "DCT-011");
 
     // Временно: если выбранная конфигурация реверсивная (door_configuration.is_reverse), надбавка за реверс —
     // фиксированный процент от цены полотна той же конфигурации. В перспективе будет вынесена
@@ -625,9 +629,9 @@ public class DoorConfigurationPricingService {
             BigDecimal frameHeightValue = frameHeightOption != null ? frameHeightOption.getValue() : frameHeightMmOverride;
             BigDecimal pogonazhMultiplier = resolvePogonazhSurchargeMultiplier(frameType, frameHeightValue);
             ComponentPriceDto framePrice = applyPogonazhSurcharge(
-                    framePostPrice(componentName, frameType, colourOption), pogonazhMultiplier);
+                    framePostPrice(componentName, frameType, colourOption, frameHeightOption), pogonazhMultiplier);
             components.add(framePrice);
-            List<FramePost> framePosts = framePostRepository.findByFrameTypeId(frameType.getId());
+            List<FramePost> framePosts = framePostsFor(frameType, frameHeightOption);
             return new ResolvedComponent(type, framePrice, null, frameHeightOption, null, colourOption, null, framePosts, 1,
                     List.of(), List.of(), frameHeightMmOverride);
         }
@@ -638,10 +642,16 @@ public class DoorConfigurationPricingService {
 
         LinerDimensionOption lengthOption = validatedDimensionOption(componentName, type, selection.lengthOptionId());
         // У leaf-компонента высота не сопоставляется с каталожной опцией напрямую (см. leafHeightValue выше) —
-        // ни одна цена полотна не фильтрует по height_option_id, поэтому для поиска цены она не нужна.
+        // heightOption остаётся null (на него опираются выгрузка спецификации и ResolvedComponent). Но для поиска
+        // цены опция высоты полотна нужна: цены сервиса «Эмаль Лайт» заданы по паре «ширина × высота»
+        // (см. change add-emal-layt-service); существующие цены полотна height_option_id не указывают и
+        // по-прежнему подходят при любой высоте.
         LinerDimensionOption heightOption = type instanceof LeafType
                 ? null
                 : validatedDimensionOption(componentName, type, selection.heightOptionId());
+        LinerDimensionOption priceHeightOption = type instanceof LeafType
+                ? validatedDimensionOption(componentName, type, selection.heightOptionId())
+                : heightOption;
         LinerDimensionOption thicknessOption = validatedDimensionOption(componentName, type, selection.thicknessOptionId());
         BigDecimal thicknessMultiplier = resolveThicknessSurchargeMultiplier(type, thicknessOption);
         BigDecimal quarterMultiplier = resolveQuarterSurchargeMultiplier(type, hasQuarter, applyReverseSurcharge, thicknessMultiplier);
@@ -679,7 +689,7 @@ public class DoorConfigurationPricingService {
             default -> BigDecimal.ONE;
         };
 
-        Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, heightOption, thicknessOption, colourOption);
+        Optional<ConfigurationPrice> matched = findMostSpecificPrice(type, lengthOption, priceHeightOption, thicknessOption, colourOption);
         ComponentPriceDto price = matched
                 .map(p -> componentPriceFrom(componentName, p, leafDimensionSurcharge, thicknessMultiplier, quarterMultiplier,
                         colourMultiplier, doubleSidedPaintingMultiplier, mirrorFinish.multiplier(), glazing.multiplier(),
@@ -965,6 +975,12 @@ public class DoorConfigurationPricingService {
         if (customValue == null) {
             return BigDecimal.ONE;
         }
+        // Коллекции без нестандартных размеров (например, «Эмаль Лайт», см. change add-emal-layt-service)
+        // принимают только каталожные опции — произвольное значение отклоняется раньше любых других проверок.
+        if (!leafType.getCollection().isCustomDimensionsAllowed()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Для данной модели доступны только стандартные размеры");
+        }
         if (optionId != null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "для компонента " + componentName
@@ -1248,10 +1264,20 @@ public class DoorConfigurationPricingService {
         }
     }
 
+    // Позиции короба, подходящие к выбранной высоте (см. change add-neo-75-frame): без привязки к высоте — всегда
+    // (существующие короба), с привязкой — только если выбрана именно эта опция высоты.
+    private List<FramePost> framePostsFor(FrameType frameType, LinerDimensionOption frameHeightOption) {
+        return framePostRepository.findByFrameTypeId(frameType.getId()).stream()
+                .filter(post -> post.getHeightOption() == null
+                        || (frameHeightOption != null && post.getHeightOption().getId().equals(frameHeightOption.getId())))
+                .toList();
+    }
+
     // Короб не участвует ни в одной наценке (только полотно) — baseRetailPrice/baseDealerPrice
     // всегда совпадают с итоговой ценой этого компонента (см. change redesign-door-configurator-flow).
-    private ComponentPriceDto framePostPrice(String componentName, FrameType frameType, ColourOption colourOption) {
-        List<FramePost> posts = framePostRepository.findByFrameTypeId(frameType.getId());
+    private ComponentPriceDto framePostPrice(
+            String componentName, FrameType frameType, ColourOption colourOption, LinerDimensionOption frameHeightOption) {
+        List<FramePost> posts = framePostsFor(frameType, frameHeightOption);
         BigDecimal postsRetailPrice = posts.stream().map(FramePost::getRetailPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal postsDealerPrice = posts.stream().map(FramePost::getDealerPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
 

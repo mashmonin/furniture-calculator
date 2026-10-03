@@ -55,6 +55,9 @@ export interface CartItem extends CartItemContent {
   id: string
   addedAt: string
   quantity: number
+  // Ключ сервиса, в котором собрана позиция (см. services.ts); у позиций, сохранённых до появления нескольких
+  // сервисов, поля нет — они считаются позициями сервиса «Эмаль и шпон» (см. serviceByKey).
+  serviceKey?: string
 }
 
 const CART_STORAGE_KEY = 'door-configurator:cart'

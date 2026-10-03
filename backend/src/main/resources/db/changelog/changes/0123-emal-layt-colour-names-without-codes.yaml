@@ -1,0 +1,27 @@
+databaseChangeLog:
+  # Названия цветов «Эмаль Лайт» без значений RAL/NCS в интерфейсе (change add-emal-layt-blind-type-colours):
+  # «Эмаль кремовая» (CT-033, NCS 1002-Y20R), «Серый вереск» (CT-034, RAL 7047), «Белое облако» (CT-035,
+  # RAL 9003). Значения RAL/NCS в названиях не показываются — хранятся здесь, в комментарии.
+  - changeSet:
+      id: 0123-1-rename-emal-layt-colours-without-ral-ncs
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Эмаль кремовая' WHERE code = 'CT-033'
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Серый вереск' WHERE code = 'CT-034'
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Белое облако' WHERE code = 'CT-035'
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Эмаль кремовая (NCS 1002-Y20R)' WHERE code = 'CT-033'
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Серый вереск (RAL 7047)' WHERE code = 'CT-034'
+        - sql:
+            sql: >-
+              UPDATE colour_type SET name = 'Белое облако (RAL 9003)' WHERE code = 'CT-035'

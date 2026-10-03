@@ -33,6 +33,12 @@ public class FramePost {
     @JoinColumn(name = "post_type_id", nullable = false)
     private PostType postType;
 
+    // Опция высоты короба, к которой привязана позиция (см. change add-neo-75-frame); null — позиция действует
+    // при любой высоте (как у «ФАНТОМ», «КОМПЛАНАР», «НЕО»).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "height_option_id")
+    private LinerDimensionOption heightOption;
+
     @Column(nullable = false)
     private Integer quantity;
 

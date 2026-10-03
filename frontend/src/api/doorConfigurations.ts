@@ -15,7 +15,22 @@ import type {
   SpecificationExportRequestDto,
 } from './types'
 
-export async function fetchDoorConfigurations(): Promise<DoorConfigurationDto[]> {
+// Каталог большой (около 8 000 конфигураций) и общий для всех сервисов (каждый сервис фильтрует его по своему
+// прайс-листу, см. services.ts) — запрашивается один раз, повторные вызовы получают тот же Promise. При ошибке
+// кэш сбрасывается, чтобы следующий вызов мог повторить запрос.
+let doorConfigurationsPromise: Promise<DoorConfigurationDto[]> | null = null
+
+export function fetchDoorConfigurations(): Promise<DoorConfigurationDto[]> {
+  if (!doorConfigurationsPromise) {
+    doorConfigurationsPromise = loadDoorConfigurations().catch((error: unknown) => {
+      doorConfigurationsPromise = null
+      throw error
+    })
+  }
+  return doorConfigurationsPromise
+}
+
+async function loadDoorConfigurations(): Promise<DoorConfigurationDto[]> {
   const response = await fetch('/api/door-configurations')
   if (!response.ok) {
     throw new Error(`Не удалось загрузить каталог конфигураций (HTTP ${response.status})`)

@@ -152,9 +152,9 @@ const THICKNESS_REQUIRING_QUARTER_MM = 59
 const HEIGHT_GRID_FLOOR = 1900
 const HEIGHT_GRID_STEP = 50
 const CASCADE_STEP_PERCENT = 20
-// Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар» и «НЕО»
-// (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height).
-const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003']
+// Коды коробов, у которых высота ограничена диапазоном высоты полотна: «Компланар», «НЕО» и «NEO 75»
+// (см. change link-frame-neo-height-to-leaf-height, link-komplanar-height-to-leaf-height, add-neo-75-frame).
+const HEIGHT_RANGE_FRAME_TYPE_CODES = ['FT-002', 'FT-003', 'FT-004']
 // Коды коробов, у которых высота не выбирается из каталога, а всегда в точности равна высоте полотна:
 // «Фантом» (см. change mirror-fantom-frame-height-to-leaf-height) — у него вообще нет каталожных опций
 // высоты, в отличие от HEIGHT_RANGE_FRAME_TYPE_CODES.
@@ -166,14 +166,18 @@ const HEIGHT_MIRROR_FRAME_TYPE_CODES = ['FT-001']
 const LENGTH_RANGE_FRAME_EXTENSIONS_TYPE_CODES = [
   'FET-004', 'FET-005', 'FET-006', 'FET-007',
   'FET-008', 'FET-009', 'FET-010', 'FET-011', 'FET-012', 'FET-013',
+  // «Neo 100/190 мм» для «Эмаль Лайт» (см. change add-emal-layt-casings-extensions).
+  'FET-014', 'FET-015',
 ]
 // Коды наличников, у которых длина ограничена диапазоном высоты полотна — «Модо»/«Онда» (см. change
 // link-modo-onda-casing-length-to-leaf-height) и наличники короба «Компланар»: «Эво», «Авеню»/
 // «Авеню-реверс», «Аура»/«Аура-реверс», «Ария»/«Ария-реверс» (см. change
 // link-komplanar-casing-length-to-leaf-height) — тот же принцип, что и у добора «ТС», на той же оси
-// «Длина». Это все 9 существующих кодов door_casing_type.
+// «Длина». Это все 9 существующих кодов door_casing_type и «Light»/«Modo» для «Эмаль Лайт» (см. change
+// add-emal-layt-casings-extensions).
 const LENGTH_RANGE_DOOR_CASING_TYPE_CODES = [
   'DCT-001', 'DCT-002', 'DCT-003', 'DCT-004', 'DCT-005', 'DCT-006', 'DCT-007', 'DCT-008', 'DCT-009',
+  'DCT-010', 'DCT-011',
 ]
 
 // Одна позиция блока «Фурнитура» (см. change add-hardware-catalog) — независима от выбора конфигурации
@@ -375,7 +379,12 @@ interface PanelTypeStep {
 function resolvePanelTypeStep(
   configurations: DoorConfigurationDto[],
   panelTypeSelection: LeafPanelType | undefined,
+  fixedPanelType?: LeafPanelType,
 ): { panelTypeStep?: PanelTypeStep; resolvedPanelType: LeafPanelType | undefined } {
+  // Сервис с закреплённым типом (см. services.ts): шаг показывается всегда, с единственным выбранным вариантом.
+  if (fixedPanelType !== undefined) {
+    return { panelTypeStep: { visible: true, options: [fixedPanelType], value: fixedPanelType }, resolvedPanelType: fixedPanelType }
+  }
   const panelTypes = Array.from(
     new Set(configurations.map((configuration) => configuration.leaf.panelType).filter((type): type is LeafPanelType => Boolean(type))),
   )
@@ -530,6 +539,15 @@ function buildCascadeSteps(
   }
 
   return { steps, selectedConfiguration: candidates.length === 1 ? candidates[0] : undefined }
+}
+
+// Позиции короба, которые нужно показать в «Составе короба»: позиция без привязки к высоте показывается
+// всегда (как у «ФАНТОМ», «КОМПЛАНАР», «НЕО»), с привязкой — только если это подобранная по высоте полотна
+// опция высоты короба (см. change add-neo-75-frame: у «NEO 75» свой состав и длина на каждую высоту).
+function visibleFramePosts(component: ComponentCatalogDto, matchedHeightOptionId: number | undefined) {
+  return component.posts.filter(
+    (post) => post.heightOptionId === null || (matchedHeightOptionId !== undefined && post.heightOptionId === matchedHeightOptionId),
+  )
 }
 
 // Диапазон допустимой нестандартной длины/высоты по коллекции полотна — см. change
@@ -758,6 +776,9 @@ function pogonazhSurchargePercent(
 export interface ConfiguratorLoadRequest {
   request: SpecificationExportRequestDto
   requestedAt: number
+  // Сервис, в конфигураторе которого нужно открыть позицию (см. services.ts): запрос получает только
+  // конфигуратор этого сервиса (см. App.tsx).
+  serviceKey: string
 }
 
 interface ConfiguratorScreenProps {
@@ -785,10 +806,17 @@ interface ConfiguratorScreenProps {
   // sync-cart-tags-immediately-on-cascade-reset).
   onSyncEditedItemTags: (id: string, tags: string[]) => void
   onStopEditing: () => void
-  // Название файла прайс-листа сервиса — из каталога конфигураций (leaf.priceList; по принципу «один сервис
-  // = один источник» значение одно, берётся у первой конфигурации); null, пока каталог не загружен или пуст.
-  // App.tsx показывает его в шапке (см. change add-price-list-source). Передаётся стабильный setState.
-  onPriceListChange: (priceListName: string | null) => void
+  // Код прайс-листа сервиса (см. services.ts): конфигуратор показывает только конфигурации, у которых
+  // leaf.priceList.code совпадает с ним (один сервис = один прайс-лист, см. change add-emal-layt-service).
+  priceListCode: string
+  // Толщина полотна (мм) по умолчанию для сервиса (см. services.ts, defaultThicknessMm): выбирается автоматически
+  // после выбора модели, если толщина ещё не выбрана и у модели есть такая опция; не задана — не выбирается.
+  defaultThicknessMm?: number
+  // Тип полотна, всегда выбранный в сервисе (см. services.ts, fixedPanelType): группа «Тип полотна» показывается
+  // с единственной выбранной кнопкой, которую нельзя снять; не задан — поведение определяется каталогом.
+  fixedPanelType?: LeafPanelType
+  // false — переключатель «Двустороннее» скрыт (см. services.ts, allowDoubleSided); не задан — показывается.
+  allowDoubleSided?: boolean
 }
 
 function ConfiguratorScreen({
@@ -800,7 +828,10 @@ function ConfiguratorScreen({
   onSyncEditedItem,
   onSyncEditedItemTags,
   onStopEditing,
-  onPriceListChange,
+  priceListCode,
+  defaultThicknessMm,
+  fixedPanelType,
+  allowDoubleSided,
 }: ConfiguratorScreenProps) {
   // Ref на кнопку «Добавить в корзину» — только чтобы прочитать её координаты в момент клика
   // (getBoundingClientRect) для визуального эффекта «полёта» в App.tsx; на саму логику добавления не влияет.
@@ -828,7 +859,9 @@ function ConfiguratorScreen({
 
   const [reverseSelection, setReverseSelection] = useState<boolean | undefined>(undefined)
   const [hasQuarterSelection, setHasQuarterSelection] = useState<boolean | undefined>(undefined)
-  const [panelTypeSelection, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
+  const [panelTypeSelectionState, setPanelTypeSelection] = useState<LeafPanelType | undefined>(undefined)
+  // В сервисе с fixedPanelType тип полотна выбран всегда и не сбрасывается («Очистить», смена каскада).
+  const panelTypeSelection = fixedPanelType ?? panelTypeSelectionState
   const [mirrorFinishNeededSelection, setMirrorFinishNeededSelection] = useState<boolean | undefined>(undefined)
   const [mirrorFinishTypeId, setMirrorFinishTypeId] = useState<number | undefined>(undefined)
   const [glazingTypeId, setGlazingTypeId] = useState<number | undefined>(undefined)
@@ -867,17 +900,13 @@ function ConfiguratorScreen({
   const decorativeElementsRequestSeqRef = useRef(0)
 
   useEffect(() => {
-    onPriceListChange(configurations[0]?.leaf.priceList?.name ?? null)
-  }, [configurations, onPriceListChange])
-
-  useEffect(() => {
     let cancelled = false
     setCatalogLoading(true)
     setCatalogError(null)
     fetchDoorConfigurations()
       .then((data) => {
         if (!cancelled) {
-          setConfigurations(data)
+          setConfigurations(data.filter((configuration) => configuration.leaf.priceList?.code === priceListCode))
         }
       })
       .catch((error: unknown) => {
@@ -893,7 +922,7 @@ function ConfiguratorScreen({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [priceListCode])
 
   useEffect(() => {
     let cancelled = false
@@ -1098,7 +1127,7 @@ function ConfiguratorScreen({
     (configuration) => configuration.reverse === resolvedReverse && configuration.hasQuarter === resolvedHasQuarter,
   )
 
-  const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(hasQuarterFilteredConfigurations, panelTypeSelection)
+  const { panelTypeStep, resolvedPanelType } = resolvePanelTypeStep(hasQuarterFilteredConfigurations, panelTypeSelection, fixedPanelType)
   // Коллекция (и всё, что после неё) показывается только когда выбор типа полотна либо не нужен (один
   // вариант — panelTypeStep не отображается), либо клиент уже кликнул явно (см. правку пользователя) —
   // до этого момента resolvedPanelType уже молча резолвится в «Глухое» по умолчанию (см. ниже), но
@@ -1180,6 +1209,20 @@ function ConfiguratorScreen({
   // выполняется по отдельному полотну (см. change add-standalone-leaf-pricing) — само по себе
   // отсутствие короба/наличника/добора больше не блокирует появление цены.
   const leafTypeId = leafComponent?.type.id
+
+  // Толщина по умолчанию сервиса (см. defaultThicknessMm): как только модель полотна выбрана, а толщина нет,
+  // выбирается опция с этим значением; после сброса каскада (смена модели) выбирается заново.
+  useEffect(() => {
+    if (defaultThicknessMm === undefined || !leafComponent || selection.leaf.thicknessOptionId !== undefined) {
+      return
+    }
+    const defaultOption = leafComponent.dimensionOptions.find(
+      (option) => option.dimensionType.code === THICKNESS_TYPE_CODE && option.value === defaultThicknessMm,
+    )
+    if (defaultOption) {
+      updateSelection('leaf', { thicknessOptionId: defaultOption.id })
+    }
+  }, [defaultThicknessMm, leafComponent, selection.leaf.thicknessOptionId])
 
   // Если даже полотно ещё не определено, cascadeSteps заканчивается ровно тем шагом, который его
   // блокирует (buildCascadeSteps возвращается сразу же, как только очередной шаг требует явного
@@ -2153,6 +2196,7 @@ function ConfiguratorScreen({
   // не меняется (см. change restyle-configurator-per-figma).
   function renderFrameCard(step: CascadeStep) {
     const component = step.resolvedComponent
+    const visiblePosts = component ? visibleFramePosts(component, frameMatchedOption?.id) : []
     return (
       <Card
         key={step.key}
@@ -2183,12 +2227,12 @@ function ConfiguratorScreen({
             selectedId={step.selectedId}
             onChange={(id) => handleCascadeStepChange('frame', id)}
           />
-          {component && component.posts.length > 0 && (
+          {component && visiblePosts.length > 0 && (
             <List
               size="small"
               header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
               bordered
-              dataSource={component.posts}
+              dataSource={visiblePosts}
               renderItem={(post) => (
                 <List.Item>
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
@@ -2206,7 +2250,7 @@ function ConfiguratorScreen({
               )}
             />
           )}
-          {component && component.posts.length === 0 && component.colourOptions.length > 0 && (
+          {component && visiblePosts.length === 0 && component.colourOptions.length > 0 && (
             <List
               size="small"
               header={<Typography.Text type="secondary">Состав короба</Typography.Text>}
@@ -2339,6 +2383,9 @@ function ConfiguratorScreen({
     // полотно — раскладка блока «Параметры выбранного полотна» не меняется (см. change
     // restyle-configurator-per-figma).
     const component = step.resolvedComponent
+    // Коллекции без нестандартных размеров (например, «Эмаль Лайт», см. change add-emal-layt-service) — только
+    // стандартные варианты длины/высоты полотна: без сегмента «Другое» и поля «Нестандартное значение».
+    const customDimensionsAllowed = component?.customDimensionsAllowed !== false
     return (
       <Fragment key={step.key}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
@@ -2382,7 +2429,7 @@ function ConfiguratorScreen({
                   ...component.dimensionOptions
                     .filter((option) => option.dimensionType.code === LENGTH_TYPE_CODE)
                     .map((option) => ({ id: option.id, label: String(option.value) })),
-                  { id: CUSTOM_LENGTH_OPTION_ID, label: CUSTOM_OPTION_LABEL },
+                  ...(customDimensionsAllowed ? [{ id: CUSTOM_LENGTH_OPTION_ID, label: CUSTOM_OPTION_LABEL }] : []),
                 ]}
                 selectedId={selection.leaf.lengthOptionId ?? (customLengthMode ? CUSTOM_LENGTH_OPTION_ID : undefined)}
                 onChange={(id) => {
@@ -2395,29 +2442,31 @@ function ConfiguratorScreen({
                   }
                 }}
               />
-              <div>
-                <Space align="center">
-                  <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
-                  {dimensionRangeTag(component, LENGTH_TYPE_CODE)}
-                </Space>
-                <div style={{ marginTop: 4 }}>
-                  <InputNumber
-                    min={1}
-                    step={50}
-                    style={{ width: '100%' }}
-                    disabled={!customLengthMode}
-                    value={selection.leaf.customLengthValueMm}
-                    onChange={(value) => updateSelection('leaf', { customLengthValueMm: value ?? undefined })}
-                  />
+              {customDimensionsAllowed && (
+                <div>
+                  <Space align="center">
+                    <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
+                    {dimensionRangeTag(component, LENGTH_TYPE_CODE)}
+                  </Space>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      step={50}
+                      style={{ width: '100%' }}
+                      disabled={!customLengthMode}
+                      value={selection.leaf.customLengthValueMm}
+                      onChange={(value) => updateSelection('leaf', { customLengthValueMm: value ?? undefined })}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <OptionGroup
                 label="Высота (стандарт)"
                 options={[
                   ...component.dimensionOptions
                     .filter((option) => option.dimensionType.code === HEIGHT_TYPE_CODE)
                     .map((option) => ({ id: option.id, label: String(option.value) })),
-                  { id: CUSTOM_HEIGHT_OPTION_ID, label: CUSTOM_OPTION_LABEL },
+                  ...(customDimensionsAllowed ? [{ id: CUSTOM_HEIGHT_OPTION_ID, label: CUSTOM_OPTION_LABEL }] : []),
                 ]}
                 selectedId={selection.leaf.heightOptionId ?? (customHeightMode ? CUSTOM_HEIGHT_OPTION_ID : undefined)}
                 onChange={(id) => {
@@ -2430,22 +2479,24 @@ function ConfiguratorScreen({
                   }
                 }}
               />
-              <div>
-                <Space align="center">
-                  <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
-                  {dimensionRangeTag(component, HEIGHT_TYPE_CODE)}
-                </Space>
-                <div style={{ marginTop: 4 }}>
-                  <InputNumber
-                    min={1}
-                    step={50}
-                    style={{ width: '100%' }}
-                    disabled={!customHeightMode}
-                    value={selection.leaf.customHeightValueMm}
-                    onChange={(value) => updateSelection('leaf', { customHeightValueMm: value ?? undefined })}
-                  />
+              {customDimensionsAllowed && (
+                <div>
+                  <Space align="center">
+                    <Typography.Text type="secondary">Нестандартное значение:</Typography.Text>
+                    {dimensionRangeTag(component, HEIGHT_TYPE_CODE)}
+                  </Space>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      step={50}
+                      style={{ width: '100%' }}
+                      disabled={!customHeightMode}
+                      value={selection.leaf.customHeightValueMm}
+                      onChange={(value) => updateSelection('leaf', { customHeightValueMm: value ?? undefined })}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <OptionGroup
                 label="Толщина"
                 // Толщина 59мм физически изготавливается только с четвертью (см. change
@@ -2550,7 +2601,7 @@ function ConfiguratorScreen({
               <Switch checked={mirrorFinishNeededStep.value} onChange={handleMirrorFinishNeededChange} />
             </Space>
           )}
-          {(leafComponent?.colourOptions.length ?? 0) > 0 && (
+          {(leafComponent?.colourOptions.length ?? 0) > 0 && allowDoubleSided !== false && (
             <Space align="center">
               <Typography.Text>Двустороннее</Typography.Text>
               <Switch
@@ -2581,7 +2632,8 @@ function ConfiguratorScreen({
               }
               onChange={(id) => {
                 const option = LEAF_PANEL_TYPE_OPTIONS.find((candidate) => candidate.id === id)
-                if (option) {
+                // Закреплённый тип нельзя ни снять, ни «выбрать заново» (повторный выбор сбросил бы каскад).
+                if (option && fixedPanelType === undefined) {
                   handlePanelTypeChange(option.code)
                 }
               }}
