@@ -38,4 +38,8 @@ public class HardwareType implements CatalogType {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hardware_category_id", nullable = false)
     private HardwareCategory hardwareCategory;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "price_list_id", nullable = false)
+    private PriceList priceList;
 }

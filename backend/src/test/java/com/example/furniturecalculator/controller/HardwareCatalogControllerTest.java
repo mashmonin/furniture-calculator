@@ -52,6 +52,8 @@ class HardwareCatalogControllerTest {
                 .findFirst()
                 .orElseThrow();
         assertThat(wcLatch.unit()).isEqualTo("шт");
+        assertThat(wcLatch.priceList().code()).isEqualTo("PL-001");
+        assertThat(wcLatch.priceList().name()).isEqualTo("hausdoors_emal_i_shpon_rf_07_09_2026");
         assertThat(wcLatch.options()).hasSize(6);
         assertThat(wcLatch.options())
                 .anySatisfy(option -> {

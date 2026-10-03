@@ -1,0 +1,44 @@
+databaseChangeLog:
+  # H2-совместимая версия changes/0111-mirror-boolean-for-blind-leaf.yaml. Оригинал не редактируется.
+  # Используется только для профиля desktop (context "desktop" на include в db.changelog-master.yaml).
+  # Changeset'ы 0111-1 и 0111-2 идентичны оригиналу. Changeset 0111-3 (триггер на plpgsql) пропущен:
+  # H2 его не поддерживает, а правило «mirror_finish_option ссылается только на leaf_type с
+  # panel_type = BLIND» обеспечивает общий для обеих БД составной внешний ключ из changes/0114-….
+  - changeSet:
+      id: 0111-1-reclassify-mirrored-leaf-type-as-blind
+      author: furniture-calculator
+      comment: >-
+        Зеркало перестаёт быть отдельным значением panel_type «с зеркалом» (MIRRORED)
+        и становится опциональным исполнением глухого полотна. На момент написания
+        этого changeset panel_type = 'MIRRORED' было проставлено у leaf_type: LT-014,
+        LT-015, LT-016 (ЭЛЕГАНТ 01/02/021), LT-020, LT-021, LT-022 (ГАРМОНИЯ 01/02/021),
+        LT-026..LT-029 (СВОБОДА 01/02/021/03), LT-034, LT-035 (ГЕОМЕТРИЯ 01/02),
+        LT-038 (СИЯНИЕ 01), LT-039..LT-044 (СИБИРЬ 01-06), LT-045 (ФАНТОМ 01) — все
+        переклассифицируются в «глухое» (BLIND); их строки mirror_finish_option не
+        меняются. UPDATE ниже не привязан к конкретным id, чтобы корректно
+        переклассифицировать все строки MIRRORED независимо от состояния данных на
+        момент фактического применения changeset.
+      changes:
+        - sql:
+            sql: >-
+              UPDATE leaf_type SET panel_type = 'BLIND' WHERE panel_type = 'MIRRORED'
+
+  - changeSet:
+      id: 0111-2-narrow-leaf-type-panel-type-check
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type DROP CONSTRAINT chk_leaf_type_panel_type
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type ADD CONSTRAINT chk_leaf_type_panel_type
+              CHECK (panel_type IN ('BLIND', 'GLAZED'))
+      rollback:
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type DROP CONSTRAINT chk_leaf_type_panel_type
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type ADD CONSTRAINT chk_leaf_type_panel_type
+              CHECK (panel_type IN ('BLIND', 'GLAZED', 'MIRRORED'))

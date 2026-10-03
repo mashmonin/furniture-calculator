@@ -1,0 +1,71 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0114-1-drop-mirror-finish-option-blind-trigger
+      author: furniture-calculator
+      dbms: postgresql
+      comment: >-
+        Принцип проекта — в БД нет триггеров и процедурной логики (см. CLAUDE.md). Триггер и функция
+        из 0111-3 заменяются составным внешним ключом (0114-2). Выполняется только на PostgreSQL:
+        на H2 (desktop) триггер никогда не создавался.
+      changes:
+        - sql:
+            sql: >-
+              DROP TRIGGER IF EXISTS trg_mirror_finish_option_leaf_type_blind ON mirror_finish_option
+        - sql:
+            sql: >-
+              DROP FUNCTION IF EXISTS chk_mirror_finish_option_leaf_type_blind()
+      rollback:
+        - sql:
+            splitStatements: false
+            sql: >-
+              CREATE FUNCTION chk_mirror_finish_option_leaf_type_blind() RETURNS trigger AS $$
+              BEGIN
+                IF (SELECT lt.panel_type FROM leaf_type lt WHERE lt.id = NEW.leaf_type_id) <> 'BLIND' THEN
+                  RAISE EXCEPTION 'mirror_finish_option.leaf_type_id must reference a leaf_type with panel_type = BLIND'
+                    USING ERRCODE = 'check_violation';
+                END IF;
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql
+        - sql:
+            sql: >-
+              CREATE TRIGGER trg_mirror_finish_option_leaf_type_blind
+              BEFORE INSERT OR UPDATE OF leaf_type_id ON mirror_finish_option
+              FOR EACH ROW EXECUTE FUNCTION chk_mirror_finish_option_leaf_type_blind()
+
+  - changeSet:
+      id: 0114-2-mirror-finish-option-requires-blind-leaf-type-fk
+      author: furniture-calculator
+      comment: >-
+        Зеркало доступно только глухим полотнам — mirror_finish_option ДОЛЖЕН ссылаться исключительно
+        на leaf_type с panel_type = 'BLIND'. Правило обеспечивается составным внешним ключом
+        (leaf_type_id, leaf_panel_type) -> leaf_type(id, panel_type), где leaf_panel_type жёстко равен
+        'BLIND'. Колонка leaf_panel_type служебная, в JPA-сущности не маппится.
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type ADD CONSTRAINT uk_leaf_type_id_panel_type UNIQUE (id, panel_type)
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option ADD COLUMN leaf_panel_type VARCHAR(20) DEFAULT 'BLIND' NOT NULL
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option ADD CONSTRAINT chk_mirror_finish_option_leaf_panel_type_blind
+              CHECK (leaf_panel_type = 'BLIND')
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option ADD CONSTRAINT fk_mirror_finish_option_leaf_type_blind
+              FOREIGN KEY (leaf_type_id, leaf_panel_type) REFERENCES leaf_type (id, panel_type)
+      rollback:
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option DROP CONSTRAINT fk_mirror_finish_option_leaf_type_blind
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option DROP CONSTRAINT chk_mirror_finish_option_leaf_panel_type_blind
+        - sql:
+            sql: >-
+              ALTER TABLE mirror_finish_option DROP COLUMN leaf_panel_type
+        - sql:
+            sql: >-
+              ALTER TABLE leaf_type DROP CONSTRAINT uk_leaf_type_id_panel_type

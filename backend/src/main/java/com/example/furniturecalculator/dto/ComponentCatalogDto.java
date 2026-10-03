@@ -28,5 +28,8 @@ public record ComponentCatalogDto(
         // пустой список. Полные данные (длина, цены) отдаются отдельным каталогом
         // (GET /api/decorative-elements-catalog, см. decorative-element-catalog) — здесь только ссылки,
         // тем же принципом, что и mirrorFinishOptions/glazingOptions.
-        List<ReferenceDto> decorativeElements) {
+        List<ReferenceDto> decorativeElements,
+        // Прайс-лист (источник — название файла), которому принадлежит коллекция полотна — заполняется
+        // только для leaf-компонента (см. change add-price-list-source); для остальных компонентов всегда null.
+        PriceListDto priceList) {
 }

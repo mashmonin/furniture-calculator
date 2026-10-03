@@ -34,6 +34,7 @@ import com.example.furniturecalculator.domain.MirrorFinishOption;
 import com.example.furniturecalculator.domain.MirrorFinishType;
 import com.example.furniturecalculator.domain.PogonazhSurchargeRule;
 import com.example.furniturecalculator.domain.PostType;
+import com.example.furniturecalculator.domain.PriceList;
 
 // Сущности домена не имеют публичных конструкторов/сеттеров (только Hibernate field-access),
 // поэтому тестовые фикстуры собираются через ReflectionTestUtils.
@@ -50,7 +51,16 @@ public final class TestEntities {
     }
 
     public static LeafCollection leafCollection(long id) {
-        return referenceType(LeafCollection.class, id);
+        LeafCollection collection = referenceType(LeafCollection.class, id);
+        ReflectionTestUtils.setField(collection, "priceList", priceList(1L));
+        return collection;
+    }
+
+    public static PriceList priceList(long id) {
+        PriceList priceList = referenceType(PriceList.class, id);
+        ReflectionTestUtils.setField(priceList, "code", "PL-00" + id);
+        ReflectionTestUtils.setField(priceList, "name", "hausdoors_emal_i_shpon_rf_07_09_2026");
+        return priceList;
     }
 
     public static FrameType frameType(long id) {
@@ -285,6 +295,7 @@ public final class TestEntities {
         HardwareType type = referenceType(HardwareType.class, id);
         ReflectionTestUtils.setField(type, "unit", "шт");
         ReflectionTestUtils.setField(type, "hardwareCategory", category);
+        ReflectionTestUtils.setField(type, "priceList", priceList(1L));
         return type;
     }
 
