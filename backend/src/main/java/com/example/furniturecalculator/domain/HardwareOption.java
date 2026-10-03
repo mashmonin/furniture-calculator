@@ -34,6 +34,9 @@ public class HardwareOption {
     @Column(name = "dealer_price", nullable = false)
     private BigDecimal dealerPrice;
 
+    // Артикул цветового варианта — необязательный (см. change add-emal-layt-hardware).
+    private String article;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hardware_type_id", nullable = false)
     private HardwareType hardwareType;

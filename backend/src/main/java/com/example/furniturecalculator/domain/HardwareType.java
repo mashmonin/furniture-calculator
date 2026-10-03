@@ -35,6 +35,10 @@ public class HardwareType implements CatalogType {
     @Column(name = "short_name")
     private String shortName;
 
+    // Бренд позиции (AGB, ARMADILLO, PUNTO, FUARO) — необязательный: у фурнитуры прайс-листа «Эмаль и шпон»
+    // не задан (см. change add-emal-layt-hardware).
+    private String brand;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hardware_category_id", nullable = false)
     private HardwareCategory hardwareCategory;

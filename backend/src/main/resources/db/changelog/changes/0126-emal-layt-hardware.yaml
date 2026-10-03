@@ -1,0 +1,96 @@
+databaseChangeLog:
+  # Фурнитура прайс-листа «Эмаль Лайт» hausdoors_emal_layt_tsfo_07_09_2026 (PL-002) — change add-emal-layt-hardware:
+  # 7 категорий по разделам файла, 13 типов и 22 цветовых варианта с брендом и артикулом. Первая цифра цены в
+  # прайсе — дилерская, вторая — розничная. Позиции, совпадающие по названию с фурнитурой «Эмаль и шпон»
+  # (AGB, FUARO, PUNTO), заводятся отдельными типами: наборы цветов и артикулы другие. Код цвета в конце
+  # названия строки прайса (BL, MWSC-33) в названии типа не пишется — цвет это отдельный вариант.
+  # Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0126-1-insert-emal-layt-hardware-categories
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_category (code, name)
+              VALUES
+                ('HWG-007', 'Петли скрытые Armadillo'),
+                ('HWG-008', 'Петли скрытые AGB'),
+                ('HWG-009', 'Петли универсальные флажковые'),
+                ('HWG-010', 'Замки AGB'),
+                ('HWG-011', 'Замки PUNTO'),
+                ('HWG-012', 'Цилиндровые механизмы'),
+                ('HWG-013', 'Упоры дверные')
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM hardware_category WHERE code IN ('HWG-007', 'HWG-008', 'HWG-009', 'HWG-010', 'HWG-011', 'HWG-012', 'HWG-013')
+
+  - changeSet:
+      id: 0126-2-insert-emal-layt-hardware-types
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_type (code, name, unit, hardware_category_id, brand, price_list_id)
+              SELECT v.code, v.name, 'шт', hc.id, v.brand, pl.id
+              FROM (VALUES
+                ('HWT-021', 'ARMADILLO скрытая петля U3D2000.TG универсальная', 'HWG-007', 'ARMADILLO'),
+                ('HWT-022', 'AGB скрытая петля Eclipse 2.2 с декор.накладками, универсальная, 110х30х20', 'HWG-008', 'AGB'),
+                ('HWT-023', 'ARMADILLO Петля универсальная флажковая FL.IN3800.US /квадратная', 'HWG-009', 'ARMADILLO'),
+                ('HWT-024', 'ARMADILLO Петля универсальная флажковая FL.IN3800.UR /круглая', 'HWG-009', 'ARMADILLO'),
+                ('HWT-025', 'AGB защелка магнитная под завертку WC 96 мм Mediana Polaris 2XT (с отв.планкой Minimal XT)', 'HWG-010', 'AGB'),
+                ('HWT-026', 'AGB защелка магнитная под цилиндр 85 мм Mediana Polaris 2XT (с отв.планкой Minimal XT)', 'HWG-010', 'AGB'),
+                ('HWT-027', 'PUNTO Магнитная защелка врезная сантехническая ML96WC', 'HWG-011', 'PUNTO'),
+                ('HWT-028', 'PUNTO Магнитная защелка врезная под цилиндр ML85', 'HWG-011', 'PUNTO'),
+                ('HWT-029', 'FUARO Цилиндровый механизм ключ-завертка 1000ZMKnob60 (25+10+25)', 'HWG-012', 'FUARO'),
+                ('HWT-030', 'FUARO Цилиндровый механизм ключ-ключ 1000ZAKey60 (25+10+25)', 'HWG-012', 'FUARO'),
+                ('HWT-031', 'PUNTO Цилиндровый механизм ключ-завертка A2002Knob60 (25+10+25)', 'HWG-012', 'PUNTO'),
+                ('HWT-032', 'PUNTO Цилиндровый механизм ключ-ключ A2000Key60 (25+10+25)', 'HWG-012', 'PUNTO'),
+                ('HWT-033', 'FUARO Упор дверной торцевой RIGEL16-140', 'HWG-013', 'FUARO')
+              ) AS v(code, name, category_code, brand)
+              JOIN hardware_category hc ON hc.code = v.category_code
+              CROSS JOIN price_list pl
+              WHERE pl.code = 'PL-002'
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM hardware_type WHERE code IN ('HWT-021', 'HWT-022', 'HWT-023', 'HWT-024', 'HWT-025', 'HWT-026', 'HWT-027', 'HWT-028', 'HWT-029', 'HWT-030', 'HWT-031', 'HWT-032', 'HWT-033')
+
+  - changeSet:
+      id: 0126-3-insert-emal-layt-hardware-options
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO hardware_option (colour_name, article, retail_price, dealer_price, hardware_type_id)
+              SELECT v.colour_name, v.article, v.retail_price, v.dealer_price, ht.id
+              FROM (VALUES
+                ('HWT-021', 'Матовый хром', 'U3D2000.TG SC', 1337, 891),
+                ('HWT-021', 'Черный', 'U3D2000.TG BL', 1337, 891),
+                ('HWT-022', 'Матовый хром', 'E30200.85.34.640', 2398, 1598),
+                ('HWT-022', 'Черный', 'E30200.85.93.640', 2996, 1997),
+                ('HWT-023', 'Матовый хром', 'FL.IN3800.US MWSC-33', 942, 628),
+                ('HWT-023', 'Черный', 'FL.IN3800.US BL', 942, 628),
+                ('HWT-024', 'Матовый хром', 'FL.IN3800.UR MWSC-33', 885, 590),
+                ('HWT-024', 'Черный', 'FL.IN3800.UR BL', 885, 590),
+                ('HWT-025', 'Матовый хром', 'B06102.50.34.640', 2048, 1365),
+                ('HWT-025', 'Черный', 'B06102.50.93.640', 2154, 1436),
+                ('HWT-026', 'Матовый хром', 'B06103.50.34.640', 2172, 1448),
+                ('HWT-026', 'Черный', 'B06103.50.93.640', 2298, 1532),
+                ('HWT-027', 'Черный', '50/BL BL', 575, 383),
+                ('HWT-027', 'Сатин.хром', '50/BL SSC-16', 575, 383),
+                ('HWT-028', 'Черный', '50/BL BL', 575, 383),
+                ('HWT-028', 'Сатин.хром', '50/BL SSC-16', 575, 383),
+                ('HWT-029', 'Черный', '100 ZM/60', 555, 370),
+                ('HWT-030', 'Черный', '100 ZA/60', 494, 329),
+                ('HWT-031', 'Никель', 'A202/60', 512, 341),
+                ('HWT-032', 'Никель', 'A200/60', 468, 312),
+                ('HWT-033', 'Черный', '(FB 140-16) BL-24', 269, 179),
+                ('HWT-033', 'Матовый никель', '(FB 140-16) SN-3', 269, 179)
+              ) AS v(type_code, colour_name, article, retail_price, dealer_price)
+              JOIN hardware_type ht ON ht.code = v.type_code
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM hardware_option
+              WHERE hardware_type_id IN (SELECT id FROM hardware_type WHERE code IN ('HWT-021', 'HWT-022', 'HWT-023', 'HWT-024', 'HWT-025', 'HWT-026', 'HWT-027', 'HWT-028', 'HWT-029', 'HWT-030', 'HWT-031', 'HWT-032', 'HWT-033'))

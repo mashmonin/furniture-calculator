@@ -38,7 +38,12 @@ class HardwareCatalogControllerTest {
                 objectMapper.readValue(body, new TypeReference<List<HardwareCategoryDto>>() {
                 });
 
-        assertThat(catalog).hasSize(6);
+        // Шесть категорий прайс-листа «Эмаль и шпон»; ещё семь категорий принадлежат прайс-листу «Эмаль Лайт»
+        // (см. change add-emal-layt-hardware, EmalLaytHardwareCatalogIntegrationTest).
+        assertThat(catalog.stream()
+                .filter(c -> c.types().stream().anyMatch(t -> "PL-001".equals(t.priceList().code()))))
+                .hasSize(6);
+        assertThat(catalog).hasSize(13);
 
         HardwareCategoryDto locksCategory = catalog.stream()
                 .filter(c -> "HWG-001".equals(c.category().code()))
