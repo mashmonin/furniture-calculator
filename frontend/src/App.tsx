@@ -270,6 +270,7 @@ function App() {
               onSyncEditedItem={syncEditedCartItem}
               onSyncEditedItemTags={syncEditedCartItemTags}
               onStopEditing={stopEditingCartItem}
+              onReturnToCart={() => setScreen('cart')}
             />
           </div>
         ))}

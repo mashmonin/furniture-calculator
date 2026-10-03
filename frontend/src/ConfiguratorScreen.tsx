@@ -12,7 +12,6 @@ import {
   Statistic,
   Switch,
   Tag,
-  Tooltip,
   Typography,
 } from 'antd'
 import { DeleteOutlined } from '@ant-design/icons'
@@ -804,10 +803,13 @@ interface ConfiguratorScreenProps {
   resetSignal: number
   // editingItemId — id позиции корзины, открытой через «Посмотреть» (см. order-cart-ui, «Живая
   // синхронизация конфигурации, открытой из корзины»); null — обычный режим «добавить новую». Пока задан,
-  // любое изменение конфигурации сразу пишется в эту же позицию через onSyncEditedItem, а кнопка «Добавить
-  // в корзину» недоступна (см. handleAddToCart). onStopEditing вызывается из handleClearAll — сбрасывает
-  // editingItemId в App.tsx, возвращая обычный режим.
+  // любое изменение конфигурации сразу пишется в эту же позицию через onSyncEditedItem, а вместо кнопки
+  // «Добавить в корзину» показывается «Вернуться в корзину» (см. onReturnToCart). onStopEditing вызывается из
+  // handleClearAll — сбрасывает editingItemId в App.tsx, возвращая обычный режим.
   editingItemId: string | null
+  // Переход на экран «Корзина заказа» — по кнопке «Вернуться в корзину» в режиме редактирования позиции; режим
+  // редактирования при этом не завершается (изменения уже сохранены автоматически).
+  onReturnToCart: () => void
   onSyncEditedItem: (id: string, content: CartItemContent) => void
   // onSyncEditedItemTags — частичная синхронизация: обновляет только attributeTags позиции, не дожидаясь
   // валидного content от buildCartItemContent() (см. «Живая синхронизация» ниже и change
@@ -836,6 +838,7 @@ function ConfiguratorScreen({
   onSyncEditedItem,
   onSyncEditedItemTags,
   onStopEditing,
+  onReturnToCart,
   priceListCode,
   defaultThicknessMm,
   fixedPanelType,
@@ -2928,24 +2931,17 @@ function ConfiguratorScreen({
                       Вы открыли позицию из корзины — изменения сохраняются в неё автоматически
                     </Typography.Text>
                   )}
-                  <Tooltip
-                    title={
-                      editingItemId
-                        ? 'Изменения уже сохраняются в открытую позицию корзины — нажмите «Очистить», чтобы начать новую'
-                        : undefined
-                    }
-                  >
-                    <Button
-                      ref={addToCartButtonRef}
-                      type="primary"
-                      block
-                      disabled={Boolean(editingItemId)}
-                      style={{ marginTop: editingItemId ? 8 : 16 }}
-                      onClick={handleAddToCart}
-                    >
+                  {editingItemId ? (
+                    // В режиме редактирования новую позицию добавлять не нужно (изменения уже сохраняются в
+                    // открытую) — вместо заблокированной «Добавить в корзину» кнопка возврата на экран корзины.
+                    <Button type="primary" block style={{ marginTop: 8 }} onClick={onReturnToCart}>
+                      Вернуться в корзину
+                    </Button>
+                  ) : (
+                    <Button ref={addToCartButtonRef} type="primary" block style={{ marginTop: 16 }} onClick={handleAddToCart}>
                       Добавить в корзину
                     </Button>
-                  </Tooltip>
+                  )}
                 </>
               )}
               {!pricingError && !pricingResult && pricingLoading && (

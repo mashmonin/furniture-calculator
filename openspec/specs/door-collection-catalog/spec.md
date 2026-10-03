@@ -56,7 +56,7 @@ Collection_dimension_range ДОЛЖЕН (SHALL) ссылаться ровно н
 - **WHEN** для collection и liner_dimension_type нет строки collection_dimension_range
 - **THEN** это не считается ошибкой — отсутствие диапазона означает, что для этой пары (коллекция, ось) проверка диапазона не выполняется
 
-### Requirement: Коллекции «Эмаль Лайт»
+### Requirement: Коллекции «Эмаль лайт»
 В справочнике collection ДОЛЖНЫ (SHALL) существовать коллекции MONO (`LC-010`), QUADRO (`LC-011`), VENEZIA (`LC-012`) и REFLEX (`LC-013`).
 
 #### Scenario: Коллекции заведены
