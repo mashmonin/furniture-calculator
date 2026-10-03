@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Empty, InputNumber, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, UpOutlined } from '@ant-design/icons'
 import { exportOrder } from './api/doorConfigurations'
+import { saveBlob } from './saveBlob'
 import type { CartDetailRow, CartItem } from './cart'
 import { totalCartQuantity } from './cart'
 import { formatMoney, formatMoneyWithCurrency } from './format'
@@ -159,12 +160,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
       })),
     )
       .then(({ blob, filename }) => {
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = filename
-        link.click()
-        URL.revokeObjectURL(url)
+        return saveBlob(blob, filename)
       })
       .catch((error: unknown) => {
         setExportError(error instanceof Error ? error.message : 'Не удалось сформировать файл заказа')
