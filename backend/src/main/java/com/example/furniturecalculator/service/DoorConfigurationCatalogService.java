@@ -30,6 +30,7 @@ import com.example.furniturecalculator.dto.DimensionRangeDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
 import com.example.furniturecalculator.dto.FramePostDto;
 import com.example.furniturecalculator.dto.LinerDimensionOptionDto;
+import com.example.furniturecalculator.dto.PriceListDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.ColourOptionRepository;
 import com.example.furniturecalculator.repository.CollectionDimensionRangeRepository;
@@ -142,7 +143,8 @@ public class DoorConfigurationCatalogService {
                 leafType.getPanelType(),
                 glazingOptions,
                 dimensionRanges,
-                decorativeElements);
+                decorativeElements,
+                PriceListDto.from(leafType.getCollection().getPriceList()));
     }
 
     private ComponentCatalogDto buildFrameComponent(FrameType frameType) {
@@ -155,7 +157,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 component.type(), component.collection(), component.dimensionOptions(), component.colourOptions(), posts,
-                List.of(), null, List.of(), List.of(), List.of());
+                List.of(), null, List.of(), List.of(), List.of(), null);
     }
 
     private ComponentCatalogDto buildComponent(CatalogType type) {
@@ -171,7 +173,7 @@ public class DoorConfigurationCatalogService {
                 .toList();
         return new ComponentCatalogDto(
                 ReferenceDto.from(type), null, dimensionOptions, colourOptions, List.of(), List.of(), null, List.of(), List.of(),
-                List.of());
+                List.of(), null);
     }
 
     private List<LinerDimensionOption> dimensionOptionsFor(CatalogType type) {
