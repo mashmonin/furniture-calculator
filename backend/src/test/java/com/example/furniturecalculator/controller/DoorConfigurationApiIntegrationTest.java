@@ -152,7 +152,9 @@ class DoorConfigurationApiIntegrationTest {
 
     @Test
     void glazing_type_без_наименования_отклоняется() {
-        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO glazing_type DEFAULT VALUES"))
+        // surcharge_percent задан, чтобы проверка падала именно из-за отсутствия наименования, а не из-за
+        // другого обязательного поля.
+        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO glazing_type (surcharge_percent) VALUES (0)"))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -456,7 +458,9 @@ class DoorConfigurationApiIntegrationTest {
     }
 
     private Long insertGlazingType(String name) {
-        return jdbcTemplate.queryForObject("INSERT INTO glazing_type (name) VALUES (?) RETURNING id", Long.class, name);
+        // surcharge_percent обязателен (см. миграцию 0091); 0 — без наценки за вид остекления.
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO glazing_type (name, surcharge_percent) VALUES (?, 0) RETURNING id", Long.class, name);
     }
 
     private Long insertGlazingOption(Long glazingTypeId, Long leafTypeId) {
