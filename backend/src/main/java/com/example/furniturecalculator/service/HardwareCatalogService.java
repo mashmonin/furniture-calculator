@@ -13,6 +13,7 @@ import com.example.furniturecalculator.domain.HardwareType;
 import com.example.furniturecalculator.dto.HardwareCategoryDto;
 import com.example.furniturecalculator.dto.HardwareOptionDto;
 import com.example.furniturecalculator.dto.HardwareTypeDto;
+import com.example.furniturecalculator.dto.PriceListDto;
 import com.example.furniturecalculator.dto.ReferenceDto;
 import com.example.furniturecalculator.repository.HardwareCategoryRepository;
 import com.example.furniturecalculator.repository.HardwareOptionRepository;
@@ -50,7 +51,7 @@ public class HardwareCatalogService {
 
     private HardwareTypeDto toDto(HardwareType type, List<HardwareOption> options) {
         List<HardwareOptionDto> optionDtos = options.stream().map(this::toDto).toList();
-        return new HardwareTypeDto(ReferenceDto.from(type), type.getUnit(), optionDtos);
+        return new HardwareTypeDto(ReferenceDto.from(type), type.getUnit(), PriceListDto.from(type.getPriceList()), optionDtos);
     }
 
     private HardwareOptionDto toDto(HardwareOption option) {

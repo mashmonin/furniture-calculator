@@ -8,11 +8,11 @@ import CartScreen from './CartScreen'
 import { loadCart, saveCart, totalCartQuantity, type CartItem, type CartItemContent } from './cart'
 import './App.css'
 
-// Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения») — статичный текст, без
-// отдельного API: подпись прайс-листа задаётся здесь же и правится однострочно при смене прайс-листа
-// (см. design.md изменения restyle-configurator-per-figma, риск «Хардкод текста подписи прайс-листа»).
+// Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения»): название приложения — статичный
+// текст; название файла прайс-листа приходит из каталога конфигураций (см. change add-price-list-source),
+// на фронтенде остаётся только префикс подписи.
 const APP_TITLE = 'Я-КОНФИГУРАТОР'
-const PRICE_LIST_LABEL = 'Прайс-лист: hausdoors_emal_i_shpon_rf_13_07_2026'
+const PRICE_LIST_PREFIX = 'Прайс-лист: '
 
 // Длительность визуального эффекта «полёта» добавленной конфигурации к пункту «Корзина заказа» (см. flight
 // ниже) — единственный источник правды для длительности: передаётся в CSS через инлайновый
@@ -29,6 +29,9 @@ type AppScreen = 'configurator' | 'cart'
 function App() {
   const [screen, setScreen] = useState<AppScreen>('configurator')
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckDto | null>(null)
+  // Название файла прайс-листа текущего сервиса — приходит из каталога, загружаемого ConfiguratorScreen;
+  // null, пока каталог не загружен или пуст (подпись в шапке тогда не показывается).
+  const [priceListName, setPriceListName] = useState<string | null>(null)
   // Инициализация из localStorage один раз при монтировании (см. cart.ts, loadCart) — не эффектом, чтобы
   // не было промежуточного рендера с пустой корзиной перед первым чтением.
   const [cart, setCart] = useState<CartItem[]>(() => loadCart())
@@ -151,7 +154,9 @@ function App() {
           {/* Подпись прайс-листа относится к каталогу конфигуратора — показывается только на экране «Эмаль
               и шпон»; счётчик «Корзина» — только на экране «Корзина заказа» (см. правку пользователя;
               переключение между экранами по-прежнему доступно через левое меню на обоих экранах). */}
-          {screen === 'configurator' && <Typography.Text strong>{PRICE_LIST_LABEL}</Typography.Text>}
+          {screen === 'configurator' && priceListName && (
+            <Typography.Text strong>{`${PRICE_LIST_PREFIX}${priceListName}`}</Typography.Text>
+          )}
           {screen === 'cart' && (
             <Badge count={totalCartQuantity(cart)} showZero size="small" offset={[6, 0]}>
               <Space size={4}>
@@ -218,6 +223,7 @@ function App() {
             onSyncEditedItem={syncEditedCartItem}
             onSyncEditedItemTags={syncEditedCartItemTags}
             onStopEditing={stopEditingCartItem}
+            onPriceListChange={setPriceListName}
           />
         </div>
         <div style={{ display: screen === 'cart' ? 'contents' : 'none' }}>

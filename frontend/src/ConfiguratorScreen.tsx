@@ -785,6 +785,10 @@ interface ConfiguratorScreenProps {
   // sync-cart-tags-immediately-on-cascade-reset).
   onSyncEditedItemTags: (id: string, tags: string[]) => void
   onStopEditing: () => void
+  // Название файла прайс-листа сервиса — из каталога конфигураций (leaf.priceList; по принципу «один сервис
+  // = один источник» значение одно, берётся у первой конфигурации); null, пока каталог не загружен или пуст.
+  // App.tsx показывает его в шапке (см. change add-price-list-source). Передаётся стабильный setState.
+  onPriceListChange: (priceListName: string | null) => void
 }
 
 function ConfiguratorScreen({
@@ -796,6 +800,7 @@ function ConfiguratorScreen({
   onSyncEditedItem,
   onSyncEditedItemTags,
   onStopEditing,
+  onPriceListChange,
 }: ConfiguratorScreenProps) {
   // Ref на кнопку «Добавить в корзину» — только чтобы прочитать её координаты в момент клика
   // (getBoundingClientRect) для визуального эффекта «полёта» в App.tsx; на саму логику добавления не влияет.
@@ -860,6 +865,10 @@ function ConfiguratorScreen({
   const [decorativeElementsPricingLoading, setDecorativeElementsPricingLoading] = useState(false)
   const [decorativeElementsPricingError, setDecorativeElementsPricingError] = useState<string | null>(null)
   const decorativeElementsRequestSeqRef = useRef(0)
+
+  useEffect(() => {
+    onPriceListChange(configurations[0]?.leaf.priceList?.name ?? null)
+  }, [configurations, onPriceListChange])
 
   useEffect(() => {
     let cancelled = false

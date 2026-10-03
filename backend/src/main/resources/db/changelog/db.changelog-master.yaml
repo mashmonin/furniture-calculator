@@ -391,3 +391,6 @@ databaseChangeLog:
   - include:
       file: changes/0114-mirror-finish-option-blind-leaf-fk.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0115-price-list-source.yaml
+      relativeToChangelogFile: true

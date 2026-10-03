@@ -66,6 +66,8 @@ class HardwareCatalogServiceTest {
         assertThat(categoryDto.types()).hasSize(1);
         assertThat(categoryDto.types().get(0).type().id()).isEqualTo(2L);
         assertThat(categoryDto.types().get(0).unit()).isEqualTo("шт");
+        assertThat(categoryDto.types().get(0).priceList().code()).isEqualTo("PL-001");
+        assertThat(categoryDto.types().get(0).priceList().name()).isEqualTo("hausdoors_emal_i_shpon_rf_07_09_2026");
         assertThat(categoryDto.types().get(0).options()).hasSize(2);
         assertThat(categoryDto.types().get(0).options())
                 .extracting("colourName")

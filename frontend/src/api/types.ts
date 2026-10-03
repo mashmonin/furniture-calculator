@@ -5,6 +5,14 @@ export interface ReferenceDto {
   shortName: string | null
 }
 
+// Прайс-лист (источник данных каталога) — name это название файла прайса, без префикса «Прайс-лист:»
+// (подпись добавляется в интерфейсе, см. change add-price-list-source).
+export interface PriceListDto {
+  id: number
+  code: string
+  name: string
+}
+
 export interface LinerDimensionOptionDto {
   id: number
   dimensionType: ReferenceDto
@@ -50,6 +58,9 @@ export interface ComponentCatalogDto {
   // (см. change add-decorative-elements-plinth), пусто для остальных компонентов и для коллекции «Фантом».
   // Полные данные (длина, цены) — в отдельно загружаемом каталоге декоративных элементов.
   decorativeElements: ReferenceDto[]
+  // Прайс-лист коллекции полотна — заполняется только для leaf-компонента (см. change add-price-list-source),
+  // null для остальных компонентов.
+  priceList: PriceListDto | null
 }
 
 export interface DoorConfigurationDto {
@@ -233,6 +244,8 @@ export interface HardwareOptionDto {
 export interface HardwareTypeDto {
   type: ReferenceDto
   unit: string
+  // Прайс-лист, которому принадлежит тип фурнитуры (см. change add-price-list-source).
+  priceList: PriceListDto
   options: HardwareOptionDto[]
 }
 

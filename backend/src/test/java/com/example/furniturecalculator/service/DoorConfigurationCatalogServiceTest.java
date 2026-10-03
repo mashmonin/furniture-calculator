@@ -90,6 +90,9 @@ class DoorConfigurationCatalogServiceTest {
         assertThat(dto.doorCasing()).isNull();
         assertThat(dto.frameExtensions()).isNull();
         assertThat(dto.leaf().decorativeElements()).isEmpty();
+        assertThat(dto.leaf().priceList()).isNotNull();
+        assertThat(dto.leaf().priceList().code()).isEqualTo("PL-001");
+        assertThat(dto.leaf().priceList().name()).isEqualTo("hausdoors_emal_i_shpon_rf_07_09_2026");
     }
 
     // Допустимые декоративные элементы (см. change add-decorative-elements-plinth) — заполняются только

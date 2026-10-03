@@ -1,0 +1,123 @@
+databaseChangeLog:
+  # Справочник прайс-листов (источников данных каталога): название файла прайса. Двери привязываются
+  # к прайс-листу через коллекцию, фурнитура — через тип фурнитуры (см. change add-price-list-source).
+  # Только декларативные ограничения (FK/NOT NULL/UNIQUE), без триггеров — файл одинаково выполняется
+  # на PostgreSQL и на H2 (desktop).
+  - changeSet:
+      id: 0115-1-create-price-list
+      author: furniture-calculator
+      changes:
+        - createTable:
+            tableName: price_list
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_price_list_code
+
+  - changeSet:
+      id: 0115-2-insert-initial-price-list
+      author: furniture-calculator
+      changes:
+        - insert:
+            tableName: price_list
+            columns:
+              - column: { name: name, value: "hausdoors_emal_i_shpon_rf_07_09_2026" }
+              - column: { name: code, value: "PL-001" }
+
+  - changeSet:
+      id: 0115-3-add-price-list-to-collection-and-hardware-type
+      author: furniture-calculator
+      changes:
+        - addColumn:
+            tableName: collection
+            columns:
+              - column:
+                  name: price_list_id
+                  type: BIGINT
+        - addColumn:
+            tableName: hardware_type
+            columns:
+              - column:
+                  name: price_list_id
+                  type: BIGINT
+      rollback:
+        - dropColumn:
+            tableName: hardware_type
+            columnName: price_list_id
+        - dropColumn:
+            tableName: collection
+            columnName: price_list_id
+
+  - changeSet:
+      id: 0115-4-backfill-price-list
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE collection SET price_list_id = (SELECT id FROM price_list WHERE code = 'PL-001')
+        - sql:
+            sql: >-
+              UPDATE hardware_type SET price_list_id = (SELECT id FROM price_list WHERE code = 'PL-001')
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE hardware_type SET price_list_id = NULL
+        - sql:
+            sql: >-
+              UPDATE collection SET price_list_id = NULL
+
+  - changeSet:
+      id: 0115-5-price-list-required-and-foreign-keys
+      author: furniture-calculator
+      changes:
+        - addNotNullConstraint:
+            tableName: collection
+            columnName: price_list_id
+            columnDataType: BIGINT
+        - addNotNullConstraint:
+            tableName: hardware_type
+            columnName: price_list_id
+            columnDataType: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: collection
+            baseColumnNames: price_list_id
+            constraintName: fk_collection_price_list
+            referencedTableName: price_list
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: hardware_type
+            baseColumnNames: price_list_id
+            constraintName: fk_hardware_type_price_list
+            referencedTableName: price_list
+            referencedColumnNames: id
+      rollback:
+        - dropForeignKeyConstraint:
+            baseTableName: hardware_type
+            constraintName: fk_hardware_type_price_list
+        - dropForeignKeyConstraint:
+            baseTableName: collection
+            constraintName: fk_collection_price_list
+        - dropNotNullConstraint:
+            tableName: hardware_type
+            columnName: price_list_id
+            columnDataType: BIGINT
+        - dropNotNullConstraint:
+            tableName: collection
+            columnName: price_list_id
+            columnDataType: BIGINT
