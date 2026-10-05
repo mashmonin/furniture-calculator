@@ -1,0 +1,51 @@
+databaseChangeLog:
+  # Обновление прайс-листа «Эмаль Лайт» (change update-price-list-20261006): файл hausdoors_emal_layt_tsfo_05_10_2026
+  # вместо hausdoors_emal_layt_tsfo_07_09_2026. Меняется розничная цена полотна MONO MN 01 (LT-046) высотой 2000 и
+  # шириной 400/600/700/800: 17 761 → 18 761 (дилерская 10 764 прежняя). Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0127-1-rename-emal-layt-price-list
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE price_list SET name = 'hausdoors_emal_layt_tsfo_05_10_2026' WHERE code = 'PL-002'
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE price_list SET name = 'hausdoors_emal_layt_tsfo_07_09_2026' WHERE code = 'PL-002'
+
+  - changeSet:
+      id: 0127-2-update-mono-mn-01-retail-price
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE configuration_price SET retail_price = 18761
+              WHERE retail_price = 17761
+                AND leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046')
+                AND length_option_id IN (
+                  SELECT lo.id FROM liner_dimension_option lo
+                  JOIN liner_dimension_type dt ON dt.id = lo.liner_dimension_type_id
+                  WHERE dt.code = 'DT-001' AND lo.value IN (400, 600, 700, 800)
+                    AND lo.leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046'))
+                AND height_option_id IN (
+                  SELECT lo.id FROM liner_dimension_option lo
+                  JOIN liner_dimension_type dt ON dt.id = lo.liner_dimension_type_id
+                  WHERE dt.code = 'DT-002' AND lo.value = 2000
+                    AND lo.leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046'))
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE configuration_price SET retail_price = 17761
+              WHERE retail_price = 18761
+                AND leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046')
+                AND length_option_id IN (
+                  SELECT lo.id FROM liner_dimension_option lo
+                  JOIN liner_dimension_type dt ON dt.id = lo.liner_dimension_type_id
+                  WHERE dt.code = 'DT-001' AND lo.value IN (400, 600, 700, 800)
+                    AND lo.leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046'))
+                AND height_option_id IN (
+                  SELECT lo.id FROM liner_dimension_option lo
+                  JOIN liner_dimension_type dt ON dt.id = lo.liner_dimension_type_id
+                  WHERE dt.code = 'DT-002' AND lo.value = 2000
+                    AND lo.leaf_type_id = (SELECT id FROM leaf_type WHERE code = 'LT-046'))

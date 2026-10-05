@@ -33,7 +33,7 @@ import tools.jackson.databind.ObjectMapper;
 
 // Каталог и цены сервиса «Эмаль Лайт» (change add-emal-layt-service). Работает по данным, заведённым
 // миграцией 0116, поэтому не пишет в БД. Ожидаемые цены заданы здесь независимо от SQL (по прайсу
-// hausdoors_emal_layt_tsfo_07_09_2026): дилерская / розничная.
+// hausdoors_emal_layt_tsfo_05_10_2026): дилерская / розничная.
 @SpringBootTest
 @AutoConfigureMockMvc
 class EmalLaytCatalogIntegrationTest {
@@ -55,7 +55,7 @@ class EmalLaytCatalogIntegrationTest {
         assertThat(models).extracting(c -> c.leaf().type().name()).containsExactlyInAnyOrderElementsOf(MODEL_NAMES);
         for (DoorConfigurationDto configuration : models) {
             assertThat(configuration.leaf().priceList().code()).isEqualTo("PL-002");
-            assertThat(configuration.leaf().priceList().name()).isEqualTo("hausdoors_emal_layt_tsfo_07_09_2026");
+            assertThat(configuration.leaf().priceList().name()).isEqualTo("hausdoors_emal_layt_tsfo_05_10_2026");
             assertThat(configuration.frame()).isNull();
             assertThat(configuration.edge()).isNull();
             assertThat(configuration.doorCasing()).isNull();
@@ -83,7 +83,7 @@ class EmalLaytCatalogIntegrationTest {
         PricingResponseDto without = price(mono.id(), width, height);
         PricingResponseDto with = priceWithThickness(mono.id(), width, height, thickness);
 
-        assertThat(with.totalRetailPrice()).isEqualByComparingTo(without.totalRetailPrice()).isEqualByComparingTo("17761");
+        assertThat(with.totalRetailPrice()).isEqualByComparingTo(without.totalRetailPrice()).isEqualByComparingTo("18761");
         assertThat(with.totalDealerPrice()).isEqualByComparingTo(without.totalDealerPrice()).isEqualByComparingTo("10764");
     }
 
@@ -419,7 +419,7 @@ class EmalLaytCatalogIntegrationTest {
         Long height = option(mono, "ВЫСОТА", 2000).id();
 
         PricingResponseDto withoutColour = price(mono.id(), width, height);
-        assertThat(withoutColour.totalRetailPrice()).isEqualByComparingTo("17761");
+        assertThat(withoutColour.totalRetailPrice()).isEqualByComparingTo("18761");
         for (var colour : mono.leaf().colourOptions()) {
             PricingRequestDto request = new PricingRequestDto(
                     new ComponentSelectionDto(width, height, null, colour.id(), null, null, null, null, null, null, null),
@@ -433,7 +433,7 @@ class EmalLaytCatalogIntegrationTest {
                     .getContentAsString();
             PricingResponseDto response = objectMapper.readValue(json, PricingResponseDto.class);
             String name = colour.colourType().name();
-            assertThat(response.totalRetailPrice()).as(name).isEqualByComparingTo("17761");
+            assertThat(response.totalRetailPrice()).as(name).isEqualByComparingTo("18761");
             assertThat(response.totalDealerPrice()).as(name).isEqualByComparingTo("10764");
             assertThat(response.components().get(0).baseRetailPrice()).as(name).isEqualByComparingTo(response.components().get(0).retailPrice());
         }
@@ -471,7 +471,7 @@ class EmalLaytCatalogIntegrationTest {
         boolean tall = height > 2000;
         if (model.equals("MONO MN 01")) {
             return wide ? (tall ? new int[] {13130, 21665} : new int[] {11843, 19541})
-                    : (tall ? new int[] {11934, 19691} : new int[] {10764, 17761});
+                    : (tall ? new int[] {11934, 19691} : new int[] {10764, 18761});
         }
         return wide ? (tall ? new int[] {13780, 22737} : new int[] {12493, 20613})
                 : (tall ? new int[] {12519, 20656} : new int[] {11349, 18726});
