@@ -432,3 +432,6 @@ databaseChangeLog:
   - include:
       file: changes/0126-emal-layt-hardware.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0127-emal-layt-price-list-update-06-10-2026.yaml
+      relativeToChangelogFile: true

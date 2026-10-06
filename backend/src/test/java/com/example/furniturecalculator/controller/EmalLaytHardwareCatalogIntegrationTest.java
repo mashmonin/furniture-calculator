@@ -25,13 +25,13 @@ import com.example.furniturecalculator.dto.HardwareTypeDto;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-// Фурнитура прайс-листа «Эмаль Лайт» hausdoors_emal_layt_tsfo_07_09_2026 (change add-emal-layt-hardware).
+// Фурнитура прайс-листа «Эмаль Лайт» hausdoors_emal_layt_tsfo_06_10_2026 (change add-emal-layt-hardware).
 // Ожидаемые значения заданы здесь независимо от SQL: {цвет, артикул, дилерская, розничная}.
 @SpringBootTest
 @AutoConfigureMockMvc
 class EmalLaytHardwareCatalogIntegrationTest {
 
-    private static final String PRICE_LIST_NAME = "hausdoors_emal_layt_tsfo_07_09_2026";
+    private static final String PRICE_LIST_NAME = "hausdoors_emal_layt_tsfo_06_10_2026";
 
     @Autowired
     private MockMvc mockMvc;
