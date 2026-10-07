@@ -40,14 +40,7 @@ public class OrderExportService {
     }
 
     public byte[] export(List<OrderLineExportRequestDto> lines) {
-        if (lines == null || lines.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Список позиций заказа не должен быть пустым");
-        }
-        for (OrderLineExportRequestDto line : lines) {
-            if (line.quantity() == null || line.quantity() < 1) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Количество позиции заказа должно быть не меньше 1");
-            }
-        }
+        validateLines(lines);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Заказ");
@@ -84,6 +77,18 @@ public class OrderExportService {
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("Не удалось сформировать файл заказа", e);
+        }
+    }
+
+    // Общая проверка списка позиций заказа — используется и выгрузкой КП (см. CommercialOfferService).
+    static void validateLines(List<OrderLineExportRequestDto> lines) {
+        if (lines == null || lines.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Список позиций заказа не должен быть пустым");
+        }
+        for (OrderLineExportRequestDto line : lines) {
+            if (line.quantity() == null || line.quantity() < 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Количество позиции заказа должно быть не меньше 1");
+            }
         }
     }
 

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.furniturecalculator.dto.OrderLineExportRequestDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
+import com.example.furniturecalculator.service.CommercialOfferService;
 import com.example.furniturecalculator.service.OrderExportService;
 import com.example.furniturecalculator.service.SpecificationExportService;
 
@@ -33,6 +34,7 @@ public class SpecificationExportController {
 
     private final SpecificationExportService specificationExportService;
     private final OrderExportService orderExportService;
+    private final CommercialOfferService commercialOfferService;
 
     @PostMapping("/export")
     public ResponseEntity<byte[]> export(@RequestBody SpecificationExportRequestDto request) {
@@ -47,6 +49,20 @@ public class SpecificationExportController {
     public ResponseEntity<byte[]> exportOrder(@RequestBody List<OrderLineExportRequestDto> lines) {
         byte[] file = orderExportService.export(lines);
         return xlsxResponse(file);
+    }
+
+    // Коммерческое предложение (PDF) по тем же позициям заказа — см. change add-commercial-offer-pdf-export,
+    // commercial-offer-export.
+    @PostMapping("/export-offer")
+    public ResponseEntity<byte[]> exportOffer(@RequestBody List<OrderLineExportRequestDto> lines) {
+        CommercialOfferService.Offer offer = commercialOfferService.export(lines);
+        byte[] file = offer.content();
+        String filename = "КП-" + offer.number() + ".pdf";
+        ContentDisposition contentDisposition = ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .body(file);
     }
 
     private ResponseEntity<byte[]> xlsxResponse(byte[] file) {
