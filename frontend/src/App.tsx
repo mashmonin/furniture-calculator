@@ -8,7 +8,7 @@ import type { UpdateCheckDto } from './api/types'
 import ConfiguratorScreen, { type ConfiguratorLoadRequest } from './ConfiguratorScreen'
 import CartScreen from './CartScreen'
 import HardwareServiceScreen from './HardwareServiceScreen'
-import { loadCart, saveCart, totalCartQuantity, type CartItem, type CartItemContent } from './cart'
+import { CART_FLY_DURATION_MS, loadCart, saveCart, totalCartQuantity, type CartItem, type CartItemContent } from './cart'
 import './App.css'
 
 // Шапка приложения (см. specs/door-configurator-ui, «Шапка приложения»): название приложения — статичный
@@ -17,11 +17,6 @@ import './App.css'
 const APP_TITLE = 'Я-КОНФИГУРАТОР'
 const PRICE_LIST_PREFIX = 'Прайс-лист: '
 const HARDWARE_SERVICE_PRICE_LIST_CODE = 'PL-003'
-
-// Длительность визуального эффекта «полёта» добавленной конфигурации к пункту «Корзина заказа» (см. flight
-// ниже) — единственный источник правды для длительности: передаётся в CSS через инлайновый
-// `animationDuration`, чтобы не дублировать то же число в App.css.
-const CART_FLY_DURATION_MS = 650
 
 // Два экрана приложения (см. change add-order-cart-screen) — конфигуратор и корзина заказа. Оба монтируются
 // одновременно и переключаются видимостью (см. рендер ниже), а не условным рендером, чтобы переход на
