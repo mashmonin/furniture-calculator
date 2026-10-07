@@ -169,6 +169,22 @@ export async function exportSpecification(
   return { blob, filename }
 }
 
+// Выгрузка коммерческого предложения (PDF) по всем позициям корзины (см. change add-commercial-offer-pdf-export,
+// commercial-offer-export) — те же позиции, что и в exportOrder, на выходе PDF вместо .xlsx.
+export async function exportOffer(lines: OrderLineExportRequestDto[]): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch('/api/specification/export-offer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lines),
+  })
+  if (!response.ok) {
+    throw new Error(`Не удалось сформировать коммерческое предложение (HTTP ${response.status})`)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'))
+  return { blob, filename }
+}
+
 // Выгрузка всего заказа (корзины) одним .xlsx (см. change add-order-cart-screen, order-export-api) — тот же
 // принцип, что и exportSpecification, но список позиций вместо одной конфигурации.
 export async function exportOrder(lines: OrderLineExportRequestDto[]): Promise<{ blob: Blob; filename: string }> {

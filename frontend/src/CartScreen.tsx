@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Button, Empty, InputNumber, Space, Table, Tag, Tooltip, Typography } from 'antd'
-import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, UpOutlined } from '@ant-design/icons'
-import { exportOrder } from './api/doorConfigurations'
+import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, FilePdfOutlined, UpOutlined } from '@ant-design/icons'
+import { exportOffer, exportOrder } from './api/doorConfigurations'
 import { saveBlob } from './saveBlob'
 import type { CartDetailRow, CartItem } from './cart'
 import { totalCartQuantity } from './cart'
@@ -146,19 +146,22 @@ function ConfigurationDetailSection({ item }: { item: CartItem }) {
 // пропы-колбэки, сам ничего не сохраняет.
 function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigurator }: CartScreenProps) {
   const [exportLoading, setExportLoading] = useState(false)
+  const [offerLoading, setOfferLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+
+  function buildOrderLines() {
+    return items.map((item) => ({
+      displayName: item.displayName,
+      quantity: item.quantity,
+      specification: item.exportRequest,
+      attributeTags: item.attributeTags ?? [],
+    }))
+  }
 
   function handleExportOrder() {
     setExportLoading(true)
     setExportError(null)
-    exportOrder(
-      items.map((item) => ({
-        displayName: item.displayName,
-        quantity: item.quantity,
-        specification: item.exportRequest,
-        attributeTags: item.attributeTags ?? [],
-      })),
-    )
+    exportOrder(buildOrderLines())
       .then(({ blob, filename }) => {
         return saveBlob(blob, filename)
       })
@@ -167,6 +170,22 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
       })
       .finally(() => {
         setExportLoading(false)
+      })
+  }
+
+  // Коммерческое предложение (PDF) по всем позициям корзины — см. change add-commercial-offer-pdf-export.
+  function handleExportOffer() {
+    setOfferLoading(true)
+    setExportError(null)
+    exportOffer(buildOrderLines())
+      .then(({ blob, filename }) => {
+        return saveBlob(blob, filename)
+      })
+      .catch((error: unknown) => {
+        setExportError(error instanceof Error ? error.message : 'Не удалось сформировать коммерческое предложение')
+      })
+      .finally(() => {
+        setOfferLoading(false)
       })
   }
 
@@ -336,6 +355,9 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           {exportError && <Alert type="error" message={exportError} showIcon />}
           <Button type="primary" block icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExportOrder}>
             Выгрузить заказ
+          </Button>
+          <Button block icon={<FilePdfOutlined />} loading={offerLoading} onClick={handleExportOffer}>
+            Выгрузить КП
           </Button>
         </div>
       </div>
