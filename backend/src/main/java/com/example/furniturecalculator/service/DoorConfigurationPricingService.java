@@ -502,7 +502,8 @@ public class DoorConfigurationPricingService {
                 option.getColourName(),
                 resolvedQuantity,
                 option.getRetailPrice().multiply(quantityMultiplier),
-                option.getDealerPrice().multiply(quantityMultiplier));
+                option.getDealerPrice().multiply(quantityMultiplier),
+                option.getArticle());
     }
 
     // Позиции не объединяются, той же логикой, что и priceHardwareSelections (см. change

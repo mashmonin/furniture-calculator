@@ -10,9 +10,12 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 import javax.imageio.ImageIO;
 
@@ -57,6 +60,11 @@ public class CommercialOfferService {
     private static final float MARGIN = 28f;
     private static final float TOP_MARGIN = 150f;
     private static final float MAX_DOOR_IMAGE_HEIGHT = 330f;
+    // Фото фурнитуры справа от двери (см. change add-hardware-photos-to-commercial-offer): сетка 2 в ряд,
+    // не более 6 фото на позицию, чтобы блок помещался в высоту двери.
+    private static final int HARDWARE_PHOTO_COLUMNS = 2;
+    private static final int MAX_HARDWARE_PHOTOS = 6;
+    private static final float HARDWARE_PHOTO_HEIGHT = 105f;
     private static final float TABLE_FONT = 8.5f;
     private static final float LOGO_WIDTH = 190f;
     private static final DateTimeFormatter NUMBER_FORMAT = DateTimeFormatter.ofPattern("yyMMddHHmm");
@@ -65,10 +73,14 @@ public class CommercialOfferService {
 
     private final SpecificationExportService specificationExportService;
     private final DoorImageCatalog doorImageCatalog;
+    private final HardwareImageCatalog hardwareImageCatalog;
 
-    public CommercialOfferService(SpecificationExportService specificationExportService, DoorImageCatalog doorImageCatalog) {
+    public CommercialOfferService(
+            SpecificationExportService specificationExportService, DoorImageCatalog doorImageCatalog,
+            HardwareImageCatalog hardwareImageCatalog) {
         this.specificationExportService = specificationExportService;
         this.doorImageCatalog = doorImageCatalog;
+        this.hardwareImageCatalog = hardwareImageCatalog;
     }
 
     // number — номер заказа вида yyMMddHHmm (момент формирования), он же в шапке страниц и в имени файла.
@@ -101,11 +113,30 @@ public class CommercialOfferService {
         SpecificationExportService.ConfigurationBreakdown breakdown =
                 specificationExportService.resolveConfigurationBreakdown(line.specification());
         Optional<Resource> image = doorImageCatalog.find(breakdown.collectionName(), breakdown.displayName(), breakdown.leafColourName());
-        return new OfferLine(line, breakdown, image.orElse(null));
+        return new OfferLine(line, breakdown, image.orElse(null), hardwareImages(breakdown));
+    }
+
+    // Фото фурнитуры позиции: по одному на артикул (порядок строк детализации), только где фото есть.
+    private List<Resource> hardwareImages(SpecificationExportService.ConfigurationBreakdown breakdown) {
+        Set<String> articles = new LinkedHashSet<>();
+        for (SpecificationExportService.DetailRow row : breakdown.detailRows()) {
+            if ("Фурнитура".equals(row.element()) && row.article() != null) {
+                articles.add(row.article());
+            }
+        }
+        List<Resource> images = new ArrayList<>();
+        for (String article : articles) {
+            hardwareImageCatalog.findResourceByArticle(article).ifPresent(images::add);
+            if (images.size() == MAX_HARDWARE_PHOTOS) {
+                break;
+            }
+        }
+        return images;
     }
 
     private record OfferLine(
-            OrderLineExportRequestDto line, SpecificationExportService.ConfigurationBreakdown breakdown, Resource image) {
+            OrderLineExportRequestDto line, SpecificationExportService.ConfigurationBreakdown breakdown, Resource image,
+            List<Resource> hardwareImages) {
 
         BigDecimal sum() {
             return breakdown.totals().retail().multiply(BigDecimal.valueOf(line.quantity()));
@@ -185,6 +216,10 @@ public class CommercialOfferService {
         addSpecRow(specs, "Количество", line.quantity() + " шт.", fonts);
         PdfPCell specsCell = new PdfPCell();
         specsCell.addElement(specs);
+        PdfPTable photos = hardwarePhotos(offerLine.hardwareImages());
+        if (photos != null) {
+            specsCell.addElement(photos);
+        }
         specsCell.setBorder(Rectangle.NO_BORDER);
         specsCell.setPaddingLeft(14);
         specsCell.setVerticalAlignment(Element.ALIGN_TOP);
@@ -221,8 +256,37 @@ public class CommercialOfferService {
         document.add(totalTable("Итоговая цена:", offerLine.sum(), fonts, 18));
     }
 
+    // Сетка миниатюр фурнитуры под характеристиками; нечитаемое фото пропускается, без фото — null.
+    private PdfPTable hardwarePhotos(List<Resource> resources) {
+        List<Image> images = new ArrayList<>();
+        for (Resource resource : resources) {
+            Image image = loadImage(resource);
+            if (image != null) {
+                images.add(image);
+            }
+        }
+        if (images.isEmpty()) {
+            return null;
+        }
+        PdfPTable table = new PdfPTable(HARDWARE_PHOTO_COLUMNS);
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(14);
+        table.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+        for (Image image : images) {
+            PdfPCell cell = new PdfPCell(image, true);
+            cell.setBorder(Rectangle.NO_BORDER);
+            cell.setFixedHeight(HARDWARE_PHOTO_HEIGHT);
+            cell.setPadding(4);
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            table.addCell(cell);
+        }
+        table.completeRow();
+        return table;
+    }
+
     private PdfPCell imageCell(Resource resource, Fonts fonts) {
-        Image door = loadDoorImage(resource);
+        Image door = loadImage(resource);
         PdfPCell cell = door != null ? new PdfPCell(door, true) : new PdfPCell(new Phrase("Изображение недоступно", fonts.muted(9)));
         cell.setBorder(Rectangle.NO_BORDER);
         cell.setFixedHeight(MAX_DOOR_IMAGE_HEIGHT);
@@ -309,21 +373,21 @@ public class CommercialOfferService {
         return format.format(value) + "\u00A0₽";
     }
 
-    // Изображение двери: JPEG/WebP декодируются через ImageIO и перекодируются в JPEG. Любая ошибка чтения —
+    // Изображение двери или фурнитуры: JPEG/WebP декодируются через ImageIO и перекодируются в JPEG. Любая ошибка чтения —
     // страница без изображения (КП не должно падать из-за одного файла).
-    private Image loadDoorImage(Resource resource) {
+    private Image loadImage(Resource resource) {
         if (resource == null) {
             return null;
         }
         try (InputStream in = resource.getInputStream()) {
             BufferedImage image = ImageIO.read(in);
             if (image == null) {
-                log.warn("Нет декодера для изображения двери {}", resource.getFilename());
+                log.warn("Нет декодера для изображения {}", resource.getFilename());
                 return null;
             }
             return Image.getInstance(toJpeg(image));
         } catch (IOException | DocumentException e) {
-            log.warn("Не удалось прочитать изображение двери {}: {}", resource.getFilename(), e.getMessage());
+            log.warn("Не удалось прочитать изображение {}: {}", resource.getFilename(), e.getMessage());
             return null;
         }
     }

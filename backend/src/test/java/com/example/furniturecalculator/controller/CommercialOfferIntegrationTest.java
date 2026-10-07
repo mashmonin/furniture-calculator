@@ -92,23 +92,35 @@ class CommercialOfferIntegrationTest {
     // попадает в КП строкой комплектации и в итоговую цену позиции (проверки принадлежности прайс-листу нет).
     @Test
     void фурнитура_из_прайса_фурнитура_попадает_в_кп_и_цену_позиции() throws Exception {
-        String catalog = mockMvc.perform(get("/api/hardware-catalog")).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        Long optionId = objectMapper.readValue(catalog, new TypeReference<List<HardwareCategoryDto>>() {
-        }).stream().flatMap(c -> c.types().stream()).flatMap(t -> t.options().stream())
-                .filter(o -> "FM 100-50 MSN/CP".equals(o.article())).findFirst().orElseThrow().id();
-        OrderLineExportRequestDto base = line(monoConfiguration(), "Белое облако", 1);
-        SpecificationExportRequestDto spec = base.specification();
-        OrderLineExportRequestDto withHardware = new OrderLineExportRequestDto(base.displayName(), 1,
-                new SpecificationExportRequestDto(spec.leafTypeId(), spec.leaf(), null, null, false, null, null, null, null, null, null,
-                        spec.leafHeightValue(), List.of(new HardwareSelectionDto(optionId, 2)), null),
-                List.of());
+        OrderLineExportRequestDto withHardware =
+                withHardware(line(monoConfiguration(), "Белое облако", 1), hardwareOptionId("FM 100-50 MSN/CP"), hardwareOptionId("FM 100-50 MSN/CP"));
 
         MvcResult result = postOffer(List.of(withHardware)).andExpect(status().isOk()).andReturn();
 
         String text = compact(new PdfTextExtractor(new PdfReader(result.getResponse().getContentAsByteArray())).getTextFromPage(1));
         // 17 761 + 2 × 2 948 = 23 657.
         assertThat(text).contains("Фурнитура").contains("Fantom").contains("Итоговаяцена:23657₽");
+    }
+
+    // Фото фурнитуры справа от двери (change add-hardware-photos-to-commercial-offer): по одному XObject на
+    // уникальный артикул с фото; фурнитура без фото и дубли не добавляют изображений.
+    @Test
+    void фото_фурнитуры_выводится_один_раз_на_артикул_и_только_если_оно_есть() throws Exception {
+        OrderLineExportRequestDto base = line(monoConfiguration(), "Белое облако", 1);
+        Long withPhoto = hardwareOptionId("FM 100-50 MSN/CP");
+        Long otherWithPhoto = hardwareOptionId("FM 100-50 MWH/CP");
+        Long withoutPhoto = hardwareOptionId("F20D AL");
+
+        int none = xobjectCount(postOffer(List.of(base)).andReturn());
+        int one = xobjectCount(postOffer(List.of(withHardware(base, withPhoto))).andReturn());
+        int duplicated = xobjectCount(postOffer(List.of(withHardware(base, withPhoto, withPhoto))).andReturn());
+        int two = xobjectCount(postOffer(List.of(withHardware(base, withPhoto, otherWithPhoto))).andReturn());
+        int noPhoto = xobjectCount(postOffer(List.of(withHardware(base, withoutPhoto))).andReturn());
+
+        assertThat(one).isEqualTo(none + 1);
+        assertThat(duplicated).isEqualTo(one);
+        assertThat(two).isEqualTo(none + 2);
+        assertThat(noPhoto).isEqualTo(none);
     }
 
     @Test
@@ -127,6 +139,24 @@ class CommercialOfferIntegrationTest {
                 new SpecificationExportRequestDto(999999L, null, null, null, false, null, null, null, null, null, null,
                         BigDecimal.valueOf(2000), null, null), List.of());
         postOffer(List.of(line)).andExpect(status().isNotFound());
+    }
+
+    private Long hardwareOptionId(String article) throws Exception {
+        String catalog = mockMvc.perform(get("/api/hardware-catalog")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readValue(catalog, new TypeReference<List<HardwareCategoryDto>>() {
+        }).stream().flatMap(c -> c.types().stream()).flatMap(t -> t.options().stream())
+                .filter(o -> article.equals(o.article())).findFirst().orElseThrow().id();
+    }
+
+    // Та же позиция с фурнитурой: по одной штуке на каждый переданный id (id может повторяться).
+    private OrderLineExportRequestDto withHardware(OrderLineExportRequestDto base, Long... optionIds) {
+        SpecificationExportRequestDto spec = base.specification();
+        List<HardwareSelectionDto> hardware = java.util.Arrays.stream(optionIds).map(id -> new HardwareSelectionDto(id, 1)).toList();
+        return new OrderLineExportRequestDto(base.displayName(), base.quantity(),
+                new SpecificationExportRequestDto(spec.leafTypeId(), spec.leaf(), null, null, false, null, null, null, null, null, null,
+                        spec.leafHeightValue(), hardware, null),
+                List.of());
     }
 
     private static String compact(String text) {
