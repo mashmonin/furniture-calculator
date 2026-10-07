@@ -159,3 +159,7 @@ export const ATTRIBUTE_TAG_COLORS: Record<string, string> = {
   'ЗЕРКАЛО': 'purple',
   'ДВУСТОРОННЯЯ': 'magenta',
 }
+
+// Длительность визуального эффекта «полёта» частицы (добавление конфигурации в корзину, добавление фурнитуры
+// к двери) — единственный источник правды: передаётся в CSS через инлайновый `animationDuration`.
+export const CART_FLY_DURATION_MS = 650

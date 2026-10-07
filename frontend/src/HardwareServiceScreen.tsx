@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Alert, Button, Card, Collapse, Empty, Image, Input, List, Select, Space, Spin, Tag, Typography } from 'antd'
 import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons'
 import { calculateHardwarePrice, fetchHardwareCatalog } from './api/doorConfigurations'
 import type { HardwareSelectionDto } from './api/types'
-import { ATTRIBUTE_TAG_COLORS, withHardware, type CartItem } from './cart'
+import { ATTRIBUTE_TAG_COLORS, CART_FLY_DURATION_MS, withHardware, type CartItem } from './cart'
 import { formatMoney } from './format'
 
 // Минимальная высота блока характеристик двери в карточке (px): модель с тегами, цвет, размеры и количество;
@@ -104,6 +104,10 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
   const [recordId, setRecordId] = useState<number | undefined>()
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Частица, летящая от «+» к карточке выбранной двери после добавления (change reset-hardware-selection-after-add);
+  // flightIdRef даёт уникальный key, чтобы анимация проигрывалась заново при быстрых повторных добавлениях.
+  const flightIdRef = useRef(0)
+  const [flight, setFlight] = useState<{ id: number; from: DOMRect; to: DOMRect } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -141,8 +145,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
         }
         setModels(result)
         setKnown(knownOptions)
-        // Первым выбирается первый бренд каталога — выбор бренда начинает подбор.
-        setBrand((current) => current ?? Array.from(new Set(result.map((model) => model.brand))).sort()[0])
+        // Бренд не выбирается автоматически: выбор начинается с бренда (поле пустое при открытии и после сброса).
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -182,6 +185,9 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
 
   // Записи каталога выбранного бренда: одна запись — один цветовой вариант модели.
   const records = useMemo(() => {
+    if (!brand) {
+      return []
+    }
     const query = search.trim().toLowerCase()
     return models
       .filter((model) => model.brand === brand && (!category || model.category === category))
@@ -198,7 +204,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
 
   // Применяет новый полный список фурнитуры к двери: считает фурнитуру стандартным расчётом и обновляет позицию
   // корзины; при ошибке корзина не меняется.
-  function applySelections(item: CartItem, selections: HardwareSelectionDto[]) {
+  function applySelections(item: CartItem, selections: HardwareSelectionDto[], onSuccess?: () => void) {
     setBusy(true)
     setActionError(null)
     const priced =
@@ -206,17 +212,32 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
         ? Promise.resolve({ totalRetailPrice: 0, totalDealerPrice: 0, hardware: [] })
         : calculateHardwarePrice({ hardware: selections })
     priced
-      .then((response) => onUpdateItem(withHardware(item, selections, response)))
+      .then((response) => {
+        onUpdateItem(withHardware(item, selections, response))
+        onSuccess?.()
+      })
       .catch((error: unknown) => {
         setActionError(error instanceof Error ? error.message : 'Не удалось рассчитать стоимость фурнитуры')
       })
       .finally(() => setBusy(false))
   }
 
-  function addHardware(optionId: number) {
+  // Сброс подбора после успешного добавления: подсветка записи, бренд, элемент, цвет и поиск; дверь остаётся выбранной.
+  function resetPicker() {
+    setRecordId(undefined)
+    setBrand(undefined)
+    setCategory(undefined)
+    setColourFilter(undefined)
+    setSearch('')
+  }
+
+  // Частица от кнопки «+» (sourceRect) к карточке выбранной двери; координаты цели берутся в момент клика.
+  function addHardware(optionId: number, sourceRect: DOMRect | null) {
     if (!selectedItem) {
       return
     }
+    const card = document.querySelector(`[data-hardware-door-id="${selectedItem.id}"]`)
+    const targetRect = card?.getBoundingClientRect() ?? null
     const current = selectedItem.exportRequest.hardware ?? []
     const existing = current.find((line) => line.hardwareOptionId === optionId)
     const next = existing
@@ -224,7 +245,13 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
           line.hardwareOptionId === optionId ? { ...line, quantity: (line.quantity ?? 1) + 1 } : line,
         )
       : [...current, { hardwareOptionId: optionId, quantity: 1 }]
-    applySelections(selectedItem, next)
+    applySelections(selectedItem, next, () => {
+      resetPicker()
+      if (sourceRect && targetRect) {
+        flightIdRef.current += 1
+        setFlight({ id: flightIdRef.current, from: sourceRect, to: targetRect })
+      }
+    })
   }
 
   function removeHardware(item: CartItem, optionId: number) {
@@ -259,6 +286,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
             return (
               <Card
                 key={item.id}
+                data-hardware-door-id={item.id}
                 size="small"
                 hoverable
                 onClick={() => setSelectedItemId(item.id)}
@@ -366,6 +394,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                 <div style={{ marginTop: 4 }}>
                   <Select
                     style={{ width: 200 }}
+                    placeholder="Выберите бренд"
                     value={brand}
                     options={brands.map((value) => ({ value, label: value }))}
                     onChange={(value) => {
@@ -383,6 +412,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                     allowClear
                     showSearch
                     placeholder="Все элементы"
+                    disabled={!brand}
                     style={{ width: 300 }}
                     value={category}
                     options={categories.map((value) => ({ value, label: value }))}
@@ -400,6 +430,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                     allowClear
                     showSearch
                     placeholder="Все цвета"
+                    disabled={!brand}
                     style={{ width: 240 }}
                     value={colourFilter}
                     options={colours.map((value) => ({ value, label: value }))}
@@ -411,6 +442,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                 allowClear
                 placeholder="Поиск по модели, цвету и артикулу"
                 style={{ width: 280 }}
+                value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </Space>
@@ -424,7 +456,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                   size="small"
                   bordered
                   dataSource={records}
-                  locale={{ emptyText: 'Нет записей' }}
+                  locale={{ emptyText: brand ? 'Нет записей' : 'Выберите бренд' }}
                   renderItem={(record) => {
                     const selected = record.optionId === recordId
                     return (
@@ -459,7 +491,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                           onClick={(event) => {
                             event.stopPropagation()
                             setRecordId(record.optionId)
-                            addHardware(record.optionId)
+                            addHardware(record.optionId, event.currentTarget.getBoundingClientRect())
                           }}
                         />
                       </List.Item>
@@ -484,6 +516,23 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
           { key: 'catalog', label: 'Каталог фурнитуры', children: catalogPanelContent },
         ]}
       />
+      {/* Летящая «частица» — эффект добавления фурнитуры (стили .cart-fly-particle общие с добавлением в корзину). */}
+      {flight && (
+        <div
+          key={flight.id}
+          className="cart-fly-particle"
+          style={
+            {
+              '--cart-fly-from-x': `${flight.from.left + flight.from.width / 2}px`,
+              '--cart-fly-from-y': `${flight.from.top + flight.from.height / 2}px`,
+              '--cart-fly-to-x': `${flight.to.left + flight.to.width / 2}px`,
+              '--cart-fly-to-y': `${flight.to.top + flight.to.height / 2}px`,
+              animationDuration: `${CART_FLY_DURATION_MS}ms`,
+            } as CSSProperties
+          }
+          onAnimationEnd={() => setFlight(null)}
+        />
+      )}
     </div>
   )
 }
