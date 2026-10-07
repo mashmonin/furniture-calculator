@@ -244,7 +244,7 @@ public class SpecificationExportService {
             BigDecimal retailUnit = perUnit(item.retailPrice(), item.quantity());
             BigDecimal dealerUnit = perUnit(item.dealerPrice(), item.quantity());
             rows.add(new DetailRow("Фурнитура", name, null, item.colourName(), item.quantity(), true,
-                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice(), true));
+                    retailUnit, dealerUnit, item.retailPrice(), item.dealerPrice(), true, item.article()));
         }
 
         return rows;
@@ -423,7 +423,18 @@ public class SpecificationExportService {
             BigDecimal dealerPrice,
             BigDecimal retailSum,
             BigDecimal dealerSum,
-            boolean priceApplicable) {
+            boolean priceApplicable,
+            // Артикул цветового варианта фурнитуры (только для строк «Фурнитура», иначе null) — по нему КП
+            // подбирает фото (см. change add-hardware-photos-to-commercial-offer).
+            String article) {
+
+        DetailRow(
+                String element, String name, String size, String colour, int quantity, boolean priced,
+                BigDecimal retailPrice, BigDecimal dealerPrice, BigDecimal retailSum, BigDecimal dealerSum,
+                boolean priceApplicable) {
+            this(element, name, size, colour, quantity, priced, retailPrice, dealerPrice, retailSum, dealerSum,
+                    priceApplicable, null);
+        }
     }
 
     // Итог по одной конфигурации заказа для OrderExportService: displayName/dimensionsLabel — для строки

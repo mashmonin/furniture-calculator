@@ -10,5 +10,8 @@ public record HardwarePriceDto(
         // Стоимость позиции = цена цветового варианта × quantity (без каких-либо надбавок,
         // см. design.md изменения add-hardware-catalog).
         BigDecimal retailPrice,
-        BigDecimal dealerPrice) {
+        BigDecimal dealerPrice,
+        // Артикул цветового варианта (null, если не задан) — по нему КП подбирает фото фурнитуры
+        // (см. change add-hardware-photos-to-commercial-offer).
+        String article) {
 }

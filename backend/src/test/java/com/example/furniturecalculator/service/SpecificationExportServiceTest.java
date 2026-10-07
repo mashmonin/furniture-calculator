@@ -134,7 +134,7 @@ class SpecificationExportServiceTest {
         HardwarePriceDto hardware = new HardwarePriceDto(
                 new ReferenceDto(300L, "HardwareCategory-300", "HardwareCategory 300", null),
                 new ReferenceDto(301L, "HardwareType-301", "HardwareType 301", null),
-                "хром", 2, BigDecimal.valueOf(2000), BigDecimal.valueOf(1400));
+                "хром", 2, BigDecimal.valueOf(2000), BigDecimal.valueOf(1400), null);
         DecorativeElementPriceDto decorativeElement = new DecorativeElementPriceDto(
                 new ReferenceDto(400L, "DEC-001", "Плинтус", null),
                 new ReferenceDto(401L, "DET-001", "Плинтус Модо", null),

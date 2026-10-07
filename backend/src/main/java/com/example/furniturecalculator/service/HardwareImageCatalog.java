@@ -36,6 +36,11 @@ public class HardwareImageCatalog {
         return index().containsKey(key) ? Optional.of(key + EXTENSION) : Optional.empty();
     }
 
+    // Ресурс фото по артикулу (для КП); пусто, если фото нет.
+    public Optional<Resource> findResourceByArticle(String article) {
+        return findFileName(article).flatMap(this::findResource);
+    }
+
     // Ресурс по имени файла из ссылки; имя вне индекса (в том числе с «../») — пусто.
     public Optional<Resource> findResource(String fileName) {
         if (fileName == null || !fileName.endsWith(EXTENSION)) {
