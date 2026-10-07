@@ -1,0 +1,213 @@
+databaseChangeLog:
+  # Названия категорий фурнитуры «Фурнитура» (PL-003) без префикса бренда (change add-hardware-service): бренд
+  # выбирается отдельным шагом на экране сервиса и хранится в hardware_type.brand, поэтому в названии раздела он
+  # лишний («Fantom: Дверные ручки» → «Дверные ручки»). Только переносимый SQL (PostgreSQL и H2).
+  - changeSet:
+      id: 0128-1-furnitura-category-names-without-brand
+      author: furniture-calculator
+      changes:
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки дверные' WHERE code = 'HWG-014'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Фиксаторы сантехнические' WHERE code = 'HWG-015'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Накладки на цилиндр' WHERE code = 'HWG-016'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Дверные ручки' WHERE code = 'HWG-017'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Дверная ручка с WC фиксатором' WHERE code = 'HWG-018'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Фиксаторы' WHERE code = 'HWG-019'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Накладки на цилиндр' WHERE code = 'HWG-020'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли' WHERE code = 'HWG-021'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Дверные ограничители' WHERE code = 'HWG-022'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки дверные ЦАМ' WHERE code = 'HWG-023'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки дверные алюминиевые Slim Line' WHERE code = 'HWG-024'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки дверные алюминиевые' WHERE code = 'HWG-025'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки дверные из нерж.стали (INOX)' WHERE code = 'HWG-026'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Накладки под цилиндр' WHERE code = 'HWG-027'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Накладки санузловые' WHERE code = 'HWG-028'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Накладки санузловые с ключом' WHERE code = 'HWG-029'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Защелки межкомнатные' WHERE code = 'HWG-030'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ригели' WHERE code = 'HWG-031'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ограничители дверные' WHERE code = 'HWG-032'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизмы цилиндровые с английским ключом (Серия V)' WHERE code = 'HWG-033'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизмы цилиндровые с перфо ключом (Серия Z)' WHERE code = 'HWG-034'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизмы цилиндровые с длинным штоком (серия ZL)' WHERE code = 'HWG-035'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизмы цилиндровые с перфо ключом (Серия P)' WHERE code = 'HWG-036'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизмы цилиндровые с длинным штоком (серия LT)' WHERE code = 'HWG-037'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Механизм цилиндровый для электромеханического замка' WHERE code = 'HWG-038'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли универсальные 4BB (100х75х2,5мм)' WHERE code = 'HWG-039'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли универсальные на подшипниках B-4(100х75х3мм)' WHERE code = 'HWG-040'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли без врезки 2ВВ(100х75х2,5)' WHERE code = 'HWG-041'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли без врезки на подшипниках B-2(125х75х2,5)' WHERE code = 'HWG-042'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Петли скрытые' WHERE code = 'HWG-043'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Ручки-купе' WHERE code = 'HWG-044'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Раздвижные системы' WHERE code = 'HWG-045'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Доводчики дверные' WHERE code = 'HWG-046'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Электромеханические замки' WHERE code = 'HWG-047'
+      rollback:
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'HAUSDOORS: Ручки дверные' WHERE code = 'HWG-014'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'HAUSDOORS: Фиксаторы сантехнические' WHERE code = 'HWG-015'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'HAUSDOORS: Накладки на цилиндр' WHERE code = 'HWG-016'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Дверные ручки' WHERE code = 'HWG-017'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Дверная ручка с WC фиксатором' WHERE code = 'HWG-018'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Фиксаторы' WHERE code = 'HWG-019'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Накладки на цилиндр' WHERE code = 'HWG-020'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Петли' WHERE code = 'HWG-021'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Fantom: Дверные ограничители' WHERE code = 'HWG-022'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ручки дверные ЦАМ' WHERE code = 'HWG-023'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ручки дверные алюминиевые Slim Line' WHERE code = 'HWG-024'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ручки дверные алюминиевые' WHERE code = 'HWG-025'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ручки дверные из нерж.стали (INOX)' WHERE code = 'HWG-026'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Накладки под цилиндр' WHERE code = 'HWG-027'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Накладки санузловые' WHERE code = 'HWG-028'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Накладки санузловые с ключом' WHERE code = 'HWG-029'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Защелки межкомнатные' WHERE code = 'HWG-030'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ригели' WHERE code = 'HWG-031'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ограничители дверные' WHERE code = 'HWG-032'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизмы цилиндровые с английским ключом (Серия V)' WHERE code = 'HWG-033'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизмы цилиндровые с перфо ключом (Серия Z)' WHERE code = 'HWG-034'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизмы цилиндровые с длинным штоком (серия ZL)' WHERE code = 'HWG-035'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизмы цилиндровые с перфо ключом (Серия P)' WHERE code = 'HWG-036'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизмы цилиндровые с длинным штоком (серия LT)' WHERE code = 'HWG-037'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Механизм цилиндровый для электромеханического замка' WHERE code = 'HWG-038'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Петли универсальные 4BB (100х75х2,5мм)' WHERE code = 'HWG-039'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Петли универсальные на подшипниках B-4(100х75х3мм)' WHERE code = 'HWG-040'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Петли без врезки 2ВВ(100х75х2,5)' WHERE code = 'HWG-041'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Петли без врезки на подшипниках B-2(125х75х2,5)' WHERE code = 'HWG-042'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Петли скрытые' WHERE code = 'HWG-043'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Ручки-купе' WHERE code = 'HWG-044'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Раздвижные системы' WHERE code = 'HWG-045'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Доводчики дверные' WHERE code = 'HWG-046'
+        - sql:
+            sql: >-
+              UPDATE hardware_category SET name = 'Vantage: Электромеханические замки' WHERE code = 'HWG-047'

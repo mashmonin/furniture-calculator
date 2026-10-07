@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.example.furniturecalculator.dto.ColourOptionDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.DoorConfigurationDto;
+import com.example.furniturecalculator.dto.HardwareCategoryDto;
+import com.example.furniturecalculator.dto.HardwareSelectionDto;
 import com.example.furniturecalculator.dto.OrderLineExportRequestDto;
 import com.example.furniturecalculator.dto.SpecificationExportRequestDto;
 import com.lowagie.text.pdf.PdfReader;
@@ -84,6 +86,29 @@ class CommercialOfferIntegrationTest {
         int withoutImage = xobjectCount(postOffer(List.of(line(mono, "Кремовая", 1))).andReturn());
 
         assertThat(withImage).isEqualTo(withoutImage + 1);
+    }
+
+    // Фурнитура прайс-листа «Фурнитура» (PL-003, change add-hardware-service), добавленная к двери «Эмаль Лайт»,
+    // попадает в КП строкой комплектации и в итоговую цену позиции (проверки принадлежности прайс-листу нет).
+    @Test
+    void фурнитура_из_прайса_фурнитура_попадает_в_кп_и_цену_позиции() throws Exception {
+        String catalog = mockMvc.perform(get("/api/hardware-catalog")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        Long optionId = objectMapper.readValue(catalog, new TypeReference<List<HardwareCategoryDto>>() {
+        }).stream().flatMap(c -> c.types().stream()).flatMap(t -> t.options().stream())
+                .filter(o -> "FM 100-50 MSN/CP".equals(o.article())).findFirst().orElseThrow().id();
+        OrderLineExportRequestDto base = line(monoConfiguration(), "Белое облако", 1);
+        SpecificationExportRequestDto spec = base.specification();
+        OrderLineExportRequestDto withHardware = new OrderLineExportRequestDto(base.displayName(), 1,
+                new SpecificationExportRequestDto(spec.leafTypeId(), spec.leaf(), null, null, false, null, null, null, null, null, null,
+                        spec.leafHeightValue(), List.of(new HardwareSelectionDto(optionId, 2)), null),
+                List.of());
+
+        MvcResult result = postOffer(List.of(withHardware)).andExpect(status().isOk()).andReturn();
+
+        String text = compact(new PdfTextExtractor(new PdfReader(result.getResponse().getContentAsByteArray())).getTextFromPage(1));
+        // 17 761 + 2 × 2 948 = 23 657.
+        assertThat(text).contains("Фурнитура").contains("Fantom").contains("Итоговаяцена:23657₽");
     }
 
     @Test

@@ -39,11 +39,12 @@ class HardwareCatalogControllerTest {
                 });
 
         // Шесть категорий прайс-листа «Эмаль и шпон»; ещё семь категорий принадлежат прайс-листу «Эмаль Лайт»
-        // (см. change add-emal-layt-hardware, EmalLaytHardwareCatalogIntegrationTest).
+        // (см. change add-emal-layt-hardware, EmalLaytHardwareCatalogIntegrationTest); ещё 34 категории — прайс-листа
+        // «Фурнитура» (см. change add-hardware-service, FurnituraHardwareCatalogIntegrationTest).
         assertThat(catalog.stream()
                 .filter(c -> c.types().stream().anyMatch(t -> "PL-001".equals(t.priceList().code()))))
                 .hasSize(6);
-        assertThat(catalog).hasSize(13);
+        assertThat(catalog).hasSize(47);
 
         HardwareCategoryDto locksCategory = catalog.stream()
                 .filter(c -> "HWG-001".equals(c.category().code()))

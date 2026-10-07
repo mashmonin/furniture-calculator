@@ -432,3 +432,9 @@ databaseChangeLog:
   - include:
       file: changes/0126-emal-layt-hardware.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/0127-furnitura-price-list-hardware.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0128-furnitura-category-names-without-brand.yaml
+      relativeToChangelogFile: true
