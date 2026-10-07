@@ -45,7 +45,7 @@ export function ComponentBreakdownList({
         dataSource={components}
         renderItem={(item) => {
           const hasSurcharge =
-            item.priced && (item.baseRetailPrice !== item.retailPrice || item.baseDealerPrice !== item.dealerPrice)
+            item.priced && item.baseRetailPrice !== item.retailPrice
           const key = item.component as ComponentKey
           const quantity = quantities?.[key]
           const componentSurcharges = surchargesByComponent?.[key] ?? []
@@ -54,7 +54,7 @@ export function ComponentBreakdownList({
               <Space direction="vertical" size={0}>
                 <span>
                   {COMPONENT_LABELS[key] ?? item.component}:{' '}
-                  {item.priced ? `${formatMoney(item.retailPrice!)} / ${formatMoney(item.dealerPrice!)} (дилер)` : 'цена не найдена'}
+                  {item.priced ? formatMoney(item.retailPrice!) : 'цена не найдена'}
                   {item.priced && quantity !== undefined && ` × ${quantity} шт.`}
                 </span>
                 {componentSurcharges.map((surcharge) => (
@@ -64,7 +64,7 @@ export function ComponentBreakdownList({
                 ))}
                 {hasSurcharge && (
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    Без надбавок: {formatMoney(item.baseRetailPrice!)} / {formatMoney(item.baseDealerPrice!)} (дилер)
+                    Без надбавок: {formatMoney(item.baseRetailPrice!)}
                   </Typography.Text>
                 )}
               </Space>
@@ -82,7 +82,7 @@ export function ComponentBreakdownList({
           renderItem={(item) => (
             <List.Item>
               {item.type.name} ({formatDimensions(item.lengthMm, item.widthMm, item.thicknessMm)} мм) × {item.quantity} шт.:{' '}
-              {formatMoney(item.retailPrice)} / {formatMoney(item.dealerPrice)} (дилер)
+              {formatMoney(item.retailPrice)}
             </List.Item>
           )}
         />
@@ -97,7 +97,7 @@ export function ComponentBreakdownList({
           renderItem={(item) => (
             <List.Item>
               {item.category.name} — {item.type.name} ({item.colourName}) × {item.quantity} шт.:{' '}
-              {formatMoney(item.retailPrice)} / {formatMoney(item.dealerPrice)} (дилер)
+              {formatMoney(item.retailPrice)}
             </List.Item>
           )}
         />

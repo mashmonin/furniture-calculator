@@ -2266,7 +2266,7 @@ function ConfiguratorScreen({
                         : ''}
                     </span>
                     <span>
-                      {formatMoney(post.retailPrice)} / {formatMoney(post.dealerPrice)} (дилер)
+                      {formatMoney(post.retailPrice)}
                     </span>
                   </div>
                 </List.Item>
@@ -2954,13 +2954,6 @@ function ConfiguratorScreen({
                       value={pricingResult.totalRetailPrice}
                       formatter={(value) => formatMoneyWithCurrency(Number(value))}
                     />
-                    <div className="app-pricing__dealer-block">
-                      <Statistic
-                        title="Дилерская цена"
-                        value={pricingResult.totalDealerPrice}
-                        formatter={(value) => formatMoneyWithCurrency(Number(value))}
-                      />
-                    </div>
                   </Space>
                   <ComponentBreakdownList
                     components={pricingResult.components}
