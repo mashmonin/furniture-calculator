@@ -59,6 +59,13 @@ public class CommercialOfferService {
     private static final java.awt.Color LINE = new java.awt.Color(0xCF, 0xCF, 0xCF);
     private static final float MARGIN = 28f;
     private static final float TOP_MARGIN = 150f;
+    // Строки шапки (номер, дата, [заказ], адрес) идут с шагом ROW_STEP; каждая добавленная к двум базовым строкам
+    // сдвигает начало страницы позиции вниз на этот шаг (change update-cart-panel-and-offer-header).
+    private static final float HEADER_ROW_STEP = 28f;
+    private static final int ORDER_NOTE_MAX_LENGTH = 80;
+    private static final String ADDRESS = "Москва, ул. Марксистская, д. 38, ТЦ «Кристалл», 2-й этаж";
+    // Менеджер по умолчанию (ФИО и телефон в одной строке); редактируемого поля пока нет.
+    private static final String MANAGER = "Иванов Иван Иванович +7(900)111-22-33";
     private static final float MAX_DOOR_IMAGE_HEIGHT = 330f;
     // Фото фурнитуры справа от двери (см. change add-hardware-photos-to-commercial-offer): сетка 2 в ряд,
     // не более 6 фото на позицию, чтобы блок помещался в высоту двери.
@@ -87,8 +94,11 @@ public class CommercialOfferService {
     public record Offer(String number, byte[] content) {
     }
 
-    public Offer export(List<OrderLineExportRequestDto> lines) {
+    // orderNote — свободный текст заказа для шапки («Заказ - <текст>»): trim, не длиннее 80 символов, пустой —
+    // как отсутствующий.
+    public Offer export(List<OrderLineExportRequestDto> lines, String orderNote) {
         OrderExportService.validateLines(lines);
+        String note = normalizeOrderNote(orderNote);
         // Расчёт всех позиций — до начала записи PDF: невалидная позиция (404/400) не должна оставлять
         // частично сформированный файл.
         List<OfferLine> offerLines = lines.stream().map(this::resolve).toList();
@@ -97,9 +107,11 @@ public class CommercialOfferService {
 
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Fonts fonts = loadFonts();
-            Document document = new Document(PageSize.A4, MARGIN, MARGIN, TOP_MARGIN, MARGIN);
+            // строки шапки сверх двух базовых: [заказ], адрес магазина, менеджер
+            float topMargin = TOP_MARGIN + HEADER_ROW_STEP * (note == null ? 2 : 3);
+            Document document = new Document(PageSize.A4, MARGIN, MARGIN, topMargin, MARGIN);
             PdfWriter writer = PdfWriter.getInstance(document, out);
-            writer.setPageEvent(new PageHeader(fonts, loadResourceBytes("logo-hausdoors.png"), number, now.format(DATE_FORMAT)));
+            writer.setPageEvent(new PageHeader(fonts, loadResourceBytes("logo-hausdoors.png"), number, now.format(DATE_FORMAT), note));
             document.open();
             writePositions(document, offerLines, fonts);
             document.close();
@@ -107,6 +119,17 @@ public class CommercialOfferService {
         } catch (IOException | DocumentException e) {
             throw new IllegalStateException("Не удалось сформировать коммерческое предложение", e);
         }
+    }
+
+    private static String normalizeOrderNote(String orderNote) {
+        if (orderNote == null) {
+            return null;
+        }
+        String trimmed = orderNote.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.length() > ORDER_NOTE_MAX_LENGTH ? trimmed.substring(0, ORDER_NOTE_MAX_LENGTH).trim() : trimmed;
     }
 
     private OfferLine resolve(OrderLineExportRequestDto line) {
@@ -186,7 +209,7 @@ public class CommercialOfferService {
             position++;
         }
         if (lines.size() > 1) {
-            document.add(totalTable("Итого по заказу", orderTotal, fonts, 16));
+            document.add(totalTable("Итого по заказу:", orderTotal, fonts, 16));
         }
     }
 
@@ -412,12 +435,14 @@ public class CommercialOfferService {
         private final byte[] logoBytes;
         private final String number;
         private final String dateTime;
+        private final String orderNote;
 
-        PageHeader(Fonts fonts, byte[] logoBytes, String number, String dateTime) {
+        PageHeader(Fonts fonts, byte[] logoBytes, String number, String dateTime, String orderNote) {
             this.fonts = fonts;
             this.logoBytes = logoBytes;
             this.number = number;
             this.dateTime = dateTime;
+            this.orderNote = orderNote;
         }
 
         @Override
@@ -431,28 +456,98 @@ public class CommercialOfferService {
                 canvas.addImage(logo);
 
                 float valueX = MARGIN + (page.getWidth() - 2 * MARGIN) / 2;
-                float y1 = page.getHeight() - 100;
-                drawRow(canvas, page, "Номер заказа", number, valueX, y1);
-                drawRow(canvas, page, "Дата и время заказа", dateTime, valueX, y1 - 28);
+                float y = page.getHeight() - 100;
+                if (orderNote != null) {
+                    drawRow(canvas, page, "Заказ", orderNote, valueX, y);
+                    y -= HEADER_ROW_STEP;
+                }
+                drawRow(canvas, page, "Номер", number, valueX, y);
+                y -= HEADER_ROW_STEP;
+                drawRow(canvas, page, "Дата и время", dateTime, valueX, y);
+                y -= HEADER_ROW_STEP;
+                drawRow(canvas, page, "Адрес магазина", ADDRESS, valueX, y);
+                y -= HEADER_ROW_STEP;
+                drawRow(canvas, page, "Менеджер", MANAGER, valueX, y);
             } catch (DocumentException | IOException e) {
                 throw new UncheckedIOException(new IOException("Не удалось нарисовать шапку страницы КП", e));
             }
         }
 
-        private void drawRow(PdfContentByte canvas, Rectangle page, String label, String value, float valueX, float y) {
-            canvas.beginText();
-            canvas.setColorFill(MUTED);
-            canvas.setFontAndSize(fonts.regular(), 10);
-            canvas.showTextAligned(Element.ALIGN_LEFT, label, MARGIN, y, 0);
-            canvas.setColorFill(DARK);
-            canvas.setFontAndSize(fonts.bold(), 10);
-            canvas.showTextAligned(Element.ALIGN_LEFT, value, valueX, y, 0);
-            canvas.endText();
+        private void drawLine(PdfContentByte canvas, Rectangle page, float y) {
             canvas.setColorStroke(LINE);
             canvas.setLineWidth(0.7f);
             canvas.moveTo(MARGIN, y - 9);
             canvas.lineTo(page.getWidth() - MARGIN, y - 9);
             canvas.stroke();
+        }
+
+        // Строка шапки: название приглушённым обычным шрифтом слева, значение полужирным справа (с valueX).
+        // Длинное значение сначала уменьшается (до 8 pt), затем переносится не более чем на две строки
+        // (лишнее заменяется «…»), чтобы не выходить за поле страницы и не наезжать на соседние строки.
+        private void drawRow(PdfContentByte canvas, Rectangle page, String label, String value, float valueX, float y) {
+            BaseFont bold = fonts.bold();
+            float available = page.getWidth() - MARGIN - valueX;
+            float size = 10f;
+            while (size > 8f && bold.getWidthPoint(value, size) > available) {
+                size -= 0.5f;
+            }
+            List<String> lines = bold.getWidthPoint(value, size) <= available ? List.of(value) : wrap(bold, value, size, available);
+
+            canvas.beginText();
+            canvas.setColorFill(MUTED);
+            canvas.setFontAndSize(fonts.regular(), 10);
+            canvas.showTextAligned(Element.ALIGN_LEFT, label, MARGIN, y, 0);
+            canvas.setColorFill(DARK);
+            canvas.setFontAndSize(bold, size);
+            if (lines.size() == 1) {
+                canvas.showTextAligned(Element.ALIGN_LEFT, lines.get(0), valueX, y, 0);
+            } else {
+                canvas.showTextAligned(Element.ALIGN_LEFT, lines.get(0), valueX, y + 4, 0);
+                canvas.showTextAligned(Element.ALIGN_LEFT, lines.get(1), valueX, y - 5, 0);
+            }
+            canvas.endText();
+            drawLine(canvas, page, y);
+        }
+
+        // Перенос по словам (слово длиннее строки — по символам) не более чем на две строки; остаток — «…».
+        private static List<String> wrap(BaseFont font, String text, float size, float available) {
+            List<String> lines = new ArrayList<>();
+            StringBuilder current = new StringBuilder();
+            for (String word : text.split(" ")) {
+                for (String piece : splitToFit(font, word, size, available)) {
+                    String candidate = current.isEmpty() ? piece : current + " " + piece;
+                    if (font.getWidthPoint(candidate, size) <= available) {
+                        current = new StringBuilder(candidate);
+                    } else {
+                        lines.add(current.toString());
+                        current = new StringBuilder(piece);
+                    }
+                }
+            }
+            lines.add(current.toString());
+            if (lines.size() > 2) {
+                String second = lines.get(1);
+                while (!second.isEmpty() && font.getWidthPoint(second + "…", size) > available) {
+                    second = second.substring(0, second.length() - 1);
+                }
+                return List.of(lines.get(0), second + "…");
+            }
+            return lines;
+        }
+
+        private static List<String> splitToFit(BaseFont font, String word, float size, float available) {
+            List<String> pieces = new ArrayList<>();
+            String rest = word;
+            while (font.getWidthPoint(rest, size) > available) {
+                int end = rest.length() - 1;
+                while (end > 1 && font.getWidthPoint(rest.substring(0, end), size) > available) {
+                    end--;
+                }
+                pieces.add(rest.substring(0, end));
+                rest = rest.substring(end);
+            }
+            pieces.add(rest);
+            return pieces;
         }
     }
 }

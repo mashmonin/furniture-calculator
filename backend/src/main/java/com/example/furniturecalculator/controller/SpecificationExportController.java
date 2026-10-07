@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.furniturecalculator.dto.OrderLineExportRequestDto;
@@ -54,8 +55,9 @@ public class SpecificationExportController {
     // Коммерческое предложение (PDF) по тем же позициям заказа — см. change add-commercial-offer-pdf-export,
     // commercial-offer-export.
     @PostMapping("/export-offer")
-    public ResponseEntity<byte[]> exportOffer(@RequestBody List<OrderLineExportRequestDto> lines) {
-        CommercialOfferService.Offer offer = commercialOfferService.export(lines);
+    public ResponseEntity<byte[]> exportOffer(
+            @RequestBody List<OrderLineExportRequestDto> lines, @RequestParam(required = false) String orderNote) {
+        CommercialOfferService.Offer offer = commercialOfferService.export(lines, orderNote);
         byte[] file = offer.content();
         String filename = "КП-" + offer.number() + ".pdf";
         ContentDisposition contentDisposition = ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Empty, InputNumber, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import { Alert, Button, Empty, Input, InputNumber, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, FilePdfOutlined, UpOutlined } from '@ant-design/icons'
 import { exportOffer, exportOrder } from './api/doorConfigurations'
 import { saveBlob } from './saveBlob'
@@ -125,6 +125,9 @@ function ConfigurationDetailSection({ item }: { item: CartItem }) {
   )
 }
 
+// Максимальная длина текста поля «Заказ» (см. commercial-offer-export, «Текст заказа и адрес в шапке КП»).
+const ORDER_NOTE_MAX_LENGTH = 80
+
 // Экран «Корзина заказа» (см. change add-order-cart-screen, order-cart-ui) — таблица добавленных с экрана
 // конфигуратора позиций, под каждой строкой — всегда видимая на всю ширину таблицы полоса «Детализация
 // конфигурации» с шевроном (см. ConfigurationDetailSection), раскрывающая вложенную таблицу по компонентам;
@@ -136,6 +139,8 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
   const [exportLoading, setExportLoading] = useState(false)
   const [offerLoading, setOfferLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  // Текст заказа для шапки КП (change update-cart-panel-and-offer-header): живёт в состоянии экрана, в Excel не попадает.
+  const [orderNote, setOrderNote] = useState('')
 
   function buildOrderLines() {
     return items.map((item) => ({
@@ -165,7 +170,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
   function handleExportOffer() {
     setOfferLoading(true)
     setExportError(null)
-    exportOffer(buildOrderLines())
+    exportOffer(buildOrderLines(), orderNote)
       .then(({ blob, filename }) => {
         return saveBlob(blob, filename)
       })
@@ -179,13 +184,19 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
 
   const header = (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-      <div>
-        <Typography.Title level={4} style={{ margin: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0, marginRight: 16 }}>
+        <Typography.Title level={4} style={{ margin: 0, whiteSpace: 'nowrap' }}>
           Корзина заказа
         </Typography.Title>
-        <Typography.Text type="secondary">
-          Проверьте конфигурации, укажите количество и выгрузите готовый заказ
-        </Typography.Text>
+        <Input
+          placeholder="Заказ"
+          aria-label="Заказ"
+          maxLength={ORDER_NOTE_MAX_LENGTH}
+          allowClear
+          value={orderNote}
+          onChange={(event) => setOrderNote(event.target.value)}
+          style={{ maxWidth: 420 }}
+        />
       </div>
       <Button onClick={onGoToConfigurator}>Добавить новую конфигурацию</Button>
     </div>
@@ -336,16 +347,12 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
           }}
         >
           <Typography.Text strong>Выгрузка заказа</Typography.Text>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography.Text type="secondary">Формат файла</Typography.Text>
-            <Typography.Text strong>Excel (.xlsx)</Typography.Text>
-          </div>
           {exportError && <Alert type="error" message={exportError} showIcon />}
-          <Button type="primary" block icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExportOrder}>
-            Выгрузить заказ
-          </Button>
-          <Button block icon={<FilePdfOutlined />} loading={offerLoading} onClick={handleExportOffer}>
+          <Button type="primary" block icon={<FilePdfOutlined />} loading={offerLoading} onClick={handleExportOffer}>
             Выгрузить КП
+          </Button>
+          <Button block icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExportOrder}>
+            Выгрузить заказ
           </Button>
         </div>
       </div>
