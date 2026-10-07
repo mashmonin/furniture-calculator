@@ -34,8 +34,8 @@ function money(value: number | null, priceApplicable: boolean): string {
 }
 
 // Вложенная таблица детализации одной позиции по компонентам (см. order-cart-ui, «Разворачиваемая
-// детализация позиции корзины») — те же 9 колонок, что и в макете (Figma, «Шапка детализации»): Элемент,
-// Наименование, Размеры, Цвет, Кол-во, Цена дилер, Цена клиенту, Сумма дилер, Сумма клиенту.
+// детализация позиции корзины») — колонки макета (Figma, «Шапка детализации») без дилерских цен (см. change
+// remove-dealer-price-from-ui): Элемент, Наименование, Размеры, Цвет, Кол-во, Цена клиенту, Сумма клиенту.
 function DetailTable({ rows }: { rows: CartDetailRow[] }) {
   return (
     <Table<CartDetailRow>
@@ -58,23 +58,17 @@ function DetailTable({ rows }: { rows: CartDetailRow[] }) {
           render: (value: string | null, record) => (record.priceApplicable ? (value ?? '—') : ''),
         },
         { title: 'Кол-во', dataIndex: 'quantity' },
-        { title: 'Цена дилер', dataIndex: 'dealerPrice', render: (value: number | null, record) => money(value, record.priceApplicable) },
         { title: 'Цена клиенту', dataIndex: 'retailPrice', render: (value: number | null, record) => money(value, record.priceApplicable) },
-        { title: 'Сумма дилер', dataIndex: 'dealerSum', render: (value: number | null, record) => money(value, record.priceApplicable) },
         { title: 'Сумма клиенту', dataIndex: 'retailSum', render: (value: number | null, record) => money(value, record.priceApplicable) },
       ]}
       summary={(data) => {
-        const dealerTotal = data.reduce((sum, row) => sum + (row.dealerSum ?? 0), 0)
         const retailTotal = data.reduce((sum, row) => sum + (row.retailSum ?? 0), 0)
         return (
           <Table.Summary.Row>
-            <Table.Summary.Cell index={0} colSpan={7}>
+            <Table.Summary.Cell index={0} colSpan={6}>
               <Typography.Text strong>Итого</Typography.Text>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={1}>
-              <Typography.Text strong>{formatMoneyWithCurrency(dealerTotal)}</Typography.Text>
-            </Table.Summary.Cell>
-            <Table.Summary.Cell index={2}>
               <Typography.Text strong>{formatMoneyWithCurrency(retailTotal)}</Typography.Text>
             </Table.Summary.Cell>
           </Table.Summary.Row>
@@ -217,7 +211,6 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
 
   const totalItems = totalCartQuantity(items)
   const orderTotal = items.reduce((sum, item) => sum + item.pricingSnapshot.totalRetailPrice * item.quantity, 0)
-  const orderDealerTotal = items.reduce((sum, item) => sum + item.pricingSnapshot.totalDealerPrice * item.quantity, 0)
 
   return (
     <div className="app-main">
@@ -313,7 +306,7 @@ function CartScreen({ items, onUpdateQuantity, onRemove, onEdit, onGoToConfigura
         <Space align="baseline" size={16}>
           <Typography.Text strong>Итого по заказу</Typography.Text>
           <Typography.Title level={3} style={{ margin: 0 }}>
-            {formatMoney(orderTotal)} / {formatMoney(orderDealerTotal)} (дилер)
+            {formatMoney(orderTotal)}
           </Typography.Title>
         </Space>
       </div>

@@ -417,7 +417,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
 
             <div>
               <Typography.Text type="secondary">Модель ({records.length})</Typography.Text>
-              {/* Записи каталога — на всю ширину: одна запись = модель + один цвет + одна цена дилера и розницы;
+              {/* Записи каталога — на всю ширину: одна запись = модель + один цвет + одна розничная цена (дилерская не показывается);
                   кнопка «+» в строке добавляет эту запись к выбранной двери. */}
               <div style={{ maxHeight: 480, overflowY: 'auto', marginTop: 4 }}>
                 <List
@@ -441,12 +441,6 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                           <Typography.Text type="secondary">Цвет</Typography.Text>
                           <div>
                             <Typography.Text>{record.colour}</Typography.Text>
-                          </div>
-                        </div>
-                        <div style={{ flex: '0 0 100px', textAlign: 'right' }}>
-                          <Typography.Text type="secondary">Цена дилер</Typography.Text>
-                          <div>
-                            <Typography.Text>{formatMoney(record.dealerPrice)}</Typography.Text>
                           </div>
                         </div>
                         <div style={{ flex: '0 0 100px', textAlign: 'right' }}>
