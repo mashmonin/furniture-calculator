@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.furniturecalculator.domain.FramePost;
+import com.example.furniturecalculator.domain.LeafType;
 import com.example.furniturecalculator.dto.ComponentPriceDto;
 import com.example.furniturecalculator.dto.ComponentSelectionDto;
 import com.example.furniturecalculator.dto.DecorativeElementPriceDto;
@@ -143,7 +144,13 @@ public class SpecificationExportService {
         Totals totals = totals(components);
         String dimensionsLabel = leafDimensionsLabel(components, request);
         List<DetailRow> detailRows = buildDetailRows(components, request, dimensionsLabel);
-        return new ConfigurationBreakdown(components.leaf().type().getName(), dimensionsLabel, totals, detailRows);
+        ResolvedComponent leaf = components.leaf();
+        String collectionName = leaf.type() instanceof LeafType leafType && leafType.getCollection() != null
+                ? leafType.getCollection().getName()
+                : null;
+        String leafColourName = leaf.colourOption() != null ? leaf.colourOption().getColourType().getName() : null;
+        return new ConfigurationBreakdown(
+                leaf.type().getName(), dimensionsLabel, totals, detailRows, collectionName, leafColourName);
     }
 
     // Длина × высота × толщина полотна через « × » (см. order-cart-ui, «Таблица позиций корзины» —
@@ -423,7 +430,11 @@ public class SpecificationExportService {
     // конфигурации листа заказа (те же значения, что и CartItem.displayName/dimensionsLabel на фронте),
     // totals — цена за единицу (используется и как «Цена за ед.», и умножается на quantity позиции для
     // «Сумма»), detailRows — построчная детализация под строкой конфигурации.
-    record ConfigurationBreakdown(String displayName, String dimensionsLabel, Totals totals, List<DetailRow> detailRows) {
+    // collectionName/leafColourName (см. change add-commercial-offer-pdf-export) — коллекция полотна и название
+    // его фронтального цвета (null, если не применимы), по которым КП подбирает изображение двери.
+    record ConfigurationBreakdown(
+            String displayName, String dimensionsLabel, Totals totals, List<DetailRow> detailRows,
+            String collectionName, String leafColourName) {
     }
 
     private void writeRow(Row dataRow, SpecRow row) {
