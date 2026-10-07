@@ -573,6 +573,35 @@ class SpecificationExportServiceTest {
         assertThat(extensionsRow.size()).isEqualTo("2050");
     }
 
+    // Цвет кромки и короба попадает в колонку «Цвет» плоской детализации (а значит, в Excel заказа и в PDF КП):
+    // раньше у этих строк цвет всегда был null.
+    @Test
+    void детализация_показывает_цвет_кромки_и_короба() {
+        EdgeType edgeType = TestEntities.edgeType(3L);
+        FrameType frameType = TestEntities.frameType(2L);
+        ColourType black = TestEntities.colourType(7L);
+        org.springframework.test.util.ReflectionTestUtils.setField(black, "name", "Чёрный");
+
+        ResolvedComponent leaf = new ResolvedComponent(leafType, new ComponentPriceDto("leaf", true, BigDecimal.valueOf(1000), BigDecimal.valueOf(900),
+                        BigDecimal.valueOf(1000), BigDecimal.valueOf(900)),
+                null, null, null, null, null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent edge = new ResolvedComponent(edgeType, new ComponentPriceDto("edge", true, BigDecimal.valueOf(100), BigDecimal.valueOf(80),
+                        BigDecimal.valueOf(100), BigDecimal.valueOf(80)),
+                null, null, null, TestEntities.colourOption(30L, black, edgeType), null, null, 1, List.of(), List.of(), null);
+        ResolvedComponent frame = new ResolvedComponent(frameType, new ComponentPriceDto("frame", true, BigDecimal.valueOf(500), BigDecimal.valueOf(400),
+                        BigDecimal.valueOf(500), BigDecimal.valueOf(400)),
+                null, null, null, TestEntities.colourOption(31L, black, frameType), null, List.of(), 1, List.of(), List.of(), null);
+        when(pricingService.resolveSpecificationComponents(any()))
+                .thenReturn(new SpecificationComponents(leaf, null, edge, frame, null, null, List.of()));
+
+        SpecificationExportService.ConfigurationBreakdown breakdown = service.resolveConfigurationBreakdown(emptyRequest());
+
+        assertThat(breakdown.detailRows().stream().filter(row -> "Кромка".equals(row.element())).findFirst().orElseThrow().colour())
+                .isEqualTo("Чёрный");
+        assertThat(breakdown.detailRows().stream().filter(row -> "Короб".equals(row.element())).findFirst().orElseThrow().colour())
+                .isEqualTo("Чёрный");
+    }
+
     // Плоская детализация (resolveConfigurationBreakdown, используется листом заказа и, до правки
     // пользователя, повторяла раскрываемую детализацию корзины на фронте) больше НЕ содержит отдельных строк
     // на состав короба (см. правку пользователя, order-cart-ui, «Разворачиваемая детализация позиции
