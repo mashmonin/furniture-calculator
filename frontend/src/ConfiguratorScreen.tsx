@@ -1770,7 +1770,9 @@ function ConfiguratorScreen({
       }
     }
     if (edgeComponent) {
-      detailRows.push(detailRow('Кромка', edgeComponent.type.name, null, null, 1, priceByComponent('edge')))
+      detailRows.push(
+        detailRow('Кромка', edgeComponent.type.name, null, colourOf(edgeComponent, selection.edge.colourOptionId) ?? null, 1, priceByComponent('edge')),
+      )
     }
     if (frameComponent) {
       // Строки состава короба (frameComponent.posts, включая «Комплект зарезных стоек») здесь намеренно НЕ
@@ -1779,7 +1781,9 @@ function ConfiguratorScreen({
       // достаточно для полноты суммы; состав его позиций по-прежнему виден в самом конфигураторе (см.
       // door-configurator-ui, «Отображение позиций короба»), только не дублируется в детализации корзины.
       const frameSize = frameMatchedValue !== undefined ? `${frameMatchedValue}` : null
-      detailRows.push(detailRow('Короб', frameComponent.type.name, frameSize, null, 1, priceByComponent('frame')))
+      detailRows.push(
+        detailRow('Короб', frameComponent.type.name, frameSize, colourOf(frameComponent, selection.frame.colourOptionId) ?? null, 1, priceByComponent('frame')),
+      )
     }
     if (doorCasingComponent) {
       const quantity = selection.doorCasing.quantity ?? 1

@@ -197,7 +197,7 @@ public class SpecificationExportService {
 
         if (components.edge() != null) {
             ResolvedComponent edge = components.edge();
-            rows.add(detailRow("Кромка", edge.type().getName(), null, null, 1, edge.price()));
+            rows.add(detailRow("Кромка", edge.type().getName(), null, formatColour(edge), 1, edge.price()));
         }
 
         if (components.frame() != null) {
@@ -211,7 +211,7 @@ public class SpecificationExportService {
             // построчно») — это отдельная, не затронутая этой правкой возможность.
             ResolvedComponent frame = components.frame();
             String frameSize = plainNumber(resolvedHeight(frame, null));
-            rows.add(detailRow("Короб", frame.type().getName(), frameSize, null, 1, frame.price()));
+            rows.add(detailRow("Короб", frame.type().getName(), frameSize, formatColour(frame), 1, frame.price()));
         }
 
         if (components.doorCasing() != null) {
