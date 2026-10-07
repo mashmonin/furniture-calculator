@@ -246,6 +246,8 @@ export interface HardwareOptionDto {
   dealerPrice: number
   // Артикул цветового варианта (см. change add-emal-layt-hardware); null — не задан (прайс «Эмаль и шпон»).
   article: string | null
+  // Ссылка на фото варианта (см. change add-hardware-option-images); null — фото нет.
+  imageUrl: string | null
 }
 
 export interface HardwareTypeDto {

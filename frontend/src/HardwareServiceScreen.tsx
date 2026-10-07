@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Collapse, Empty, Input, List, Select, Space, Spin, Tag, Typography } from 'antd'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { Alert, Button, Card, Collapse, Empty, Image, Input, List, Select, Space, Spin, Tag, Typography } from 'antd'
+import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons'
 import { calculateHardwarePrice, fetchHardwareCatalog } from './api/doorConfigurations'
 import type { HardwareSelectionDto } from './api/types'
 import { ATTRIBUTE_TAG_COLORS, withHardware, type CartItem } from './cart'
@@ -20,6 +20,7 @@ interface HardwareOptionRow {
   colour: string
   retailPrice: number
   dealerPrice: number
+  imageUrl: string | null
 }
 
 // Модель (тип) фурнитуры прайс-листа с её цветовыми вариантами; brand — бренд листа файла.
@@ -38,6 +39,44 @@ interface KnownOption {
   article: string
   colour: string
   own: boolean
+}
+
+// Размер миниатюры фото в строке записи каталога (px); заглушка того же размера держит высоту строк.
+const THUMB_SIZE = 56
+
+// Миниатюра фото позиции (change add-hardware-option-images): без фото или при ошибке загрузки — заглушка.
+function HardwareThumb({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState(false)
+  const box = { width: THUMB_SIZE, height: THUMB_SIZE, flex: '0 0 auto' } as const
+  if (!src || failed) {
+    return (
+      <div
+        style={{
+          ...box,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f5f5f5',
+          borderRadius: 4,
+          color: '#bfbfbf',
+        }}
+      >
+        <PictureOutlined />
+      </div>
+    )
+  }
+  return (
+    <Image
+      src={src}
+      width={THUMB_SIZE}
+      height={THUMB_SIZE}
+      preview={false}
+      loading="lazy"
+      style={{ objectFit: 'contain' }}
+      wrapperStyle={box}
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 interface HardwareServiceScreenProps {
@@ -95,6 +134,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                 colour: option.colourName,
                 retailPrice: option.retailPrice,
                 dealerPrice: option.dealerPrice,
+                imageUrl: option.imageUrl,
               })),
             })
           }
@@ -393,6 +433,7 @@ function HardwareServiceScreen({ items, onUpdateItem, onGoToConfigurator }: Hard
                         onClick={() => setRecordId(record.optionId)}
                         style={{ cursor: 'pointer', background: selected ? '#e6f4ff' : undefined, gap: 16 }}
                       >
+                        <HardwareThumb src={record.imageUrl} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <Typography.Text strong={selected}>{record.modelName}</Typography.Text>
                         </div>
