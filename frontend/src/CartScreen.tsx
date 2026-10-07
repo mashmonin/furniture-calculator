@@ -4,7 +4,7 @@ import { DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, FilePdfOut
 import { exportOffer, exportOrder } from './api/doorConfigurations'
 import { saveBlob } from './saveBlob'
 import type { CartDetailRow, CartItem } from './cart'
-import { totalCartQuantity } from './cart'
+import { ATTRIBUTE_TAG_COLORS, totalCartQuantity } from './cart'
 import { formatMoney, formatMoneyWithCurrency } from './format'
 import { serviceByKey } from './services'
 
@@ -22,18 +22,6 @@ const ITEM_STATUS_LABEL = 'МЕЖКОМНАТНАЯ ДВЕРЬ'
 // Тег сервиса — текст берётся по сервису позиции (см. services.ts, cartTag; у старых позиций без serviceKey —
 // «Эмаль и шпон»). Название прайс-листа в корзине не выводится. Показывается перед тегом ITEM_STATUS_LABEL,
 // но после наименования модели (см. правку пользователя).
-
-// Уникальный яркий цвет на каждый тег атрибута конфигурации (см. правку пользователя, order-cart-ui, «Теги
-// атрибутов конфигурации») — отличается и от зелёного SERVICE_TAG_LABEL, и от синего ITEM_STATUS_LABEL, и
-// друг от друга; значения — предустановленные яркие цвета antd Tag.
-const ATTRIBUTE_TAG_COLORS: Record<string, string> = {
-  'РЕВЕРС': 'red',
-  'ОСТЕКЛЕНИЕ': 'cyan',
-  'ЧЕТВЕРТЬ': 'orange',
-  'ТОЛЩИНА 59': 'gold',
-  'ЗЕРКАЛО': 'purple',
-  'ДВУСТОРОННЯЯ': 'magenta',
-}
 
 // priceApplicable=false (см. change show-mirror-glazing-in-order-detail-rows, правку пользователя) — ячейка
 // остаётся пустой, а не «—»: прочерк означает именно «цена не найдена» у применимого компонента, лишние

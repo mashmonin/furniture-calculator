@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Alert, Badge, Menu, Space, Typography } from 'antd'
 import { HomeOutlined, ShoppingCartOutlined } from '@ant-design/icons'
 import { fetchUpdateCheck } from './api/updateCheck'
-import { fetchDoorConfigurations } from './api/doorConfigurations'
-import { DEFAULT_SERVICE, SERVICES, serviceByKey } from './services'
+import { fetchDoorConfigurations, fetchHardwareCatalog } from './api/doorConfigurations'
+import { CONFIGURATOR_SERVICES, DEFAULT_SERVICE, SERVICES, serviceByKey } from './services'
 import type { UpdateCheckDto } from './api/types'
 import ConfiguratorScreen, { type ConfiguratorLoadRequest } from './ConfiguratorScreen'
 import CartScreen from './CartScreen'
+import HardwareServiceScreen from './HardwareServiceScreen'
 import { loadCart, saveCart, totalCartQuantity, type CartItem, type CartItemContent } from './cart'
 import './App.css'
 
@@ -15,6 +16,7 @@ import './App.css'
 // на фронтенде остаётся только префикс подписи.
 const APP_TITLE = 'Я-КОНФИГУРАТОР'
 const PRICE_LIST_PREFIX = 'Прайс-лист: '
+const HARDWARE_SERVICE_PRICE_LIST_CODE = 'PL-003'
 
 // Длительность визуального эффекта «полёта» добавленной конфигурации к пункту «Корзина заказа» (см. flight
 // ниже) — единственный источник правды для длительности: передаётся в CSS через инлайновый
@@ -26,7 +28,8 @@ const CART_FLY_DURATION_MS = 650
 // корзину и обратно не сбрасывал незавершённый выбор в ConfiguratorScreen (см. design.md, «Разбиение App.tsx
 // на компоненты и переключение экрана»). Роутинг (react-router) не добавляется — экрана всего два, глубокие
 // ссылки не нужны (см. proposal.md).
-type AppScreen = 'configurator' | 'cart'
+// Третий экран — сервис «Фурнитура» (см. change add-hardware-service), тоже монтируется всегда.
+type AppScreen = 'configurator' | 'cart' | 'hardware'
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('configurator')
@@ -125,6 +128,18 @@ function App() {
     setCartSaveError(!saveCart(next))
   }
 
+  // Замена позиции корзины целиком — сервис «Фурнитура» меняет у двери фурнитуру, цену и детализацию (см.
+  // cart.ts, withHardware). Если эта позиция сейчас открыта в конфигураторе, режим редактирования завершается:
+  // иначе живая синхронизация перезаписала бы позицию устаревшим списком фурнитуры конфигуратора.
+  function replaceCartItem(updated: CartItem) {
+    const next = cart.map((item) => (item.id === updated.id ? updated : item))
+    setCart(next)
+    setCartSaveError(!saveCart(next))
+    if (updated.id === editingCartItemId) {
+      setEditingCartItemId(null)
+    }
+  }
+
   function stopEditingCartItem() {
     setEditingCartItemId(null)
   }
@@ -147,6 +162,32 @@ function App() {
       })
       .catch(() => {
         // Намеренно молча: ошибку каталога покажет сам конфигуратор, подпись прайс-листа просто не выводится.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Название файла прайс-листа сервиса «Фурнитура» (PL-003) берётся из каталога фурнитуры (в каталоге
+  // конфигураций у него нет полотен) и показывается в шапке, как у остальных сервисов.
+  useEffect(() => {
+    let cancelled = false
+    fetchHardwareCatalog()
+      .then((catalog) => {
+        if (cancelled) {
+          return
+        }
+        for (const category of catalog) {
+          for (const type of category.types) {
+            if (type.priceList.code === HARDWARE_SERVICE_PRICE_LIST_CODE) {
+              setPriceListNames((names) => ({ ...names, [type.priceList.code]: type.priceList.name }))
+              return
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // Намеренно молча: экран «Фурнитура» сам покажет ошибку каталога.
       })
     return () => {
       cancelled = true
@@ -195,6 +236,9 @@ function App() {
           {screen === 'configurator' && activePriceListName && (
             <Typography.Text strong>{`${PRICE_LIST_PREFIX}${activePriceListName}`}</Typography.Text>
           )}
+          {screen === 'hardware' && priceListNames[HARDWARE_SERVICE_PRICE_LIST_CODE] && (
+            <Typography.Text strong>{`${PRICE_LIST_PREFIX}${priceListNames[HARDWARE_SERVICE_PRICE_LIST_CODE]}`}</Typography.Text>
+          )}
           {screen === 'cart' && (
             <Badge count={totalCartQuantity(cart)} showZero size="small" offset={[6, 0]}>
               <Space size={4}>
@@ -231,7 +275,7 @@ function App() {
           <Menu
             mode="inline"
             selectable={false}
-            selectedKeys={[screen === 'configurator' ? activeService.key : 'cart']}
+            selectedKeys={[screen === 'cart' ? 'cart' : screen === 'hardware' ? 'furnitura' : activeService.key]}
             items={[
               ...SERVICES.map((service) => ({ key: service.key, label: service.label })),
               // Обёрнуто в span с ref — не влияет на вид пункта меню, только даёт координаты цели для
@@ -243,6 +287,11 @@ function App() {
                 setScreen('cart')
                 return
               }
+              // Сервис «Фурнитура» — отдельный экран без конфигуратора (см. services.ts, kind).
+              if (serviceByKey(info.key).kind === 'hardware') {
+                setScreen('hardware')
+                return
+              }
               // Клик по пункту сервиса принудительно очищает конфигуратор этого сервиса — тем же сбросом, что и
               // кнопка «Очистить» (см. правку пользователя) — независимо от того, был ли уже открыт этот экран.
               setActiveServiceKey(info.key)
@@ -252,7 +301,7 @@ function App() {
           />
         </div>
 
-        {SERVICES.map((service) => (
+        {CONFIGURATOR_SERVICES.map((service) => (
           <div
             key={service.key}
             style={{ display: screen === 'configurator' && activeService.key === service.key ? 'contents' : 'none' }}
@@ -274,6 +323,13 @@ function App() {
             />
           </div>
         ))}
+        <div style={{ display: screen === 'hardware' ? 'contents' : 'none' }}>
+          <HardwareServiceScreen
+            items={cart}
+            onUpdateItem={replaceCartItem}
+            onGoToConfigurator={() => setScreen('configurator')}
+          />
+        </div>
         <div style={{ display: screen === 'cart' ? 'contents' : 'none' }}>
           <CartScreen
             items={cart}
