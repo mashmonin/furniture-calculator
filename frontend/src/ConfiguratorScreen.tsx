@@ -54,7 +54,7 @@ import type {
 } from './api/types'
 import { OptionGroup } from './components/OptionGroup'
 import { ComponentBreakdownList, type SurchargeBreakdownItem } from './ComponentBreakdownList'
-import type { CartDetailRow, CartItem, CartItemContent } from './cart'
+import { buildHardwareDetailRows, type CartDetailRow, type CartItem, type CartItemContent } from './cart'
 import { formatDimensions, formatMoney, formatMoneyWithCurrency } from './format'
 import './App.css'
 
@@ -213,6 +213,23 @@ function hardwareOptionsFor(
     return []
   }
   return hardwareTypesFor(catalog, categoryId).find((type) => type.type.id === typeId)?.options ?? []
+}
+
+// Название/бренд/артикул/цвет варианта фурнитуры по id в каталоге целиком (для строк фурнитуры других
+// прайс-листов, см. change add-hardware-service).
+function describeHardwareOption(
+  catalog: HardwareCategoryDto[],
+  optionId: number | undefined,
+): { typeName: string; brand: string | null; article: string | null; colourName: string } | null {
+  for (const category of catalog) {
+    for (const type of category.types) {
+      const option = type.options.find((candidate) => candidate.id === optionId)
+      if (option) {
+        return { typeName: type.type.name, brand: type.brand, article: option.article, colourName: option.colourName }
+      }
+    }
+  }
+  return null
 }
 
 // Одна позиция блока «Декоративные элементы» (см. change add-decorative-elements-plinth) — тем же
@@ -857,6 +874,9 @@ function ConfiguratorScreen({
   const [pricingSurcharges, setPricingSurcharges] = useState<PricingSurchargesDto | null>(null)
 
   const [hardwareCatalog, setHardwareCatalog] = useState<HardwareCategoryDto[]>([])
+  // Каталог фурнитуры целиком (всех прайс-листов) — только для показа фурнитуры других прайс-листов, добавленной в
+  // сервисе «Фурнитура» (см. change add-hardware-service); блок выбора использует hardwareCatalog выше.
+  const [fullHardwareCatalog, setFullHardwareCatalog] = useState<HardwareCategoryDto[]>([])
   const [hardwareCatalogLoading, setHardwareCatalogLoading] = useState(true)
   const [hardwareCatalogError, setHardwareCatalogError] = useState<string | null>(null)
   const [hardwareLines, setHardwareLines] = useState<HardwareLine[]>([])
@@ -962,6 +982,7 @@ function ConfiguratorScreen({
       .then((data) => {
         if (!cancelled) {
           setHardwareCatalog(hardwareCatalogForPriceList(data, priceListCode))
+          setFullHardwareCatalog(data)
         }
       })
       .catch((error: unknown) => {
@@ -1817,20 +1838,7 @@ function ConfiguratorScreen({
         priceApplicable: true,
       })
     })
-    pricingResult.hardware.forEach((item) => {
-      detailRows.push({
-        element: 'Фурнитура',
-        name: `${item.category.name} — ${item.type.name}`,
-        size: null,
-        colour: item.colourName,
-        quantity: item.quantity,
-        dealerPrice: item.dealerPrice / item.quantity,
-        retailPrice: item.retailPrice / item.quantity,
-        dealerSum: item.dealerPrice,
-        retailSum: item.retailPrice,
-        priceApplicable: true,
-      })
-    })
+    detailRows.push(...buildHardwareDetailRows(pricingResult.hardware))
 
     return {
       displayName: leafComponent.type.name,
@@ -2677,13 +2685,50 @@ function ConfiguratorScreen({
     </Space>
   )
 
+  // Фурнитура других прайс-листов (добавленная в сервисе «Фурнитура», см. change add-hardware-service) остаётся в
+  // hardwareLines (входит в расчёт и exportRequest, не теряется при живой синхронизации), но в блоке выбора
+  // показывается неизменяемыми строками: варианта нет в каталоге этого сервиса.
+  const ownHardwareOptionIds = new Set(
+    hardwareCatalog.flatMap((category) => category.types.flatMap((type) => type.options.map((option) => option.id))),
+  )
+  const isForeignHardwareLine = (line: HardwareLine) =>
+    line.hardwareOptionId !== undefined && !ownHardwareOptionIds.has(line.hardwareOptionId)
+  const foreignHardwareLines = hardwareLines.filter(isForeignHardwareLine)
+  const ownHardwareLines = hardwareLines.filter((line) => !isForeignHardwareLine(line))
+
   const hardwarePanelContent = (
     <>
       {hardwareCatalogLoading && <Spin />}
       {hardwareCatalogError && <Alert type="error" message={hardwareCatalogError} showIcon />}
       {!hardwareCatalogLoading && !hardwareCatalogError && (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {hardwareLines.map((line) => (
+          {foreignHardwareLines.map((line) => {
+            const info = describeHardwareOption(fullHardwareCatalog, line.hardwareOptionId)
+            return (
+              <Card size="small" key={line.key}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Typography.Text strong>{info ? info.typeName : `Фурнитура № ${line.hardwareOptionId}`}</Typography.Text>
+                    {info && (
+                      <div>
+                        <Typography.Text type="secondary">
+                          {[info.brand, info.article, info.colourName].filter(Boolean).join(' · ')}
+                        </Typography.Text>
+                      </div>
+                    )}
+                  </div>
+                  <Typography.Text>{`× ${line.quantity ?? 1}`}</Typography.Text>
+                  <Tag color="blue">Из сервиса «Фурнитура»</Tag>
+                </div>
+              </Card>
+            )
+          })}
+          {foreignHardwareLines.length > 0 && (
+            <Typography.Text type="secondary">
+              Фурнитура из сервиса «Фурнитура» входит в цену; изменить или удалить её можно в этом сервисе.
+            </Typography.Text>
+          )}
+          {ownHardwareLines.map((line) => (
             <Card size="small" key={line.key}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>

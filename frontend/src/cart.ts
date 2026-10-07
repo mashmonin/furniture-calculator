@@ -1,4 +1,10 @@
-import type { PricingResponseDto, SpecificationExportRequestDto } from './api/types'
+import type {
+  HardwarePriceDto,
+  HardwarePricingResponseDto,
+  HardwareSelectionDto,
+  PricingResponseDto,
+  SpecificationExportRequestDto,
+} from './api/types'
 
 // Одна строка детализации позиции корзины по компонентам (см. order-cart-ui, «Разворачиваемая детализация
 // позиции корзины») — столбцы «Элемент»/«Наименование»/«Размеры»/«Цвет»/«Кол-во»/«Цена дилер»/«Цена
@@ -92,4 +98,64 @@ export function saveCart(items: CartItem[]): boolean {
 // позиций.
 export function totalCartQuantity(items: CartItem[]): number {
   return items.reduce((sum, item) => sum + item.quantity, 0)
+}
+
+// Строки «Фурнитура» детализации позиции корзины по рассчитанной фурнитуре (см. change add-hardware-service) —
+// общий код конфигуратора (buildCartItemContent) и сервиса «Фурнитура»: у фурнитуры цена за единицу = сумма
+// строки / количество, сумма строки уже учитывает количество (так отдаёт backend).
+export function buildHardwareDetailRows(hardware: HardwarePriceDto[]): CartDetailRow[] {
+  return hardware.map((item) => ({
+    element: 'Фурнитура',
+    name: `${item.category.name} — ${item.type.name}`,
+    size: null,
+    colour: item.colourName,
+    quantity: item.quantity,
+    dealerPrice: item.dealerPrice / item.quantity,
+    retailPrice: item.retailPrice / item.quantity,
+    dealerSum: item.dealerPrice,
+    retailSum: item.retailPrice,
+    priceApplicable: true,
+  }))
+}
+
+// Позиция корзины с новым списком фурнитуры (см. change add-hardware-service, hardware-service-ui): меняются
+// только exportRequest.hardware, фурнитурная часть pricingSnapshot (итоги пересчитываются как «прежний итог −
+// прежняя фурнитура + новая фурнитура») и строки «Фурнитура» детализации; полотно и прочие компоненты не
+// пересчитываются. priced — результат расчёта ПОЛНОГО нового списка фурнитуры позиции.
+export function withHardware(
+  item: CartItem,
+  selections: HardwareSelectionDto[],
+  priced: HardwarePricingResponseDto,
+): CartItem {
+  const oldRetail = item.pricingSnapshot.hardware.reduce((sum, line) => sum + line.retailPrice, 0)
+  const oldDealer = item.pricingSnapshot.hardware.reduce((sum, line) => sum + line.dealerPrice, 0)
+  const exportRequest = { ...item.exportRequest }
+  if (selections.length > 0) {
+    exportRequest.hardware = selections
+  } else {
+    delete exportRequest.hardware
+  }
+  return {
+    ...item,
+    exportRequest,
+    pricingSnapshot: {
+      ...item.pricingSnapshot,
+      totalRetailPrice: item.pricingSnapshot.totalRetailPrice - oldRetail + priced.totalRetailPrice,
+      totalDealerPrice: item.pricingSnapshot.totalDealerPrice - oldDealer + priced.totalDealerPrice,
+      hardware: priced.hardware,
+    },
+    detailRows: [...item.detailRows.filter((row) => row.element !== 'Фурнитура'), ...buildHardwareDetailRows(priced.hardware)],
+  }
+}
+
+// Уникальный яркий цвет на каждый тег атрибута конфигурации (см. правку пользователя, order-cart-ui, «Теги
+// атрибутов конфигурации») — отличается и от зелёного SERVICE_TAG_LABEL, и от синего ITEM_STATUS_LABEL, и
+// друг от друга; значения — предустановленные яркие цвета antd Tag.
+export const ATTRIBUTE_TAG_COLORS: Record<string, string> = {
+  'РЕВЕРС': 'red',
+  'ОСТЕКЛЕНИЕ': 'cyan',
+  'ЧЕТВЕРТЬ': 'orange',
+  'ТОЛЩИНА 59': 'gold',
+  'ЗЕРКАЛО': 'purple',
+  'ДВУСТОРОННЯЯ': 'magenta',
 }

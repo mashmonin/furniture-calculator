@@ -18,12 +18,19 @@ export interface ServiceDef {
   // Допускается ли переключатель «Двустороннее» (двусторонняя покраска с надбавкой); false — скрыт.
   // У сервиса без значения переключатель показывается, как раньше (когда у полотна есть цвета).
   allowDoubleSided?: boolean
+  // Вид сервиса: 'configurator' (по умолчанию) — конфигуратор двери; 'hardware' — экран подбора фурнитуры для
+  // дверей из корзины (см. change add-hardware-service), у него нет конфигуратора и позиций корзины своего сервиса.
+  kind?: 'configurator' | 'hardware'
 }
 
 export const SERVICES: ServiceDef[] = [
   { key: 'emal-i-shpon', label: 'Эмаль и шпон', priceListCode: 'PL-001', cartTag: 'ЭМАЛЬ И ШПОН' },
   { key: 'emal-layt', label: 'Эмаль лайт', priceListCode: 'PL-002', cartTag: 'ЭМАЛЬ ЛАЙТ', defaultThicknessMm: 44, fixedPanelType: 'BLIND', allowDoubleSided: false },
+  { key: 'furnitura', label: 'Фурнитура', priceListCode: 'PL-003', cartTag: 'ФУРНИТУРА', kind: 'hardware' },
 ]
+
+// Сервисы с конфигуратором двери (все, кроме экрана «Фурнитура»).
+export const CONFIGURATOR_SERVICES: ServiceDef[] = SERVICES.filter((service) => service.kind !== 'hardware')
 
 export const DEFAULT_SERVICE: ServiceDef = SERVICES[0]
 
