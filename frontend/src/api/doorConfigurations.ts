@@ -171,8 +171,14 @@ export async function exportSpecification(
 
 // Выгрузка коммерческого предложения (PDF) по всем позициям корзины (см. change add-commercial-offer-pdf-export,
 // commercial-offer-export) — те же позиции, что и в exportOrder, на выходе PDF вместо .xlsx.
-export async function exportOffer(lines: OrderLineExportRequestDto[]): Promise<{ blob: Blob; filename: string }> {
-  const response = await fetch('/api/specification/export-offer', {
+// orderNote — текст поля «Заказ» для шапки КП; пустой (после trim) не передаётся.
+export async function exportOffer(
+  lines: OrderLineExportRequestDto[],
+  orderNote?: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const note = orderNote?.trim()
+  const query = note ? `?orderNote=${encodeURIComponent(note)}` : ''
+  const response = await fetch(`/api/specification/export-offer${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(lines),

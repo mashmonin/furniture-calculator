@@ -158,7 +158,8 @@ function App() {
             names[priceList.code] = priceList.name
           }
         }
-        setPriceListNames(names)
+        // Слияние, а не замена: каталог фурнитуры мог ответить раньше и уже записать PL-003.
+        setPriceListNames((current) => ({ ...current, ...names }))
       })
       .catch(() => {
         // Намеренно молча: ошибку каталога покажет сам конфигуратор, подпись прайс-листа просто не выводится.
