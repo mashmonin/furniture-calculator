@@ -1,11 +1,13 @@
 package com.example.furniturecalculator.service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriUtils;
 
 import com.example.furniturecalculator.domain.HardwareCategory;
 import com.example.furniturecalculator.domain.HardwareOption;
@@ -28,6 +30,7 @@ public class HardwareCatalogService {
     private final HardwareCategoryRepository hardwareCategoryRepository;
     private final HardwareTypeRepository hardwareTypeRepository;
     private final HardwareOptionRepository hardwareOptionRepository;
+    private final HardwareImageCatalog hardwareImageCatalog;
 
     @Transactional(readOnly = true)
     public List<HardwareCategoryDto> getCatalog() {
@@ -56,7 +59,10 @@ public class HardwareCatalogService {
     }
 
     private HardwareOptionDto toDto(HardwareOption option) {
+        String imageUrl = hardwareImageCatalog.findFileName(option.getArticle())
+                .map(fileName -> "/api/hardware-images/" + UriUtils.encodePathSegment(fileName, StandardCharsets.UTF_8))
+                .orElse(null);
         return new HardwareOptionDto(
-                option.getId(), option.getColourName(), option.getRetailPrice(), option.getDealerPrice(), option.getArticle());
+                option.getId(), option.getColourName(), option.getRetailPrice(), option.getDealerPrice(), option.getArticle(), imageUrl);
     }
 }

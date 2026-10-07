@@ -30,6 +30,8 @@ class HardwareCatalogServiceTest {
     private HardwareTypeRepository hardwareTypeRepository;
     @Mock
     private HardwareOptionRepository hardwareOptionRepository;
+    @Mock
+    private HardwareImageCatalog hardwareImageCatalog;
 
     @InjectMocks
     private HardwareCatalogService service;
