@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             arch: aarch64
             ext: dmg
             artifactName: release-macos-aarch64
